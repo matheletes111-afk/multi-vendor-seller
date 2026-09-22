@@ -61,7 +61,18 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
           name: true,
           slug: true,
           image: true,
+          mobileIcon: true,
           description: true,
+          products: {
+            where: { isActive: true, isDeleted: false },
+            select: { images: true },
+            take: 1,
+          },
+          subcategories: {
+            where: { isActive: true },
+            select: { image: true },
+            take: 1,
+          },
           ...({ isFeatured: true } as Record<string, boolean>),
           _count: {
             select: {
@@ -72,19 +83,24 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         },
         orderBy: { name: "asc" }
       })
-      type CategoryListItem = typeof categories[0] & { isFeatured?: boolean }
+      type CategoryListItem = typeof categories[0] & { isFeatured?: boolean; mobileIcon?: string | null; products?: { images: string[] }[]; subcategories?: { image: string | null }[] }
       const list = categories as CategoryListItem[]
 
-      const categoryItems = list.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        slug: cat.slug,
-        image: cat.image,
-        description: cat.description,
-        isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,
-        productsCount: cat._count.products,
-        subcategoriesCount: cat._count.subcategories
-      }))
+      const categoryItems = list.map(cat => {
+        const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null
+        const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+        return {
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          image: resolvedImg,
+          mobileIcon: cat.mobileIcon || resolvedImg,
+          description: cat.description,
+          isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,
+          productsCount: cat._count.products,
+          subcategoriesCount: cat._count.subcategories
+        }
+      })
 
       // Featured section: categories with isFeatured true (max 4 for mobile)
       const featured = categoryItems
@@ -110,10 +126,16 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         name: true,
         slug: true,
         image: true,
+        mobileIcon: true,
         description: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
       }
     })
 
@@ -277,6 +299,9 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       productsCount: sub._count.products,
     }))
 
+    const catProdImg = Array.isArray((category as any).products?.[0]?.images) ? (category as any).products[0].images[0] : null
+    const resolvedCatImg = category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null
+
     // Return category details
     return NextResponse.json({
       success: true,
@@ -285,7 +310,8 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         id: category.id,
         name: category.name,
         slug: category.slug,
-        image: category.image,
+        image: resolvedCatImg,
+        mobileIcon: (category as any).mobileIcon || resolvedCatImg,
         description: category.description,
         isActive: category.isActive,
         createdAt: category.createdAt,

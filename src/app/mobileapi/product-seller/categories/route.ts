@@ -24,14 +24,33 @@ export async function GET(request: NextRequest) {
         name: true,
         description: true,
         image: true,
+        mobileIcon: true,
         isActive: true,
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
       },
       orderBy: { name: "asc" },
     });
 
+    const formattedCategories = categories.map((cat) => {
+      const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null;
+      const resolvedImg = cat.image || cat.mobileIcon || prodImg || null;
+      return {
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        image: resolvedImg,
+        mobileIcon: cat.mobileIcon || resolvedImg,
+        isActive: cat.isActive,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: categories,
+      data: formattedCategories,
     });
 
   } catch (error: any) {

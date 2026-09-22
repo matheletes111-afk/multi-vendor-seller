@@ -269,22 +269,21 @@ export async function sendPasswordResetSms({
   otp: string
   name?: string | null
   resetLink?: string
-}): Promise<void> {
+}): Promise<boolean> {
   const fullPhone = formatFullPhoneNumber(to, countryCode)
   if (!fullPhone) {
-    return
+    return false
   }
 
   const greeting = name ? `Hi ${name}, ` : ""
-  let body = `${greeting}Your Meeem password reset OTP is: ${otp}. It expires in 10 minutes.`
-  if (resetLink) {
-    body += ` Reset link: ${resetLink}`
-  }
+  const body = `${greeting}Your Meeem password reset OTP is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`
 
   try {
     await sendSmsViaTwilio({ to: fullPhone, body })
+    return true
   } catch (error) {
     console.warn(`[SMS] Failed to send password reset SMS to ${fullPhone}:`, error)
+    return false
   }
 }
 

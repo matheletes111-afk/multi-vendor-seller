@@ -84,10 +84,16 @@ export async function GET(
         name: true,
         slug: true,
         image: true,
+        mobileIcon: true,
         description: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
       }
     })
 
@@ -259,6 +265,9 @@ export async function GET(
       productsCount: sub._count.products,
     }))
 
+    const catProdImg = Array.isArray((category as any).products?.[0]?.images) ? (category as any).products[0].images[0] : null
+    const resolvedCatImg = category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null
+
     // Return category details
     return NextResponse.json({
       success: true,
@@ -267,7 +276,8 @@ export async function GET(
         id: category.id,
         name: category.name,
         slug: category.slug,
-        image: category.image,
+        image: resolvedCatImg,
+        mobileIcon: (category as any).mobileIcon || resolvedCatImg,
         description: category.description,
         isActive: category.isActive,
         createdAt: category.createdAt,

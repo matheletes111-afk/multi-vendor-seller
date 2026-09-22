@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -23,20 +23,24 @@ export async function GET(request: Request) {
         },
         ...(serviceCategoryId ? { serviceCategoryId } : {}),
       },
-      take: Math.max(limit * 4, 50),
+      take: 200,
       select: {
         id: true,
+        sellerId: true,
         name: true,
         basePrice: true,
         discount: true,
         images: true,
         serviceCategory: { select: { id: true, name: true, slug: true } },
-        seller: { select: { store: { select: { name: true } } } },
+        seller: { select: { id: true, store: { select: { name: true } } } },
         _count: { select: { reviews: true } },
       },
     })
 
-    const services = shuffleArray(candidatePool).slice(0, limit)
+    const services = fairMarketplaceInterleave(
+      candidatePool,
+      (s) => s.sellerId || s.seller?.id || s.seller?.store?.name
+    ).slice(0, limit)
 
     const serviceIds = services.map((s) => s.id)
     const ratingRows = serviceIds.length > 0

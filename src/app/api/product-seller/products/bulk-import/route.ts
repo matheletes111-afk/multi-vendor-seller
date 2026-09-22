@@ -301,22 +301,87 @@ export async function POST(request: NextRequest) {
         const cleanName = inputCategoryText.trim().replace(/\b\w/g, c => c.toUpperCase())
         const cleanSlug = `${slugFromName(cleanName)}-${uniqueSlugSuffix()}`
         
-        const newCategory = await prisma.category.create({
-          data: {
-            name: cleanName,
-            slug: cleanSlug,
-            description: `Auto-created category via bulk upload.`,
-            isActive: true,
-            sellers: {
-              connect: { id: seller.id }
+        // Find the first available image of the product from the excel sheet
+        let firstCategoryImg: string | null = null
+        for (const r of sorted) {
+          const c = r.cells
+          let imgs = parseImageList(c.product_variant_images ?? "")
+          if (!imgs.length) {
+            const pDesc = (c.product_description ?? "").trim()
+            if (pDesc.startsWith("http://") || pDesc.startsWith("https://")) {
+              imgs = parseImageList(pDesc)
             }
-          },
-          select: { id: true, name: true, weightMandatory: true }
+          }
+          if (imgs.length > 0 && imgs[0]) {
+            firstCategoryImg = imgs[0]
+            break
+          }
+        }
+
+        // Fallback: search across all rows in the file belonging to this category
+        if (!firstCategoryImg) {
+          for (const r of rows) {
+            const catCell = (r.cells.category ?? "").trim().toLowerCase()
+            if (catCell === inputCategoryText.trim().toLowerCase()) {
+              let imgs = parseImageList(r.cells.product_variant_images ?? "")
+              if (!imgs.length) {
+                const pDesc = (r.cells.product_description ?? "").trim()
+                if (pDesc.startsWith("http://") || pDesc.startsWith("https://")) {
+                  imgs = parseImageList(pDesc)
+                }
+              }
+              if (imgs.length > 0 && imgs[0]) {
+                firstCategoryImg = imgs[0]
+                break
+              }
+            }
+          }
+        }
+
+        // Double check if a category with this name already exists in database (e.g. inactive or casing difference)
+        const existingByName = await prisma.category.findFirst({
+          where: { name: { equals: cleanName, mode: "insensitive" } },
+          select: { id: true, name: true, weightMandatory: true, image: true, isActive: true }
         })
-        
-        // Add to seller's local list to prevent duplicate create calls
-        seller.selectedCategories.push(newCategory)
-        matchedCategory = newCategory
+
+        if (existingByName) {
+          await prisma.seller.update({
+            where: { id: seller.id },
+            data: {
+              selectedCategories: { connect: { id: existingByName.id } }
+            }
+          })
+          if (!existingByName.isActive || (!existingByName.image && firstCategoryImg)) {
+            await prisma.category.update({
+              where: { id: existingByName.id },
+              data: {
+                isActive: true,
+                ...(firstCategoryImg && !existingByName.image ? { image: firstCategoryImg, mobileIcon: firstCategoryImg } : {})
+              }
+            })
+          }
+          seller.selectedCategories.push(existingByName)
+          matchedCategory = existingByName
+        } else {
+          const newCategory = await prisma.category.create({
+            data: {
+              name: cleanName,
+              slug: cleanSlug,
+              description: `Auto-created category via bulk upload.`,
+              image: firstCategoryImg || null,
+              mobileIcon: firstCategoryImg || null,
+              isActive: true,
+              sellers: {
+                connect: { id: seller.id }
+              }
+            },
+            select: { id: true, name: true, weightMandatory: true }
+          })
+          
+          // Add to seller's local list to prevent duplicate create calls
+          seller.selectedCategories.push(newCategory)
+          matchedCategory = newCategory
+        }
       }
     }
 

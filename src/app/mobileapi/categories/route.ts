@@ -66,6 +66,11 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
     const categories = await prisma.category.findMany({
       where: whereClause,
       include: {
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
         subcategories: {
           where: activeOnly ? { isActive: true } : {},
           orderBy: { name: "asc" },
@@ -102,12 +107,15 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
 
     // Transform the data to include counts if requested
     const transformedCategories: Category[] = categories.map(cat => {
+      const prodImg = Array.isArray((cat as any).products?.[0]?.images) ? (cat as any).products[0].images[0] : null
+      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+
       const category: Category = {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        mobileIcon: cat.mobileIcon,
-        image: cat.image,
+        mobileIcon: cat.mobileIcon || resolvedImg,
+        image: resolvedImg,
         description: cat.description,
         isActive: cat.isActive,
         isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,

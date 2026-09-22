@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/ui/card"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
-import { formatCurrency, shuffleArray } from "@/lib/utils"
+import { formatCurrency, shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { WishlistButton } from "@/components/product/WishlistButton"
 
 function getYoutubeThumbnailUrl(url?: string | null): string | null {
@@ -535,13 +535,13 @@ function RestaurantsDirectoryPageContent() {
       })
     })
 
-    // Fallback padding to always ensure 4 items in grid with per-reload randomization
-    const finalVeg = shuffleArray(vegList)
+    // Fallback padding to always ensure 4 items in grid with fair interleave across restaurants
+    const finalVeg = fairMarketplaceInterleave(vegList, (f) => f.restaurantId)
     while (finalVeg.length < 4) {
       finalVeg.push(FALLBACK_VEG_FOODS[finalVeg.length % FALLBACK_VEG_FOODS.length])
     }
 
-    const finalNonVeg = shuffleArray(nonVegList)
+    const finalNonVeg = fairMarketplaceInterleave(nonVegList, (f) => f.restaurantId)
     while (finalNonVeg.length < 4) {
       finalNonVeg.push(FALLBACK_NONVEG_FOODS[finalNonVeg.length % FALLBACK_NONVEG_FOODS.length])
     }

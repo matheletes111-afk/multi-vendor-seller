@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -29,9 +29,10 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      take: Math.max(limit * 4, 40),
+      take: Math.max(limit * 6, 60),
 
       include: {
+        seller: { select: { id: true, store: { select: { name: true } } } },
         category: { select: { id: true, name: true, slug: true } },
         variants: {
           where: { discount: { gt: 0 } },
@@ -90,11 +91,12 @@ export async function GET(request: NextRequest) {
           reviewCount: p.reviews.length,
           totalReviews: p.reviews.length,
           reviewsCount: p.reviews.length,
+          seller_id: p.sellerId || p.seller?.id,
         }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
 
-    const randomizedDeals = shuffleArray(deals).slice(0, limit)
+    const randomizedDeals = fairMarketplaceInterleave(deals, (d) => d.seller_id).slice(0, limit)
 
 
     // Fallback preview daily deals if DB has no discounted products yet
