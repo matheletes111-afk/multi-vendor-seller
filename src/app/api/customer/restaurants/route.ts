@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -188,7 +188,8 @@ export async function GET(request: NextRequest) {
       cuisines.forEach(c => allCuisinesSet.add(c))
     })
 
-    const randomizedRestaurants = shuffleArray(formatted)
+    const validRestaurants = formatted.filter((r): r is NonNullable<typeof r> => r !== null)
+    const randomizedRestaurants = fairMarketplaceInterleave(validRestaurants, (r) => r.id)
 
     return NextResponse.json(
       {

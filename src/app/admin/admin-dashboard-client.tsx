@@ -149,7 +149,7 @@ export function AdminDashboardClient() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/admin/sellers">
+            <Link href="/admin/all-sellers">
               <Button variant="destructive" className="rounded-full px-5 font-medium text-xs hover:scale-105 transition-all shadow-lg shadow-destructive/20">
                 Review Applications <ArrowRight className="ml-2 w-4 h-4" />
               </Button>

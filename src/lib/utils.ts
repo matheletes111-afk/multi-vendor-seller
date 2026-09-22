@@ -149,4 +149,66 @@ export function formatTimeAgo(timestamp?: string | Date | number | null): string
   if (diffMonths < 12) return `${diffMonths}mo ago`
   return `${Math.floor(diffDays / 365)}y ago`
 }
+
+/**
+ * Marketplace Fair-Share Interleaving Algorithm (Flipkart / Amazon style).
+ * 
+ * Prevents dominant sellers (with 100+ items) from monopolizing the feed or burying small sellers.
+ * Groups items by seller, randomly shuffles each seller's items, randomly shuffles the seller order,
+ * and interleaves them round-robin:
+ *   Round 1: [Seller A item 1, Seller B item 1, Seller C item 1, ...]
+ *   Round 2: [Seller A item 2, Seller B item 2, Seller C item 2, ...]
+ *   Round 3: ...
+ * 
+ * Result: Every approved seller gets immediate, equal exposure on every reload without seller clustering.
+ */
+export function fairMarketplaceInterleave<T>(
+  items: T[],
+  getSellerId: (item: T) => string | null | undefined,
+  seed?: string | null
+): T[] {
+  if (!items || items.length <= 1) return items;
+
+  // 1. Group items into buckets per seller
+  const buckets = new Map<string, T[]>();
+  for (const item of items) {
+    const rawId = getSellerId(item);
+    const sId = rawId && String(rawId).trim() ? String(rawId).trim() : "general_vendor";
+    let list = buckets.get(sId);
+    if (!list) {
+      list = [];
+      buckets.set(sId, list);
+    }
+    list.push(item);
+  }
+
+  // 2. Shuffle each seller's items internally so each reload varies products per seller
+  for (const [sId, list] of buckets.entries()) {
+    buckets.set(sId, seed ? seededShuffle(list, `${seed}_${sId}`) : shuffleArray(list));
+  }
+
+  // 3. Shuffle the order of sellers so a different seller is #1 on each reload
+  const sellerIds = Array.from(buckets.keys());
+  const shuffledSellerIds = seed ? seededShuffle(sellerIds, `${seed}_sellers`) : shuffleArray(sellerIds);
+
+  // 4. Round-Robin Interleave across all sellers
+  const result: T[] = [];
+  let round = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    hasMore = false;
+    for (const sId of shuffledSellerIds) {
+      const list = buckets.get(sId)!;
+      if (round < list.length) {
+        result.push(list[round]);
+        hasMore = true;
+      }
+    }
+    round++;
+  }
+
+  return result;
+}
+
 

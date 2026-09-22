@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { JsonValue } from "@prisma/client/runtime/library"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -122,6 +122,11 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
     const categoriesPromise = prisma.category.findMany({
       where: { isActive: true },
       include: {
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
         subcategories: {
           where: { isActive: true },
           select: {
@@ -144,6 +149,11 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         ...({ isFeatured: true } as unknown as Record<string, unknown>),
       },
       include: {
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
         subcategories: {
           where: { isActive: true },
           select: {
@@ -213,6 +223,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       },
       select: {
         id: true,
+        sellerId: true,
         name: true,
         slug: true,
         description: true,
@@ -234,7 +245,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
           }
         }
       },
-      take: 30,
+      take: 100,
     })
 
     // Execute all promises in parallel
@@ -248,42 +259,50 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
     ])
 
     // Transform featured categories to full Category shape (same as categories)
-    const featuredCategories: Category[] = (featuredCategoriesRaw as any[]).map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      mobileIcon: cat.mobileIcon ?? null,
-      image: cat.image,
-      description: cat.description,
-      isActive: cat.isActive ?? true,
-      createdAt: cat.createdAt,
-      updatedAt: cat.updatedAt,
-      subcategories: (cat.subcategories ?? []).map((sub: { id: string; name: string; slug: string; image: string | null }) => ({
-        id: sub.id,
-        name: sub.name,
-        slug: sub.slug,
-        image: sub.image,
-      })),
-    }))
+    const featuredCategories: Category[] = (featuredCategoriesRaw as any[]).map((cat) => {
+      const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null;
+      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      return {
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        mobileIcon: cat.mobileIcon || resolvedImg,
+        image: resolvedImg,
+        description: cat.description,
+        isActive: cat.isActive ?? true,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+        subcategories: (cat.subcategories ?? []).map((sub: { id: string; name: string; slug: string; image: string | null }) => ({
+          id: sub.id,
+          name: sub.name,
+          slug: sub.slug,
+          image: sub.image,
+        })),
+      };
+    })
 
     // Transform categories to match the Category interface
-    const transformedCategories: Category[] = categories.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      image: cat.image,
-      mobileIcon: cat.mobileIcon,
-      description: cat.description,
-      isActive: cat.isActive,
-      createdAt: cat.createdAt,
-      updatedAt: cat.updatedAt,
-      subcategories: cat.subcategories.map(sub => ({
-        id: sub.id,
-        name: sub.name,
-        slug: sub.slug,
-        image: sub.image,
-      }))
-    }))
+    const transformedCategories: Category[] = categories.map(cat => {
+      const prodImg = Array.isArray((cat as any).products?.[0]?.images) ? (cat as any).products[0].images[0] : null;
+      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      return {
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        image: resolvedImg,
+        mobileIcon: cat.mobileIcon || resolvedImg,
+        description: cat.description,
+        isActive: cat.isActive,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+        subcategories: cat.subcategories.map(sub => ({
+          id: sub.id,
+          name: sub.name,
+          slug: sub.slug,
+          image: sub.image,
+        }))
+      };
+    })
 
     const transformedServices: Service[] = services.map((service) => ({
       ...service,
@@ -318,7 +337,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       featuredCategories: shuffleArray(featuredCategories),
       serviceCategories: shuffleArray(serviceCategories),
       ads: shuffleArray(ads),
-      services: shuffleArray(transformedServices).slice(0, 10),
+      services: fairMarketplaceInterleave(transformedServices, (s) => (s as any).sellerId).slice(0, 10),
     }
 
     return NextResponse.json<SuccessResponse>(

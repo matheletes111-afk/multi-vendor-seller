@@ -101,7 +101,10 @@ type Category = {
   id: string;
   name: string;
   slug: string;
+  image?: string | null;
+  mobileIcon?: string | null;
   subcategories: Subcategory[];
+  products?: { images: string[] }[];
 };
 
 type Product = {
@@ -299,7 +302,14 @@ export function HomeClient() {
     fetch("/api/home/products?limit=48", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((data: unknown) => {
-        setRandomProducts(Array.isArray(data) ? (data as Product[]) : []);
+        const raw = Array.isArray(data) ? (data as Product[]) : [];
+        const seen = new Set<string>();
+        const unique = raw.filter((p) => {
+          if (seen.has(p.id)) return false;
+          seen.add(p.id);
+          return true;
+        });
+        setRandomProducts(unique);
       })
       .catch(() => setRandomProducts([]));
   }, []);
@@ -645,6 +655,7 @@ export function HomeClient() {
                   {latestCategories.map((cat, catIdx) => {
                     const subs = cat.subcategories || [];
                     const displaySubs = [...subs.slice(0, 4)];
+                    const catFallbackImg = cat.image || cat.mobileIcon || cat.products?.[0]?.images?.[0];
                     while (displaySubs.length < 4) {
                       const placeholderIdx = displaySubs.length;
                       const placeholderTitles = ["Top Deals", "Popular Picks", "New Arrivals", "Trending"];
@@ -652,7 +663,7 @@ export function HomeClient() {
                         id: `fallback_${cat.id}_${placeholderIdx}`,
                         name: placeholderTitles[placeholderIdx % placeholderTitles.length],
                         slug: `fallback-${placeholderIdx}`,
-                        image: PRODUCT_FALLBACK_IMAGES[(catIdx * 4 + placeholderIdx) % PRODUCT_FALLBACK_IMAGES.length],
+                        image: catFallbackImg || PRODUCT_FALLBACK_IMAGES[(catIdx * 4 + placeholderIdx) % PRODUCT_FALLBACK_IMAGES.length],
                         mobileIcon: null,
                       });
                     }
@@ -1073,7 +1084,12 @@ export function HomeClient() {
                   style={{ scrollBehavior: categoryCarouselPaused ? "auto" : "smooth" }}
                 >
                   {categories.map((cat, idx) => {
-                    const categoryImg = cat.subcategories?.[0]?.image || getProductImg(null, idx + 1);
+                    const categoryImg =
+                      cat.image ||
+                      cat.mobileIcon ||
+                      cat.products?.[0]?.images?.[0] ||
+                      cat.subcategories?.[0]?.image ||
+                      getProductImg(null, idx + 1);
 
                     return (
                       <Link

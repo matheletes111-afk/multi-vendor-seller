@@ -24,6 +24,16 @@ export async function GET(request: NextRequest) {
         image: true,
         mobileIcon: true,
         isFeatured: true,
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
+        subcategories: {
+          where: { isActive: true },
+          select: { image: true },
+          take: 1,
+        },
         _count: {
           select: {
             products: { where: { isActive: true, isDeleted: false } },
@@ -34,18 +44,22 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     })
 
-    const formattedProductCats = productCategories.map((c) => ({
-      category_id: c.id,
-      name: c.name,
-      slug: c.slug,
-      description: c.description || "",
-      image_url: c.image || c.mobileIcon || null,
-      mobile_icon: c.mobileIcon || null,
-      vertical: "product",
-      is_featured: true,
-      item_count: c._count.products,
-      deep_link: `/products?category=${encodeURIComponent(c.slug)}`,
-    }))
+    const formattedProductCats = productCategories.map((c) => {
+      const prodImg = Array.isArray(c.products?.[0]?.images) ? c.products[0].images[0] : null
+      const resolvedImg = c.image || c.mobileIcon || prodImg || c.subcategories?.[0]?.image || null
+      return {
+        category_id: c.id,
+        name: c.name,
+        slug: c.slug,
+        description: c.description || "",
+        image_url: resolvedImg,
+        mobile_icon: c.mobileIcon || resolvedImg,
+        vertical: "product",
+        is_featured: true,
+        item_count: c._count.products,
+        deep_link: `/products?category=${encodeURIComponent(c.slug)}`,
+      }
+    })
 
     // If only product vertical requested, return product categories directly
     if (vertical === "product") {
@@ -71,24 +85,33 @@ export async function GET(request: NextRequest) {
         slug: true,
         image: true,
         mobileIcon: true,
+        services: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
         _count: { select: { services: { where: { isActive: true, isDeleted: false } } } },
       },
       take: 4,
       orderBy: { name: "asc" },
     })
 
-    const formattedServiceCats = serviceCategories.map((sc) => ({
-      category_id: sc.id,
-      name: sc.name,
-      slug: sc.slug,
-      description: "",
-      image_url: sc.image || sc.mobileIcon || null,
-      mobile_icon: sc.mobileIcon || null,
-      vertical: "service",
-      is_featured: true,
-      item_count: sc._count.services,
-      deep_link: `/services?category=${encodeURIComponent(sc.slug)}`,
-    }))
+    const formattedServiceCats = serviceCategories.map((sc) => {
+      const svcImg = Array.isArray(sc.services?.[0]?.images) ? sc.services[0].images[0] : null
+      const resolvedImg = sc.image || sc.mobileIcon || svcImg || null
+      return {
+        category_id: sc.id,
+        name: sc.name,
+        slug: sc.slug,
+        description: "",
+        image_url: resolvedImg,
+        mobile_icon: sc.mobileIcon || resolvedImg,
+        vertical: "service",
+        is_featured: true,
+        item_count: sc._count.services,
+        deep_link: `/services?category=${encodeURIComponent(sc.slug)}`,
+      }
+    })
 
     if (vertical === "service") {
       return NextResponse.json(

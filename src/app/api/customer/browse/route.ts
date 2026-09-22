@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma, ReturnPolicyType, SubscriptionPlan, ProductCondition } from "@prisma/client"
-import { shuffleArray, seededShuffle } from "@/lib/utils"
+import { shuffleArray, seededShuffle, fairMarketplaceInterleave } from "@/lib/utils"
+import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 100
@@ -120,7 +124,18 @@ export async function GET(request: NextRequest) {
   const subcategoryId = searchParams.get("subcategoryId") ?? undefined
   const serviceCategoryId = searchParams.get("serviceCategoryId") ?? undefined
 
-  const seed = searchParams.get("seed") || null
+  const rawPage = Number(searchParams.get("page") ?? "1")
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
+  const rawPageSize = Number(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE))
+  const pageSize =
+    Number.isFinite(rawPageSize) && rawPageSize >= 1 && rawPageSize <= MAX_PAGE_SIZE
+      ? Math.floor(rawPageSize)
+      : DEFAULT_PAGE_SIZE
+
+  const effectiveSeed = resolveFeedSeed(request, page, "web_browse")
+  const seed = effectiveSeed
+  const excludedIds = parseExcludedIds(searchParams)
+
   const sortParam = searchParams.get("sort")
   const sort =
     sortParam === "price_desc" ||
@@ -171,14 +186,6 @@ export async function GET(request: NextRequest) {
   const conditionFilter = parseCommaList(searchParams.get("condition")).filter((x) =>
     ["NEW", "USED"].includes(x)
   ) as ProductCondition[]
-
-  const rawPage = Number(searchParams.get("page") ?? "1")
-  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
-  const rawPageSize = Number(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE))
-  const pageSize =
-    Number.isFinite(rawPageSize) && rawPageSize >= 1 && rawPageSize <= MAX_PAGE_SIZE
-      ? Math.floor(rawPageSize)
-      : DEFAULT_PAGE_SIZE
 
   const now = new Date()
   const isServiceCategoryOnly = Boolean(serviceCategoryId && effectiveCategoryIds.length === 0 && !subcategoryId)
@@ -378,7 +385,15 @@ export async function GET(request: NextRequest) {
     soldRows.map((r) => [r.productId, r._sum.quantity ?? 0])
   ) as Record<string, number>
 
-  const enriched: EnrichedProduct[] = allProductsRaw.map((p) => {
+  const uniqueProductsMap = new Map<string, typeof allProductsRaw[0]>()
+  for (const p of allProductsRaw) {
+    if (!uniqueProductsMap.has(p.id)) {
+      uniqueProductsMap.set(p.id, p)
+    }
+  }
+  const deduplicatedProductsRaw = Array.from(uniqueProductsMap.values())
+
+  const enriched: EnrichedProduct[] = deduplicatedProductsRaw.map((p) => {
     const v = p.variants[0]
     const basePrice = v?.price ?? 0
     const discount = v?.discount ?? 0
@@ -460,6 +475,7 @@ export async function GET(request: NextRequest) {
   }
 
   let filtered = enriched.filter((p) => {
+    if (excludedIds.size > 0 && excludedIds.has(p.id)) return false
     if (brandsFilter.length > 0) {
       const b = (p.brand || "Other").trim().toLowerCase()
       if (!brandsFilter.some((f) => b === f.trim().toLowerCase())) return false
@@ -482,7 +498,11 @@ export async function GET(request: NextRequest) {
   if (dealMode && discFilter.length > 0 && !sortParam) {
     sorted = [...filtered].sort((a, b) => b.discountPercent - a.discountPercent || b.createdAt.getTime() - a.createdAt.getTime())
   } else if (!sortParam || sort === "random") {
-    sorted = seed ? seededShuffle(filtered, seed) : shuffleArray(filtered)
+    sorted = fairMarketplaceInterleave(
+      filtered,
+      (p) => p.seller?.store?.name || (p as any).sellerId || (p as any).seller?.id || "unknown",
+      seed
+    )
   } else if (sort === "price_asc") {
     sorted = [...filtered].sort((a, b) => a.finalPrice - b.finalPrice)
   } else if (sort === "price_desc") {
@@ -557,7 +577,11 @@ export async function GET(request: NextRequest) {
       averageRating: ratingByService[s.id] ?? 0,
     }))
     const services = (!sortParam || sort === "random")
-      ? (seed ? seededShuffle(rawMappedServices, seed) : shuffleArray(rawMappedServices))
+      ? fairMarketplaceInterleave(
+          rawMappedServices,
+          (s) => (s as any).sellerId || s.seller?.store?.name || (s as any).seller?.id || "unknown",
+          seed
+        )
       : rawMappedServices
 
   const serviceCategoryName = serviceCategoryWithName?.name ?? null
@@ -599,6 +623,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     page: currentPage,
     pageSize,
+    seed: effectiveSeed,
     totalProducts,
     totalPages,
     sort,
@@ -627,5 +652,9 @@ export async function GET(request: NextRequest) {
     })),
     products: paginatedProducts.map(serializeProduct),
     services,
+  }, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    },
   })
 }

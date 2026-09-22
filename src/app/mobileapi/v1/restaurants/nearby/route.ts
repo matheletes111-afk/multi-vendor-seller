@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const randomizedRestaurants = shuffleArray(formattedRestaurants).slice(0, limit)
+    const randomizedRestaurants = fairMarketplaceInterleave(formattedRestaurants, (r) => r.id).slice(0, limit)
 
     // Fallback preview restaurants if DB has no approved restaurant sellers yet
     if (randomizedRestaurants.length === 0) {

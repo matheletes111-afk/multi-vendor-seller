@@ -133,6 +133,9 @@ export function BrowseClient() {
   const pageParam = Number(searchParams.get("page") ?? "1")
   const currentPage = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
 
+  const [browseSeed, setBrowseSeed] = useState<string>(
+    () => searchParams.get("seed") || `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  )
   const [products, setProducts] = useState<BrowseProduct[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [totalProducts, setTotalProducts] = useState(0)
@@ -156,7 +159,6 @@ export function BrowseClient() {
   const [priceMaxDraft, setPriceMaxDraft] = useState("")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [scrollTopVisible, setScrollTopVisible] = useState(false)
-  const browseSeedRef = useRef(Date.now().toString())
 
   const buildQuery = useCallback(() => {
     const params = new URLSearchParams()
@@ -165,8 +167,8 @@ export function BrowseClient() {
     if (subcategoryId) params.set("subcategoryId", subcategoryId)
     if (serviceCategoryId) params.set("serviceCategoryId", serviceCategoryId)
     if (q) params.set("q", q)
-    if (sort && sort !== "random") params.set("sort", sort)
-    if (!sort || sort === "random") params.set("seed", browseSeedRef.current)
+    if (sort) params.set("sort", sort)
+    if (browseSeed) params.set("seed", browseSeed)
     if (Number.isFinite(minPrice) && minPrice > 0) params.set("minPrice", String(minPrice))
     if (Number.isFinite(maxPrice) && maxPrice < 100000) params.set("maxPrice", String(maxPrice))
     if (brandsParam) params.set("brands", brandsParam)
@@ -192,12 +194,14 @@ export function BrowseClient() {
     brandsParam,
     ratingParam,
     discParam,
+    isDealMode,
     retParam,
     availParam,
     sellerParam,
     sellerIdParam,
     conditionParam,
     currentPage,
+    browseSeed,
   ])
 
   useEffect(() => {
@@ -212,6 +216,7 @@ export function BrowseClient() {
           totalProducts?: number
           totalPages?: number
           pageSize?: number
+          seed?: string
           categoryName?: string | null
           subcategoryName?: string | null
           serviceCategoryName?: string | null
@@ -219,7 +224,15 @@ export function BrowseClient() {
           resolvedCategoryId?: string | null
           filterMeta?: FilterMeta
         }) => {
-          setProducts(data.products || [])
+          // Enforce zero duplicate products on initial load
+          const rawProds: BrowseProduct[] = Array.isArray(data.products) ? data.products : []
+          const seen = new Set<string>()
+          const uniqueProds = rawProds.filter((p) => {
+            if (seen.has(p.id)) return false
+            seen.add(p.id)
+            return true
+          })
+          setProducts(uniqueProds)
           setServices(data.services || [])
           setTotalProducts(data.totalProducts ?? 0)
           setTotalPages(Math.max(1, data.totalPages ?? 1))
@@ -233,24 +246,29 @@ export function BrowseClient() {
         }
       )
       .finally(() => setLoading(false))
-  }, [buildQuery])
+  }, [buildQuery, browseSeed])
 
   const [loadedPage, setLoadedPage] = useState(1)
   const [loadingMore, setLoadingMore] = useState(false)
+  const isFetchingMoreRef = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  // Reset loadedPage to 1 whenever filters / search parameters change
+  // Reset loadedPage to 1 and refresh seed whenever filters / search parameters change
   const filterKey = searchParams.toString()
   useEffect(() => {
     setLoadedPage(1)
+    setBrowseSeed(`${Date.now()}_${Math.random().toString(36).slice(2, 7)}`)
   }, [filterKey])
 
-  const handleLoadMore = async () => {
-    if (loadingMore || loadedPage >= totalPages) return
+  const handleLoadMore = useCallback(async () => {
+    if (isFetchingMoreRef.current || loadingMore || loadedPage >= totalPages) return
+    isFetchingMoreRef.current = true
     setLoadingMore(true)
     try {
       const nextPage = loadedPage + 1
       const params = new URLSearchParams(buildQuery())
       params.set("page", String(nextPage))
+      if (browseSeed) params.set("seed", browseSeed)
       const res = await fetch(`/api/customer/browse?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
@@ -269,9 +287,29 @@ export function BrowseClient() {
     } catch (err) {
       console.error("Error loading more products:", err)
     } finally {
+      isFetchingMoreRef.current = false
       setLoadingMore(false)
     }
-  }
+  }, [loadingMore, loadedPage, totalPages, buildQuery, browseSeed])
+
+  // Automatic infinite scroll / lazy loading observer
+  useEffect(() => {
+    if (loading || loadedPage >= totalPages) return
+    const el = sentinelRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingMoreRef.current && loadedPage < totalPages) {
+          handleLoadMore()
+        }
+      },
+      { rootMargin: "350px" } // Pre-fetch 350px before reaching the bottom for buttery smooth scroll
+    )
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loading, loadingMore, loadedPage, totalPages, handleLoadMore])
 
   useEffect(() => {
     const onScroll = () => setScrollTopVisible(window.scrollY > 400)
@@ -919,28 +957,19 @@ export function BrowseClient() {
                   )}
 
                   {!loading && totalProducts > 0 && (
-                    <div className="mt-8 flex flex-col items-center justify-center py-4 min-h-[60px]">
+                    <div
+                      ref={sentinelRef}
+                      className="mt-8 flex flex-col items-center justify-center py-6 min-h-[80px]"
+                    >
                       {loadedPage < totalPages ? (
-                        <Button
-                          type="button"
-                          disabled={loadingMore}
-                          onClick={handleLoadMore}
-                          className="rounded-full px-8 py-3 text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-900 text-white hover:bg-amber-500 hover:text-slate-950 shadow-lg transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                        >
-                          {loadingMore ? (
-                            <>
-                              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                              <span>Loading More Products...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>Load More Products</span>
-                              <ChevronDown className="h-4 w-4" />
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex flex-col items-center gap-2.5 text-slate-500 py-2">
+                          <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+                          <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+                            Loading more products...
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider bg-slate-100 px-5 py-2 rounded-full border border-slate-200/60">
+                        <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider bg-slate-100 px-5 py-2.5 rounded-full border border-slate-200/60 shadow-sm">
                           You've viewed all {totalProducts} products
                         </span>
                       )}

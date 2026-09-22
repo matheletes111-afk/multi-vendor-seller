@@ -16,6 +16,11 @@ export async function GET() {
         isFeatured: true,
       },
       include: {
+        products: {
+          where: { isActive: true, isDeleted: false },
+          select: { images: true },
+          take: 1,
+        },
         subcategories: {
           where: { isActive: true },
           select: {
@@ -45,6 +50,11 @@ export async function GET() {
           ],
         },
         include: {
+          products: {
+            where: { isActive: true, isDeleted: false },
+            select: { images: true },
+            take: 1,
+          },
           subcategories: {
             where: { isActive: true },
             select: {
@@ -62,10 +72,16 @@ export async function GET() {
       categories = [...categories, ...shuffledBackfills];
     }
 
-    const randomizedCategories = categories.map((c) => ({
-      ...c,
-      subcategories: shuffleArray(c.subcategories),
-    }));
+    const randomizedCategories = categories.map((c) => {
+      const prodImg = Array.isArray(c.products?.[0]?.images) ? c.products[0].images[0] : null;
+      const resolvedImage = c.image || c.mobileIcon || prodImg || c.subcategories?.[0]?.image || null;
+      return {
+        ...c,
+        image: resolvedImage,
+        mobileIcon: c.mobileIcon || resolvedImage,
+        subcategories: shuffleArray(c.subcategories),
+      };
+    });
 
     return NextResponse.json(randomizedCategories, {
       headers: {

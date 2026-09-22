@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { shuffleArray } from "@/lib/utils";
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,17 +38,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch an oversampled candidate pool to shuffle across all sellers
+    // Fetch candidate pool across all approved sellers (sufficiently large so every approved seller is included)
     const candidatePool = await prisma.product.findMany({
       where,
-      take: Math.max(limit * 3, 100),
+      take: 1000,
       select: {
         id: true,
+        sellerId: true,
         name: true,
         slug: true,
         images: true,
         category: { select: { id: true, name: true, slug: true } },
-        seller: { select: { store: { select: { name: true } } } },
+        seller: { select: { id: true, store: { select: { name: true } } } },
         variants: {
           take: 1,
           orderBy: { createdAt: "asc" },
@@ -58,8 +59,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Randomize order on each refresh and slice to requested limit
-    const products = shuffleArray(candidatePool).slice(0, limit);
+    // Flipkart/Amazon Marketplace Fair-Share round-robin interleaving across all sellers
+    const products = fairMarketplaceInterleave(
+      candidatePool,
+      (p) => p.sellerId || p.seller?.id || p.seller?.store?.name
+    ).slice(0, limit);
 
     const productIds = products.map((p) => p.id);
     const ratingRows = productIds.length > 0

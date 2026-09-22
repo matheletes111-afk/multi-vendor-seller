@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       prisma.hotel.findMany({
         where,
         skip: isDefaultView ? 0 : skip,
-        take: isDefaultView ? Math.max(limit * 3, 30) : limit,
+        take: isDefaultView ? Math.max(limit * 6, 60) : limit,
         orderBy: { starRating: "desc" },
         include: {
           rooms: {
@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
       return {
         id: h.id,
         hotel_id: h.id,
+        hotel_seller_id: h.hotelSellerId,
         name: h.name,
         description: h.description || "",
         star_rating: h.starRating ?? 0,
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     const totalPages = Math.ceil(totalItems / limit)
     const finalHotels = isDefaultView
-      ? shuffleArray(formattedHotels).slice(0, limit)
+      ? fairMarketplaceInterleave(formattedHotels, (h) => h.hotel_seller_id || h.id).slice(0, limit)
       : formattedHotels
 
     return NextResponse.json(

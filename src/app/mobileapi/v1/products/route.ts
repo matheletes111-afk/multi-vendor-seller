@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
+import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -13,7 +13,13 @@ export async function GET(request: NextRequest) {
     const subcategoryParam = searchParams.get("subcategory")
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)))
-    const skip = (page - 1) * limit
+
+    const effectiveSeed = resolveFeedSeed(
+      request,
+      page,
+      `v1_products_${categoryParam || "all"}_${subcategoryParam || "all"}`
+    )
+    const excludedIds = parseExcludedIds(searchParams)
 
     const where: any = {
       isActive: true,
@@ -44,16 +50,14 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const isDefaultView = !categoryParam && !subcategoryParam && page === 1
-
-    const [totalItems, products] = await Promise.all([
+    const [totalItems, rawProducts] = await Promise.all([
       prisma.product.count({ where }),
       prisma.product.findMany({
         where,
-        skip: isDefaultView ? 0 : skip,
-        take: isDefaultView ? Math.max(limit * 3, 30) : limit,
+        take: 1000,
         orderBy: { createdAt: "desc" },
         include: {
+          seller: { select: { id: true, store: { select: { name: true } } } },
           category: { select: { id: true, name: true, slug: true } },
           subcategory: { select: { id: true, name: true, slug: true } },
           variants: {
@@ -65,7 +69,27 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    const formattedProducts = products.map((p) => {
+    // Filter out excluded/seen IDs and deduplicate raw products
+    const uniqueRawMap = new Map<string, typeof rawProducts[0]>()
+    for (const p of rawProducts) {
+      if (excludedIds.size > 0 && excludedIds.has(p.id)) continue
+      if (!uniqueRawMap.has(p.id)) {
+        uniqueRawMap.set(p.id, p)
+      }
+    }
+    const candidateList = Array.from(uniqueRawMap.values())
+
+    // Flipkart/Amazon fair seller interleaving with deterministic session seed
+    const interleaved = fairMarketplaceInterleave(
+      candidateList,
+      (p) => p.sellerId || p.seller?.id || p.seller?.store?.name || "unknown",
+      effectiveSeed
+    )
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit))
+    const pagedProducts = interleaved.slice((page - 1) * limit, page * limit)
+
+    const formattedProducts = pagedProducts.map((p) => {
       const variant = p.variants[0]
       const originalPrice = variant ? variant.price : 0
       const discountAmount = variant ? (variant.discount || 0) : 0
@@ -87,6 +111,7 @@ export async function GET(request: NextRequest) {
       return {
         id: p.id,
         product_id: p.id,
+        seller_id: p.sellerId || p.seller?.id,
         title: p.name,
         name: p.name,
         slug: p.slug,
@@ -110,21 +135,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const totalPages = Math.ceil(totalItems / limit)
-    const finalProducts = isDefaultView
-      ? shuffleArray(formattedProducts).slice(0, limit)
-      : formattedProducts
-
     return NextResponse.json(
       {
         success: true,
         data: {
-          products: finalProducts,
+          products: formattedProducts,
           pagination: {
             current_page: page,
             total_pages: totalPages,
             total_items: totalItems,
             has_more: page < totalPages,
+            seed: effectiveSeed,
           },
         },
       },
