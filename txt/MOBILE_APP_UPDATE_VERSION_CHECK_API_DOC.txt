@@ -1,0 +1,334 @@
+================================================================================
+MEEEM MOBILE APP: APP VERSION CHECK & UPDATE POPUP API DOCUMENTATION
+APPLICABLE FOR: CUSTOMER APP, SELLER APP, RIDER APP (ANDROID & iOS)
+UPDATED: SEPTEMBER 2026
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+This API endpoint allows Meeem mobile apps (Customer, Seller, and Rider) to check
+upon launch (Splash Screen / Home initialization) whether a new version has been
+published on Google Play Store or Apple App Store.
+
+The Super Admin controls the version numbers, force update toggles, release notes,
+and store URLs dynamically from the Meeem Admin Panel:
+Admin URL: https://www.meeemsl.com/admin/settings?tab=app_updates
+
+When an update is detected, the app displays a modern popup dialog:
+- Soft Update (force_update = false): Shows "Update Now" and "Later" buttons.
+- Force Update (force_update = true): Shows ONLY "Update to Continue" button
+  (Back button and dismiss are blocked until updated).
+
+
+2. ENDPOINT DETAILS
+--------------------------------------------------------------------------------
+Method:        GET or POST
+Path:          /mobileapi/v1/app/version-check
+Base URL:      https://www.meeemsl.com
+Authentication: None (Public API)
+Headers:       Content-Type: application/json
+
+
+3. QUERY PARAMETERS (FOR GET) OR JSON BODY (FOR POST)
+--------------------------------------------------------------------------------
+Parameter      | Type    | Required | Default    | Description
+---------------+---------+----------+------------+---------------------------------
+app            | String  | Optional | "customer" | Target app: "customer" | "seller" | "rider"
+platform       | String  | Optional | "android"  | OS platform: "android" | "ios"
+version        | String  | Optional | null       | Installed version string, e.g. "1.0.0"
+version_code   | Integer | Optional | null       | Installed build code (e.g. 10)
+
+
+4. SAMPLE REQUESTS
+--------------------------------------------------------------------------------
+GET Request (Android Customer App):
+  GET https://www.meeemsl.com/mobileapi/v1/app/version-check?app=customer&platform=android&version=1.0.0&version_code=1
+
+GET Request (iOS Seller App):
+  GET https://www.meeemsl.com/mobileapi/v1/app/version-check?app=seller&platform=ios&version=1.0.0
+
+POST Request (Rider App):
+  POST https://www.meeemsl.com/mobileapi/v1/app/version-check
+  Body:
+  {
+    "app": "rider",
+    "platform": "android",
+    "version": "1.0.0",
+    "version_code": 1
+  }
+
+
+5. SAMPLE RESPONSES
+--------------------------------------------------------------------------------
+
+CASE A: Update Available (Soft / Optional Update)
+HTTP Status: 200 OK
+{
+  "success": true,
+  "message": "Update available",
+  "data": {
+    "app": "customer",
+    "platform": "android",
+    "current_version": "1.0.0",
+    "current_version_code": 1,
+    "latest_version": "1.2.0",
+    "latest_version_code": 12,
+    "min_supported_version": "1.0.0",
+    "min_supported_version_code": 1,
+    "update_available": true,
+    "force_update": false,
+    "title": "New Update Available! 🚀",
+    "message": "A fresh version of Meeem Customer App is available with faster browsing, diverse seller discovery, and performance improvements.",
+    "release_notes": [
+      "Automatic smooth infinite scroll",
+      "Fair marketplace seller products on home",
+      "Faster checkout and bug fixes"
+    ],
+    "store_url": "https://play.google.com/store/apps/details?id=com.meeem.customer",
+    "is_active": true
+  }
+}
+
+CASE B: Mandatory / Force Update Required (User cannot use app without updating)
+HTTP Status: 200 OK
+{
+  "success": true,
+  "message": "Critical update required",
+  "data": {
+    "app": "customer",
+    "platform": "android",
+    "current_version": "0.9.0",
+    "current_version_code": 9,
+    "latest_version": "1.2.0",
+    "latest_version_code": 12,
+    "min_supported_version": "1.0.0",
+    "min_supported_version_code": 10,
+    "update_available": true,
+    "force_update": true,
+    "title": "Critical Update Required ⚠️",
+    "message": "Please update to the latest version to continue using Meeem.",
+    "release_notes": [
+      "Critical security update and API migration"
+    ],
+    "store_url": "https://play.google.com/store/apps/details?id=com.meeem.customer",
+    "is_active": true
+  }
+}
+
+CASE C: App is already up to date (No popup needed)
+HTTP Status: 200 OK
+{
+  "success": true,
+  "message": "App is up to date",
+  "data": {
+    "app": "customer",
+    "platform": "android",
+    "current_version": "1.2.0",
+    "current_version_code": 12,
+    "latest_version": "1.2.0",
+    "latest_version_code": 12,
+    "min_supported_version": "1.0.0",
+    "min_supported_version_code": 10,
+    "update_available": false,
+    "force_update": false,
+    "title": "New Update Available! 🚀",
+    "message": "...",
+    "release_notes": [...],
+    "store_url": "https://play.google.com/store/apps/details?id=com.meeem.customer",
+    "is_active": true
+  }
+}
+
+
+6. FLUTTER INTEGRATION EXAMPLE
+--------------------------------------------------------------------------------
+// Dependencies: http, url_launcher, package_info_plus (optional)
+
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+
+Future<void> checkForAppUpdate(BuildContext context) async {
+  try {
+    final platform = Platform.isIOS ? 'ios' : 'android';
+    const currentVersion = '1.0.0'; // Or from PackageInfo.fromPlatform()
+    const appType = 'customer';     // 'customer' | 'seller' | 'rider'
+
+    final uri = Uri.parse(
+      'https://www.meeemsl.com/mobileapi/v1/app/version-check'
+      '?app=$appType&platform=$platform&version=$currentVersion',
+    );
+
+    final response = await http.get(uri);
+    if (response.statusCode != 200) return;
+
+    final json = jsonDecode(response.body);
+    final data = json['data'];
+
+    if (data == null || data['update_available'] != true) {
+      return; // App is up to date!
+    }
+
+    final bool isForceUpdate = data['force_update'] == true;
+    final String title = data['title'] ?? 'New Update Available!';
+    final String message = data['message'] ?? '';
+    final String storeUrl = data['store_url'] ?? '';
+    final List<dynamic> notes = data['release_notes'] ?? [];
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isForceUpdate, // Force update cannot be dismissed by tapping outside
+      builder: (BuildContext ctx) {
+        return PopScope(
+          canPop: !isForceUpdate, // Blocks Android back button during force update
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Icon(
+                  isForceUpdate ? Icons.warning_amber_rounded : Icons.rocket_launch_rounded,
+                  color: isForceUpdate ? Colors.amber[800] : Colors.green[600],
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message, style: const TextStyle(fontSize: 13)),
+                  if (notes.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text("What's New:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    ...notes.map((n) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2.0),
+                          child: Text("• $n", style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                        )),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              if (!isForceUpdate)
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text("Later", style: TextStyle(color: Colors.grey)),
+                ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber[700],
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  final url = Uri.parse(storeUrl);
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Text(isForceUpdate ? "Update to Continue" : "Update Now"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  } catch (e) {
+    debugPrint("Version check error: $e");
+  }
+}
+
+
+7. REACT NATIVE INTEGRATION EXAMPLE
+--------------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { View, Text, Modal, TouchableOpacity, Linking, Platform, StyleSheet } from 'react-native';
+
+export function useAppUpdateChecker(appType = 'customer', currentVersion = '1.0.0') {
+  const [updateModal, setUpdateModal] = useState({
+    visible: false,
+    forceUpdate: false,
+    title: '',
+    message: '',
+    releaseNotes: [],
+    storeUrl: '',
+  });
+
+  useEffect(() => {
+    async function checkVersion() {
+      try {
+        const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+        const url = `https://www.meeemsl.com/mobileapi/v1/app/version-check?app=${appType}&platform=${platform}&version=${currentVersion}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        const data = json?.data;
+
+        if (data?.update_available) {
+          setUpdateModal({
+            visible: true,
+            forceUpdate: Boolean(data.force_update),
+            title: data.title,
+            message: data.message,
+            releaseNotes: data.release_notes || [],
+            storeUrl: data.store_url,
+          });
+        }
+      } catch (err) {
+        console.warn('Update check failed:', err);
+      }
+    }
+    checkVersion();
+  }, [appType, currentVersion]);
+
+  return { updateModal, setUpdateModal };
+}
+
+
+8. SUMMARY & BEST PRACTICES
+--------------------------------------------------------------------------------
+1. Call this API during the App Splash Screen or right after Home Screen renders.
+2. If `update_available: false`, do nothing (seamless user experience).
+3. If `force_update: true`, disable dismiss, back button, and background clicking.
+4. Tapping "Update Now" should launch the `store_url` via native browser or store app.
+5. All updates can be tested dynamically by changing the version in:
+   https://www.meeemsl.com/admin/settings?tab=app_updates
+
+
+9. HOW THE POPUP LIFECYCLE WORKS (FREQUENTLY ASKED QUESTIONS)
+--------------------------------------------------------------------------------
+Q1: When will the popup appear?
+A1: The popup ONLY appears when:
+    - `update_available == true` in the API response.
+    - This happens whenever the installed version on the user's phone is lower
+      than the `latest_version` published by the Admin in the Admin Panel.
+
+Q2: Why won't the popup appear after the user updates the app?
+A2: When the user downloads the new build (e.g. 1.2.0) from the Play Store or
+    App Store, the app's installed version becomes 1.2.0.
+    On the next app launch, the app sends `version=1.2.0`.
+    The server compares: 1.2.0 == 1.2.0.
+    Since the installed version matches the latest version, the server returns:
+    `"update_available": false`
+    Therefore, the popup NEVER appears after the user updates!
+
+Q3: What should happen when the user taps "Later"?
+A3: If `force_update == false`, the user is allowed to tap "Later".
+    The mobile app should save the dismissed version (e.g. "1.2.0") in local
+    storage (SharedPreferences in Android/Flutter or AsyncStorage in React Native).
+    The app should not prompt the user again for that exact same version.
+    However, when the Admin publishes a NEWER version (e.g. "1.3.0"), the server
+    will return `latest_version: "1.3.0"`. Since "1.3.0" != "1.2.0", the app
+    will automatically show the new update popup.
+
+Q4: What happens if `force_update == true`?
+A4: When `force_update == true` (or the user's installed version is below
+    `min_supported_version`), the "Later" button is hidden and back navigation
+    is blocked. The user must update the app to proceed.
+================================================================================

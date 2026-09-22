@@ -1551,6 +1551,7 @@ model GlobalSetting {
   dimensionDeliveryChargeRanges Json?
   regionDeliveryCharges         Json?
   disallowedNames               Json?
+  appVersions                   Json?
   updatedAt                     DateTime @updatedAt
 
   @@map("global_settings")
