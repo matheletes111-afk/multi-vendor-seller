@@ -223,6 +223,65 @@ export function parseBulkFile(buffer: Buffer, fileName: string): { rows: BulkDat
   return { rows: [], sheetErrors: ["Upload a .csv or .xlsx file."] }
 }
 
+/** Parses variant attributes from either key:value pairs (e.g. "color:black, size:regular") or JSON format. */
+export function parseVariantAttributes(
+  s: string | undefined | null,
+  excelRow: number
+): { ok: true; attrs: Record<string, string> } | { ok: false; error: string } {
+  if (!s || !s.trim()) return { ok: true, attrs: {} }
+  const trimmed = s.trim()
+
+  // 1. JSON format if it starts with '{' and ends with '}'
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const o = JSON.parse(trimmed) as unknown
+      if (!o || typeof o !== "object" || Array.isArray(o)) {
+        return { ok: false, error: `Row ${excelRow}: variant_details JSON must be an object` }
+      }
+      const attrs: Record<string, string> = {}
+      for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+        if (k && k.trim()) {
+          attrs[k.trim()] = v == null ? "" : String(v).trim()
+        }
+      }
+      return { ok: true, attrs }
+    } catch {
+      // Fall through to plain text parsing
+    }
+  }
+
+  // 2. Parse key:value or key=value pairs (e.g. "color:black, size:regular" or "color: Gold | size: Premium")
+  try {
+    const attrs: Record<string, string> = {}
+    const pairs = trimmed.split(/[,;\n|]+/)
+    for (const pair of pairs) {
+      const p = pair.trim()
+      if (!p) continue
+      const colonIdx = p.indexOf(":")
+      const equalIdx = p.indexOf("=")
+
+      if (colonIdx !== -1) {
+        const k = p.slice(0, colonIdx).trim().replace(/^["'{}]|["'{}]/g, "").trim()
+        const v = p.slice(colonIdx + 1).trim().replace(/^["'{}]|["'{}]/g, "").trim()
+        if (k) attrs[k] = v
+      } else if (equalIdx !== -1) {
+        const k = p.slice(0, equalIdx).trim().replace(/^["'{}]|["'{}]/g, "").trim()
+        const v = p.slice(equalIdx + 1).trim().replace(/^["'{}]|["'{}]/g, "").trim()
+        if (k) attrs[k] = v
+      } else {
+        const cleanTag = p.replace(/^["'{}]|["'{}]/g, "").trim()
+        if (cleanTag) attrs[cleanTag] = cleanTag
+      }
+    }
+    return { ok: true, attrs }
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: `Row ${excelRow}: failed to parse variant_details. Use "color: Black, size: Regular" or JSON.`,
+    }
+  }
+}
+
 /**
  * Returns dummy data rows based on selected categories.
  * One example product per category (up to 3 categories).
@@ -253,7 +312,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "10",                 // width (cm)
         "10",                 // depth (cm)
         "https://example.com/variant-std.jpg", // product_variant_images
-        '{"color":"Black","size":"Regular"}', // variant_details
+        "color: Black, size: Regular", // variant_details
         "Standard specification", // specifications
         "Standard details",   // additional_details
         "Returnable",         // return_policy
@@ -279,7 +338,7 @@ export function exampleDataRows(categories: string[]): string[][] {
         "15",                 // width (cm)
         "15",                 // depth (cm)
         "https://example.com/variant-prem.jpg", // product_variant_images
-        '{"color":"Gold","size":"Premium"}', // variant_details
+        "color: Gold, size: Premium", // variant_details
         "Premium specification", // specifications
         "Premium details",    // additional_details
         "Returnable",         // return_policy
@@ -316,34 +375,45 @@ export function buildTemplateXlsx(
   XLSX.utils.book_append_sheet(wb, ws, BULK_SHEET_NAME)
 
   const instr: string[][] = [
-    ["Bulk Import Instructions & Guide"],
+    ["PRODUCT BULK IMPORT - COMPLETE FIELD INSTRUCTIONS & EXAMPLES"],
     [""],
-    ["1. MULTIPLE VARIANTS GROUPING:"],
-    ["• Each row in the 'Products' sheet represents ONE variant."],
-    ["• To create 1 Product with Multiple Variants (e.g. Size S, M, L), use the EXACT SAME 'product_name' and 'category' for all variant rows."],
-    ["• The system automatically groups rows with matching product_name into a single product listing."],
+    ["QUICK OVERVIEW:"],
+    ["• Multi-Variant Grouping: Rows with the EXACT SAME 'product_name' and 'category' are automatically grouped as variants of ONE product."],
+    ["• Simplified Variant Details: Use natural pairs like 'color: Black, size: Regular' (no JSON braces/quotes required)."],
+    ["• Images: Separate multiple public image URLs with a vertical pipe (|) or newline."],
+    ["• Selling Price: In 'price' enter the MRP. In 'discount', enter the final selling price customer pays (e.g. Price=100, Discount=80 -> customer pays 80)."],
+    ["• Limits: Maximum 500 rows per file."],
     [""],
-    ["2. REQUIRED & OPTIONAL COLUMNS:"],
-    ["• category: Write the exact or closest matching category name (e.g. 'Electronics', 'Clothing')."],
-    ["• product_name: The name of the product."],
-    ["• brand (optional): Brand name (e.g. 'Nike', 'Apple', 'Samsung')."],
-    ["• variant_name: Name of the variant (e.g. 'Red / Large', '64GB', 'Standard')."],
-    ["• price: Regular MRP / Original price of variant (e.g. 100)."],
-    ["• discount: Enter the final price you want to sell (e.g. 80). For example: if Price is 100 and you enter 80 in discount, the customer will buy at 80 and the stored discount is 20. Leave blank or enter same as price if no discount."],
-    ["• stock: Quantity in stock (e.g. 50)."],
+    ["=========================================================================================================================="],
+    ["COLUMN-BY-COLUMN FIELD INSTRUCTION TABLE (ALL 24 COLUMNS)"],
+    ["=========================================================================================================================="],
+    ["Column #", "Column Header", "Required?", "What To Put (Field Description & Rules)", "Example Input"],
+    ["1", "category", "YES", "Name of marketplace category. Must match one of your assigned categories or an active category.", "Clothing & Fashion"],
+    ["2", "product_name", "YES", "Full product title. Rows with identical name are grouped as variants of 1 product listing.", "Men Slim Fit Cotton T-Shirt"],
+    ["3", "brand", "NO", "Brand or manufacturer name. Leave blank if unbranded.", "Nike"],
+    ["4", "product_description", "NO", "Full overview and description of the product.", "100% breathable organic combed cotton t-shirt."],
+    ["5", "condition", "NO", "Condition of the item: NEW or USED (defaults to NEW).", "NEW"],
+    ["6", "delivery_charge_per_km", "NO", "Custom delivery charge per kilometer. Enter 0 for standard delivery.", "0"],
+    ["7", "variant_name", "YES", "Specific name of this variant (size, color, pack, or model).", "Black / L"],
+    ["8", "price", "YES", "Original MRP / listed price before discount (positive number).", "100"],
+    ["9", "discount", "NO", "Final discounted price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = full price.", "80"],
+    ["10", "gst_applicable", "NO", "Is tax applicable? Enter Yes or No (defaults to Yes).", "Yes"],
+    ["11", "stock", "YES", "Available stock quantity for this variant (whole number >= 0).", "50"],
+    ["12", "sku_code", "NO", "Your internal SKU / barcode identifier for inventory tracking.", "TSHIRT-BLK-L"],
+    ["13", "weight", "CONDITIONAL", "Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.", "0.35"],
+    ["14", "height", "NO", "Package height in CM (estimated by AI if omitted).", "5"],
+    ["15", "width", "NO", "Package width in CM (estimated by AI if omitted).", "20"],
+    ["16", "depth", "NO", "Package depth in CM (estimated by AI if omitted).", "30"],
+    ["17", "product_variant_images", "NO", "Public image URLs separated by vertical bar (|) or newline.", "https://example.com/front.jpg | https://example.com/back.jpg"],
+    ["18", "variant_details", "NO", "Attributes describing variant: color: Black, size: Regular (JSON also accepted).", "color: Black, size: Regular"],
+    ["19", "specifications", "NO", "Technical bullet points or specifications.", "180 GSM, Pre-shrunk fabric, Machine wash cold"],
+    ["20", "additional_details", "NO", "Care instructions, warranty, or additional seller notes.", "Wash cold with like colors, do not iron on print"],
+    ["21", "return_policy", "NO", "Return policy: Returnable or Non-Returnable (defaults to Non-Returnable).", "Returnable"],
+    ["22", "return_limit_days", "NO", "Return window in days if Returnable (e.g. 7 or 14).", "7"],
+    ["23", "replacement_allowed", "NO", "Is product replacement allowed? Enter Yes or No (defaults to No).", "Yes"],
+    ["24", "delivery_days", "NO", "Estimated delivery time in days (integer >= 1, defaults to 7).", "5"],
     [""],
-    ["3. IMAGES, WEIGHT & DIMENSIONS:"],
-    ["• weight (optional/mandatory depending on category): Weight in kg (e.g. 0.5). Mandatory if category requires weight."],
-    ["• height, width, depth (optional): Package dimensions in cm (e.g. 10)."],
-    ["• product_variant_images: Public image URLs separated by vertical bar (|) or newlines. E.g. https://example.com/img1.jpg|https://example.com/img2.jpg"],
-    ["• variant_details (optional): Attributes in JSON format. E.g. {\"color\":\"Black\",\"size\":\"L\"}"],
-    ["• condition (optional): 'NEW' or 'USED' (default is NEW)."],
-    ["• delivery_charge_per_km (optional): Additional delivery charge per km (default 0)."],
-    [""],
-    ["4. FILE LIMITS & DUMMY DATA:"],
-    ["• Maximum 500 data rows per Excel/CSV import."],
-    ["• Dummy data example: Price = 100, Discount/Selling Price = 80 (customer will pay 80)."],
-    ["• Please replace or delete the example rows in the 'Products' tab before importing."],
+    ["NOTE: Please replace or delete the example dummy rows in the 'Products' tab before importing your real catalog."]
   ]
   const ws2 = XLSX.utils.aoa_to_sheet(instr)
   XLSX.utils.book_append_sheet(wb, ws2, "Instructions")

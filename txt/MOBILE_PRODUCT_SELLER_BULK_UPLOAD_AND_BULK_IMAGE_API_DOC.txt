@@ -1,0 +1,816 @@
+================================================================================
+MOBILE PRODUCT SELLER BULK PRODUCT & BULK IMAGE UPLOAD API DOCUMENTATION
+================================================================================
+Document Version: 1.0.0
+Base URL: https://<your-domain>
+Authentication: Bearer <MOBILE_ACCESS_TOKEN> (JWT)
+Role Requirement: SELLER_PRODUCT (UserRole: SELLER_PRODUCT)
+Target Audience: Mobile App Developers (Flutter / React Native / iOS / Android)
+Date: September 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. OVERVIEW & CAPABILITY STATUS
+2. ARCHITECTURE & END-TO-END MOBILE WORKFLOW
+3. BULK IMAGE MANAGEMENT APIS
+   3.1 Upload Images in Bulk (POST)
+   3.2 List Stored Media Gallery Images (GET)
+   3.3 Delete Media Gallery Images (DELETE)
+   3.4 Update Image Used/Unused Status (PATCH)
+4. BULK PRODUCT TEMPLATE APIS
+   4.1 Download Spreadsheet Template (GET XLSX / CSV)
+   4.2 Retrieve Template Schema in JSON (GET JSON)
+5. BULK PRODUCT IMPORT APIS
+   5.1 Upload & Import Spreadsheet (POST)
+   5.2 Background AI Dimensions Job Progress & Status (GET)
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (24 COLUMNS)
+7. MULTI-VARIANT GROUPING & AUTO-CATEGORY LOGIC
+8. SUBSCRIPTION LIMITS & ERROR HANDLING
+9. CLIENT INTEGRATION EXAMPLES (FLUTTER & REACT NATIVE)
+
+================================================================================
+1. OVERVIEW & CAPABILITY STATUS
+================================================================================
+Does the mobile API have bulk product upload and bulk image upload support?
+- PREVIOUS STATUS: No. Only the web seller dashboard supported bulk Excel/CSV
+  imports and bulk image management, protected strictly with web session cookies.
+  The `/mobileapi/product-seller/upload` directory was empty.
+- CURRENT STATUS: YES, FULLY IMPLEMENTED AND SUPPORTED.
+  Dedicated mobile endpoints have been built under `/mobileapi/product-seller/`
+  with full Bearer JWT authentication, multi-variant grouping, auto-category
+  matching, S3 storage with EXIF sanitization, and automated AI dimension
+  enrichment.
+  Additionally, existing `/api/product-seller/...` endpoints have been upgraded
+  with dual authentication so mobile apps can call either path seamlessly.
+
+PRIMARY ENDPOINTS:
+  1. Bulk Image Upload:    POST   /mobileapi/product-seller/upload/bulk-images
+  2. Image Gallery List:   GET    /mobileapi/product-seller/upload/bulk-images
+  3. Delete Images:        DELETE /mobileapi/product-seller/upload/bulk-images
+  4. Toggle Used Status:   PATCH  /mobileapi/product-seller/upload/bulk-images
+  5. Download Template:    GET    /mobileapi/product-seller/product/bulk-template
+  6. Bulk Product Import:  POST   /mobileapi/product-seller/product/bulk-import
+  7. AI Packaging Progress: GET   /mobileapi/product-seller/product/bulk-import/progress
+
+ALIAS COMPATIBILITY ENDPOINTS (Plural aliases also supported):
+  - GET  /mobileapi/product-seller/products/bulk-template
+  - POST /mobileapi/product-seller/products/bulk-import
+  - GET  /mobileapi/product-seller/products/bulk-import/progress
+  - POST /api/product-seller/products/bulk-import (supports Bearer JWT)
+  - GET  /api/product-seller/products/bulk-template (supports Bearer JWT)
+  - GET  /api/product-seller/products/bulk-import/progress (supports Bearer JWT)
+  - POST /api/product-seller/upload/bulk-images (supports Bearer JWT)
+
+--------------------------------------------------------------------------------
+FREQUENTLY ASKED QUESTIONS: EXCEL DOWNLOAD & CROSS-PLATFORM COMPATIBILITY
+--------------------------------------------------------------------------------
+Q1: Is the Excel template download available on Mobile?
+A1: YES! The mobile API endpoint is:
+    GET /mobileapi/product-seller/product/bulk-template?format=xlsx&dummy=true
+    (or ?format=csv or ?format=json).
+    The mobile app can download the template directly to the user's phone, open
+    it with Microsoft Excel, Google Sheets, or Apple Numbers, or share it via
+    WhatsApp / email.
+
+Q2: Are the Excel templates COMMON between Web and Mobile?
+A2: YES, 100% COMMON.
+    - The backend uses the exact same template generator (`buildTemplateXlsx`)
+      for both web and mobile.
+    - Both contain the exact same 24 columns, headers, dummy rows, and instructions.
+    - A template downloaded on Web can be uploaded from the Mobile App.
+    - A template downloaded from the Mobile App can be uploaded on the Web.
+    - Both use the same atomic database transaction, validation engine, category
+      auto-matching, and AI dimensions background processor.
+
+================================================================================
+2. ARCHITECTURE & END-TO-END MOBILE WORKFLOW
+================================================================================
+
+ [Seller on Mobile App]
+          │
+          ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ STEP 1: BULK IMAGE UPLOAD                              │
+ │ App selects photos from camera/gallery                 │
+ │ Calls: POST /mobileapi/product-seller/upload/bulk-images│
+ │ Result: Public S3 URLs returned & stored in media bank │
+ └──────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ STEP 2: DOWNLOAD EXCEL / CSV TEMPLATE                  │
+ │ App calls: GET /mobileapi/product-seller/product/      │
+ │                bulk-template?format=xlsx&dummy=true    │
+ │ Pre-populated with seller's assigned categories        │
+ └──────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ STEP 3: FILL SPREADSHEET WITH DATA & IMAGE URLS        │
+ │ Seller adds products & variants in Excel/Numbers       │
+ │ Pastes image URLs into 'product_variant_images' column │
+ └──────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ STEP 4: BULK PRODUCT IMPORT                            │
+ │ App calls: POST /mobileapi/product-seller/product/     │
+ │                 bulk-import (multipart with 'file')    │
+ │ - Validates fields, stocks, weights, and categories    │
+ │ - Auto-groups variants with same product_name          │
+ │ - Auto-connects / auto-creates marketplace categories  │
+ │ - Database transaction creates Products & Variants     │
+ │ - Dispatches background AI Dimension Enrichment Job    │
+ └────────────────────────────────────────────────────────┘
+
+================================================================================
+3. BULK IMAGE MANAGEMENT APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 UPLOAD IMAGES IN BULK
+--------------------------------------------------------------------------------
+Uploads 1 or multiple image files to Amazon S3 (with fallback), strips EXIF
+metadata for privacy/security, and registers each file into the seller's media
+gallery library.
+
+Endpoint: POST /mobileapi/product-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: multipart/form-data
+
+Request Body (FormData):
+  - `files`: File[] (multiple files)
+  - OR `file`: File (single file)
+  - Supported extensions: .jpg, .jpeg, .png, .webp, .gif
+  - Max size per file: 10 MB
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "images": [
+      {
+        "id": "cm8a91xkz0001...",
+        "sellerId": "cm89ab23c0000...",
+        "url": "https://s3.us-east-1.amazonaws.com/uploads/products/product-1711200000-abc.jpg",
+        "filename": "summer_shirt_front.jpg",
+        "size": 1420580,
+        "mimeType": "image/jpeg",
+        "isUsed": false,
+        "createdAt": "2026-09-23T10:15:30.000Z"
+      },
+      {
+        "id": "cm8a91xkz0002...",
+        "sellerId": "cm89ab23c0000...",
+        "url": "https://s3.us-east-1.amazonaws.com/uploads/products/product-1711200001-xyz.jpg",
+        "filename": "summer_shirt_back.jpg",
+        "size": 1823900,
+        "mimeType": "image/jpeg",
+        "isUsed": false,
+        "createdAt": "2026-09-23T10:15:31.000Z"
+      }
+    ],
+    "count": 2
+  },
+  "images": [ ... ]  // Also provided at top-level for backwards compatibility
+}
+
+Error Responses:
+- 400 Bad Request (No files or invalid formats):
+  {
+    "success": false,
+    "error": "No image files provided. Send images under 'files' or 'file' key."
+  }
+- 403 Forbidden (Seller not approved or suspended):
+  {
+    "success": false,
+    "error": "Your seller account is pending approval."
+  }
+
+--------------------------------------------------------------------------------
+3.2 LIST STORED MEDIA GALLERY IMAGES
+--------------------------------------------------------------------------------
+Fetch images already uploaded by this seller. Perfect for displaying a media
+picker in the mobile app where sellers can tap to copy URLs or assign images.
+
+Endpoint: GET /mobileapi/product-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Query Parameters:
+| Param     | Type    | Default | Description                                  |
+| :-------- | :------ | :------ | :------------------------------------------- |
+| `page`    | integer | 1       | Current page number                          |
+| `perPage` | integer | 50      | Number of items per page (or `limit`)        |
+| `status`  | string  | ALL     | Filter by usage: `ALL`, `USED`, or `UNUSED`  |
+| `q`       | string  | —       | Case-insensitive search on `filename`        |
+| `all`     | boolean | false   | Set to `true` to return all images unpaged   |
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "images": [
+      {
+        "id": "cm8a91xkz0001...",
+        "sellerId": "cm89ab23c0000...",
+        "url": "https://s3.amazonaws.com/uploads/products/product-1711200000-abc.jpg",
+        "filename": "summer_shirt_front.jpg",
+        "size": 1420580,
+        "mimeType": "image/jpeg",
+        "isUsed": true,
+        "createdAt": "2026-09-23T10:15:30.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 45,
+      "page": 1,
+      "perPage": 50,
+      "totalPages": 1
+    }
+  },
+  "images": [ ... ]
+}
+
+--------------------------------------------------------------------------------
+3.3 DELETE MEDIA GALLERY IMAGES
+--------------------------------------------------------------------------------
+Endpoint: DELETE /mobileapi/product-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (if passing JSON body)
+
+Query Param OR JSON Body:
+  - Query String: `?id=cm8a91xkz0001...`
+  - OR JSON Body for Single: `{ "id": "cm8a91xkz0001..." }`
+  - OR JSON Body for Bulk:   `{ "ids": ["cm8a91xkz0001...", "cm8a91xkz0002..."] }`
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "deletedCount": 2,
+    "deletedIds": ["cm8a91xkz0001...", "cm8a91xkz0002..."]
+  },
+  "message": "2 image(s) deleted successfully"
+}
+
+--------------------------------------------------------------------------------
+3.4 UPDATE IMAGE USED / UNUSED STATUS
+--------------------------------------------------------------------------------
+Endpoint: PATCH /mobileapi/product-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json
+
+Request Body:
+{
+  "ids": ["cm8a91xkz0001...", "cm8a91xkz0002..."],
+  "isUsed": true
+}
+(Single `id` string also supported: `{ "id": "cm8a...", "isUsed": true }`)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "updatedCount": 2,
+    "isUsed": true
+  },
+  "count": 2,
+  "isUsed": true
+}
+
+================================================================================
+4. BULK PRODUCT TEMPLATE APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 DOWNLOAD SPREADSHEET TEMPLATE (XLSX / CSV)
+--------------------------------------------------------------------------------
+Downloads the official bulk import template pre-populated with the seller's
+assigned categories.
+
+Endpoint: GET /mobileapi/product-seller/product/bulk-template
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Query Parameters:
+| Param    | Type    | Default | Description                                   |
+| :------- | :------ | :------ | :-------------------------------------------- |
+| `format` | string  | xlsx    | File format: `xlsx` or `csv`                  |
+| `dummy`  | boolean | true    | If `true`, includes filled sample rows        |
+
+Response Headers & Payload:
+- For `xlsx`:
+  - `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+  - `Content-Disposition: attachment; filename="product-bulk-example.xlsx"`
+  - Body: Binary XLSX file containing 2 sheets:
+    1. "Products": The data input sheet with formatted column headers.
+    2. "Instructions & Guide": Step-by-step documentation for sellers.
+- For `csv`:
+  - `Content-Type: text/csv; charset=utf-8`
+  - `Content-Disposition: attachment; filename="product-bulk-example.csv"`
+  - Body: UTF-8 encoded CSV text.
+
+--------------------------------------------------------------------------------
+4.2 RETRIEVE TEMPLATE SCHEMA IN JSON
+--------------------------------------------------------------------------------
+Useful for mobile apps that want to display the template columns, sample data,
+and seller's assigned categories inside a native UI.
+
+Endpoint: GET /mobileapi/product-seller/product/bulk-template?format=json
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "filename": "product-bulk-example.xlsx",
+    "sellerCategories": ["Clothing & Fashion", "Electronics", "Home & Kitchen"],
+    "columns": [
+      {
+        "key": "category",
+        "required": true,
+        "description": "Category name (must match one of your assigned categories or an active marketplace category)"
+      },
+      {
+        "key": "product_name",
+        "required": true,
+        "description": "Product name (rows with identical name will be grouped into one product with multiple variants)"
+      },
+      {
+        "key": "brand",
+        "required": false,
+        "description": "Brand name"
+      },
+      {
+        "key": "product_description",
+        "required": false,
+        "description": "Product overview / description"
+      },
+      {
+        "key": "condition",
+        "required": false,
+        "description": "NEW or USED (defaults to NEW)"
+      },
+      {
+        "key": "delivery_charge_per_km",
+        "required": false,
+        "description": "Custom per-km delivery fee if applicable"
+      },
+      {
+        "key": "variant_name",
+        "required": true,
+        "description": "Variant title e.g. 'Red / XL' or 'Standard'"
+      },
+      {
+        "key": "price",
+        "required": true,
+        "description": "Original selling price in local currency"
+      },
+      {
+        "key": "discount",
+        "required": false,
+        "description": "Discount amount (defaults to 0)"
+      },
+      {
+        "key": "gst_applicable",
+        "required": false,
+        "description": "Tax applicable: YES / NO (defaults to YES)"
+      },
+      {
+        "key": "stock",
+        "required": true,
+        "description": "Available inventory count"
+      },
+      {
+        "key": "sku_code",
+        "required": false,
+        "description": "Unique seller stock keeping unit code"
+      },
+      {
+        "key": "weight",
+        "required": false,
+        "description": "Product weight in KG (mandatory for certain categories)"
+      },
+      {
+        "key": "height",
+        "required": false,
+        "description": "Package height in CM"
+      },
+      {
+        "key": "width",
+        "required": false,
+        "description": "Package width in CM"
+      },
+      {
+        "key": "depth",
+        "required": false,
+        "description": "Package depth in CM"
+      },
+      {
+        "key": "product_variant_images",
+        "required": false,
+        "description": "Image URLs separated by '|' or newline"
+      },
+      {
+        "key": "variant_details",
+        "required": false,
+        "description": "Key-value attributes e.g. 'color: Black, size: Regular' (or JSON format)"
+      },
+      {
+        "key": "specifications",
+        "required": false,
+        "description": "Technical specifications text"
+      },
+      {
+        "key": "additional_details",
+        "required": false,
+        "description": "Care instructions or notes"
+      },
+      {
+        "key": "return_policy",
+        "required": false,
+        "description": "RETURNABLE or NON_RETURNABLE (defaults to NON_RETURNABLE)"
+      },
+      {
+        "key": "return_limit_days",
+        "required": false,
+        "description": "Days window allowed for return (e.g. 7)"
+      },
+      {
+        "key": "replacement_allowed",
+        "required": false,
+        "description": "YES or NO"
+      },
+      {
+        "key": "delivery_days",
+        "required": false,
+        "description": "Estimated delivery days (integer >= 1, defaults to 7)"
+      }
+    ],
+    "sampleRow": {
+      "category": "Clothing & Fashion",
+      "product_name": "Premium Cotton T-Shirt",
+      "brand": "Meeem Basics",
+      "product_description": "100% organic cotton breathable casual t-shirt.",
+      "condition": "NEW",
+      "delivery_charge_per_km": "0",
+      "variant_name": "Black / L",
+      "price": "29.99",
+      "discount": "5",
+      "gst_applicable": "YES",
+      "stock": "50",
+      "sku_code": "TSHIRT-BLK-L",
+      "weight": "0.25",
+      "height": "2",
+      "width": "25",
+      "depth": "30",
+      "product_variant_images": "https://s3.amazonaws.com/uploads/products/sample1.jpg | https://s3.amazonaws.com/uploads/products/sample2.jpg",
+      "variant_details": "color: Black, size: L",
+      "specifications": "100% Combed Cotton, 180 GSM",
+      "additional_details": "Machine wash cold with like colors.",
+      "return_policy": "RETURNABLE",
+      "return_limit_days": "7",
+      "replacement_allowed": "YES",
+      "delivery_days": "5"
+    }
+  }
+}
+
+================================================================================
+5. BULK PRODUCT IMPORT APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 UPLOAD & IMPORT SPREADSHEET
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/product/bulk-import
+(Alias:   POST /mobileapi/product-seller/products/bulk-import)
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: multipart/form-data
+
+Request Body (FormData):
+  - `file`: File (The .xlsx or .csv spreadsheet file)
+  - Max file size: 8 MB
+  - Max data rows: 500 rows per file
+
+Success Response (200 OK):
+{
+  "success": true,
+  "ok": true,
+  "data": {
+    "createdProducts": 10,
+    "createdVariants": 25,
+    "jobId": "job_cm8a91xkz..."
+  },
+  "createdProducts": 10,
+  "createdVariants": 25,
+  "jobId": "job_cm8a91xkz...",
+  "message": "Successfully imported 10 product(s) with 25 variant(s)."
+}
+
+Validation Error Response (400 Bad Request):
+If any rows fail validation, the entire file is rejected in an atomic transaction
+so the database remains clean. Clear, actionable row-specific errors are returned:
+{
+  "success": false,
+  "error": "Import validation failed",
+  "errors": [
+    "Row 3: price must be a valid number greater than 0",
+    "Row 5: weight is mandatory for category Electronics",
+    "Row 8: variant_details must be a valid JSON object string (e.g. {\"Color\":\"Red\"})",
+    "Product 'Summer T-Shirt' (rows 12, 13): conflicting product_name for the same product group"
+  ]
+}
+
+Plan Limit Exceeded Response (403 Forbidden):
+{
+  "success": false,
+  "error": "This import would create 15 products but your plan allows 50 total (40 in use). Upgrade to add more."
+}
+
+--------------------------------------------------------------------------------
+5.2 BACKGROUND AI DIMENSIONS JOB PROGRESS & STATUS
+--------------------------------------------------------------------------------
+When products are imported, the backend triggers an automated background AI
+job to enrich product variants with packaging dimensions (weight, height,
+width, depth) using Gemini AI image and title analysis.
+The app can check real-time progress using the `jobId` returned from the import:
+
+Primary Endpoint: GET /mobileapi/product-seller/product/bulk-import/progress?jobId=<JOB_ID>
+Alias Endpoints:
+  - GET /mobileapi/product-seller/products/bulk-import/progress?jobId=<JOB_ID>
+  - GET /api/product-seller/products/bulk-import/progress?jobId=<JOB_ID>
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "hasActiveJob": true,
+  "data": {
+    "jobId": "bulk_ai_1711200000_abc",
+    "totalCount": 25,
+    "processedCount": 25,
+    "fallbackCount": 0,
+    "aiSuccessCount": 25,
+    "percentage": 100,
+    "status": "COMPLETED",   // "RUNNING" | "COMPLETED" | "FAILED"
+    "isCompleted": true
+  },
+  "job": {
+    "jobId": "bulk_ai_1711200000_abc",
+    "totalCount": 25,
+    "processedCount": 25,
+    "fallbackCount": 0,
+    "aiSuccessCount": 25,
+    "percentage": 100,
+    "status": "COMPLETED",
+    "isCompleted": true
+  }
+}
+
+If no active job is found:
+{
+  "success": true,
+  "hasActiveJob": false,
+  "data": null
+}
+
+================================================================================
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (24 COLUMNS)
+================================================================================
+
+| #  | Column Header             | Req? | What To Put (Detailed Instructions for Sellers)                                                      | Small Concrete Example |
+| :- | :------------------------ | :--- | :--------------------------------------------------------------------------------------------------- | :--------------------- |
+| 1  | `category`                | YES  | Category name matching one of your assigned categories or an active marketplace category.           | Clothing & Fashion     |
+| 2  | `product_name`            | YES  | Full product title. Rows with identical name are grouped as variants of 1 product listing.           | Slim Fit Cotton T-Shirt|
+| 3  | `brand`                   | NO   | Brand or manufacturer name. Leave blank if unbranded.                                                | Nike                   |
+| 4  | `product_description`     | NO   | Full overview and description of the product.                                                        | 100% organic cotton... |
+| 5  | `condition`               | NO   | Item condition: NEW or USED (default is NEW).                                                        | NEW                    |
+| 6  | `delivery_charge_per_km`  | NO   | Custom shipping fee per km. Enter 0 for standard delivery.                                           | 0                      |
+| 7  | `variant_name`            | YES  | Specific name of this variant (size, color, pack, or model).                                        | Black / L              |
+| 8  | `price`                   | YES  | Original MRP / listed price before discount (positive number).                                       | 100                    |
+| 9  | `discount`                | NO   | Final selling price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = 100.    | 80                     |
+| 10 | `gst_applicable`          | NO   | Tax applicable? Enter Yes or No (default is Yes).                                                    | Yes                    |
+| 11 | `stock`                   | YES  | Available stock quantity for this variant (integer >= 0).                                            | 50                     |
+| 12 | `sku_code`                | NO   | Your internal SKU / barcode identifier for inventory tracking.                                       | TSHIRT-BLK-L           |
+| 13 | `weight`                  | COND | Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.                      | 0.35                   |
+| 14 | `height`                  | NO   | Package height in CM (auto-estimated by AI if omitted).                                              | 5                      |
+| 15 | `width`                   | NO   | Package width in CM (auto-estimated by AI if omitted).                                               | 20                     |
+| 16 | `depth`                   | NO   | Package depth in CM (auto-estimated by AI if omitted).                                               | 30                     |
+| 17 | `product_variant_images`  | NO   | Public image URLs separated by vertical bar (|) or newline.                                          | https://.../1.jpg      |
+| 18 | `variant_details`         | NO   | Natural attributes: color: Black, size: Regular (JSON also supported).                               | color: Black, size: L  |
+| 19 | `specifications`          | NO   | Technical bullet points or specifications.                                                           | 180 GSM, Machine wash  |
+| 20 | `additional_details`      | NO   | Care instructions, warranty, or additional seller notes.                                             | Wash cold, do not iron |
+| 21 | `return_policy`           | NO   | Return policy: Returnable or Non-Returnable (default is Non-Returnable).                             | Returnable             |
+| 22 | `return_limit_days`       | NO   | Return window in days if Returnable (e.g. 7 or 14).                                                  | 7                      |
+| 23 | `replacement_allowed`     | NO   | Is product replacement allowed? Enter Yes or No (default is No).                                     | Yes                    |
+| 24 | `delivery_days`           | NO   | Estimated delivery time in days (integer >= 1, default is 7).                                        | 5                      |
+
+KEY NOTES ON SPREADSHEET RULES:
+- Simplified Variant Details: Instead of typing JSON with braces and quotes, sellers can simply enter natural key-value pairs like:
+  `color: Black, size: Regular` or `color: Gold | size: Premium` (comma, semicolon, or pipe separated). Standard JSON like `{"color":"Black","size":"Regular"}` is also fully supported.
+- Required Variant Fields: Every row MUST have `variant_name`, `price`, and `stock`.
+- Images Separator: When providing multiple images in `product_variant_images`, separate them with `|` (e.g. `https://s3.../img1.jpg | https://s3.../img2.jpg`).
+- Master Image: The master image of the product is automatically taken from the first image of the first variant.
+- Category Weight Requirement: If an admin configured a category with `weightMandatory = true`, the `weight` column must be greater than 0, otherwise import will fail with a friendly prompt.
+
+================================================================================
+7. MULTI-VARIANT GROUPING & AUTO-CATEGORY LOGIC
+================================================================================
+
+1. Multi-Variant Grouping:
+   - Rows in the spreadsheet that have the exact same `product_name` (case-insensitive)
+     are automatically merged into a single parent `Product` record with multiple
+     `ProductVariant` records.
+   - Example:
+     Row 2: product_name = "Nike Air Max", variant_name = "Size 9 / Blue"
+     Row 3: product_name = "Nike Air Max", variant_name = "Size 10 / Red"
+     -> Result: 1 Product ("Nike Air Max") with 2 child Variants.
+   - All rows belonging to the same `product_name` must share the same `category`.
+
+2. Intelligent Category Matching & Auto-Creation:
+   - When processing the `category` column:
+     Step A: Looks for an exact or fuzzy match among the seller's selected categories.
+     Step B: If not selected by the seller, looks across all active marketplace categories.
+             If found, it automatically connects that category to the seller's account.
+     Step C: If no existing marketplace category matches, the system automatically
+             creates a brand new active Category, links it to the seller, and sets
+             the category icon/banner from the first variant image uploaded in the file!
+
+================================================================================
+8. SUBSCRIPTION LIMITS & ERROR HANDLING
+================================================================================
+
+1. Product Limit Enforcement:
+   Before any records are inserted, the system queries the seller's active plan:
+   `checkProductLimit(seller.id)`
+   - If the seller's plan limit is reached (e.g. Free plan allows 50 products and
+     seller already has 50), the upload is rejected with HTTP 403.
+   - If the new import would cause the total to exceed the limit (e.g. 45 current +
+     10 in file > 50 limit), the upload is rejected with HTTP 403 explaining the
+     exact count.
+
+2. Error Code Matrix:
+| Status Code | Meaning            | Common Cause                                              |
+| :---------- | :----------------- | :-------------------------------------------------------- |
+| 200 OK      | Import Success     | Products and variants created, AI job triggered.          |
+| 400 Bad Req | Validation Error   | Invalid spreadsheet syntax, missing required fields.      |
+| 401 Unauth  | Unauthorized       | Missing or expired Bearer token.                          |
+| 403 Forbid  | Forbidden          | Seller pending approval, suspended, or plan limit reached.|
+| 404 Not Fnd | Not Found          | Seller profile does not exist.                            |
+| 500 Server  | Internal Error     | File parsing error or database connectivity issue.        |
+
+================================================================================
+9. CLIENT INTEGRATION EXAMPLES (FLUTTER & REACT NATIVE)
+================================================================================
+
+--------------------------------------------------------------------------------
+9.1 FLUTTER (DART) INTEGRATION
+--------------------------------------------------------------------------------
+
+```dart
+import 'dart:io';
+import 'package:dio/dio.dart';
+
+class BulkProductService {
+  final Dio dio = Dio(BaseOptions(
+    baseUrl: 'https://your-domain.com',
+    headers: {'Accept': 'application/json'},
+  ));
+
+  // 1. Bulk Upload Images
+  Future<List<String>> uploadBulkImages({
+    required List<File> imageFiles,
+    required String token,
+  }) async {
+    final formData = FormData();
+    for (var file in imageFiles) {
+      formData.files.add(MapEntry(
+        'files',
+        await MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+      ));
+    }
+
+    final response = await dio.post(
+      '/mobileapi/product-seller/upload/bulk-images',
+      data: formData,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+
+    if (response.statusCode == 200 && response.data['success'] == true) {
+      final images = response.data['data']['images'] as List;
+      return images.map((img) => img['url'] as String).toList();
+    }
+    throw Exception(response.data['error'] ?? 'Image upload failed');
+  }
+
+  // 2. Download Template
+  Future<void> downloadTemplate({
+    required String savePath,
+    required String token,
+    String format = 'xlsx',
+  }) async {
+    await dio.download(
+      '/mobileapi/product-seller/product/bulk-template?format=$format&dummy=true',
+      savePath,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+  }
+
+  // 3. Bulk Import Spreadsheet
+  Future<Map<String, dynamic>> importProducts({
+    required File spreadsheetFile,
+    required String token,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        spreadsheetFile.path,
+        filename: spreadsheetFile.path.split('/').last,
+      ),
+    });
+
+    final response = await dio.post(
+      '/mobileapi/product-seller/product/bulk-import',
+      data: formData,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+
+    if (response.statusCode == 200 && response.data['success'] == true) {
+      return response.data['data']; // contains createdProducts, createdVariants, jobId
+    } else {
+      final errors = response.data['errors'];
+      if (errors != null && errors is List) {
+        throw Exception(errors.join('\n'));
+      }
+      throw Exception(response.data['error'] ?? 'Import failed');
+    }
+  }
+}
+```
+
+--------------------------------------------------------------------------------
+9.2 REACT NATIVE (AXIOS / FETCH) INTEGRATION
+--------------------------------------------------------------------------------
+
+```typescript
+import axios from 'axios';
+
+const API_BASE = 'https://your-domain.com';
+
+// 1. Bulk Upload Images
+export async function uploadBulkImages(images: Array<{ uri: string; name: string; type: string }>, token: string) {
+  const formData = new FormData();
+  images.forEach((img) => {
+    formData.append('files', {
+      uri: img.uri,
+      name: img.name,
+      type: img.type,
+    } as any);
+  });
+
+  const res = await axios.post(`${API_BASE}/mobileapi/product-seller/upload/bulk-images`, formData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data.data.images; // Array of { id, url, filename, size, ... }
+}
+
+// 2. Import Products Spreadsheet
+export async function importProducts(file: { uri: string; name: string; type: string }, token: string) {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as any);
+
+  try {
+    const res = await axios.post(`${API_BASE}/mobileapi/product-seller/product/bulk-import`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data.data; // { createdProducts, createdVariants, jobId }
+  } catch (err: any) {
+    if (err.response?.data?.errors) {
+      throw new Error(err.response.data.errors.join('\n'));
+    }
+    throw new Error(err.response?.data?.error || 'Import failed');
+  }
+}
+```
+
+================================================================================
+END OF BULK PRODUCT & BULK IMAGE MOBILE API DOCUMENTATION
+================================================================================

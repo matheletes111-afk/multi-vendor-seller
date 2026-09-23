@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
+import { verifyMobileAuth } from "@/lib/mobile-auth-server"
+import { UserRole } from "@prisma/client"
 import {
   BULK_TEMPLATE_FILENAME_CSV,
   BULK_TEMPLATE_FILENAME_XLSX,
@@ -10,13 +12,24 @@ import {
 } from "@/lib/product-seller-bulk-import-parse"
 
 export async function GET(request: NextRequest) {
+  let sellerUserId: string | null = null
+
   const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  if (session?.user && isProductSeller(session.user)) {
+    sellerUserId = session.user.id
+  } else {
+    const mobileAuth = await verifyMobileAuth(request, UserRole.SELLER_PRODUCT)
+    if (mobileAuth.success) {
+      sellerUserId = mobileAuth.user.id
+    }
+  }
+
+  if (!sellerUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: sellerUserId },
     include: {
       selectedCategories: {
         where: { isActive: true },

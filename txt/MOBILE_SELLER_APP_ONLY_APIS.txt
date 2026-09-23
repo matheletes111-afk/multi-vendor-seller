@@ -140,15 +140,28 @@ Each variant inside `data.products[].variants` or `data.variants` returns:
 
 
 --------------------------------------------------------------------------------
-5. BULK IMPORT (EXCEL / CSV)
+5. BULK PRODUCT & BULK IMAGE UPLOAD
 --------------------------------------------------------------------------------
-Endpoint: POST /api/product-seller/products/bulk-import
-Template: GET /api/product-seller/products/bulk-template?format=xlsx
+Full Master Documentation: txt/MOBILE_PRODUCT_SELLER_BULK_UPLOAD_AND_BULK_IMAGE_API_DOC.txt
 
-New Column Header:
-  `delivery_days`
-  - Value: Any integer >= 1 (e.g. 3, 5, 7, 10, 14)
-  - If left blank or omitted: Defaults to 7.
+Primary Mobile Endpoints:
+- Bulk Image Upload:   POST   /mobileapi/product-seller/upload/bulk-images
+- Image Gallery List:  GET    /mobileapi/product-seller/upload/bulk-images
+- Delete Images:       DELETE /mobileapi/product-seller/upload/bulk-images
+- Toggle Used Status:  PATCH  /mobileapi/product-seller/upload/bulk-images
+- Download Template:   GET    /mobileapi/product-seller/product/bulk-template?format=xlsx&dummy=true
+- Bulk Product Import: POST   /mobileapi/product-seller/product/bulk-import
+
+Alias Endpoints (Also supported with Bearer token):
+- POST /api/product-seller/products/bulk-import
+- GET  /api/product-seller/products/bulk-template?format=xlsx
+- POST /api/product-seller/upload/bulk-images
+
+Key Features:
+- Multi-variant grouping by product_name
+- Automatic category matching & creation with first variant image
+- Background AI dimension enrichment (jobId)
+- EXIF metadata sanitization and S3 storage
 
 ================================================================================
 END OF PRODUCT SELLER APP DOCUMENTATION

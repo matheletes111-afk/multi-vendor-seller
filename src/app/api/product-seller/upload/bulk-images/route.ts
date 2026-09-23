@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth"
 import { isProductSeller } from "@/lib/rbac"
 import { prisma } from "@/lib/prisma"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { verifyMobileAuth } from "@/lib/mobile-auth-server"
+import { UserRole } from "@prisma/client"
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB per image
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -17,24 +19,33 @@ function getImageExtFromContentType(contentType?: string | null) {
   return ".jpg"
 }
 
+async function getSellerIdFromSessionOrMobile(request: NextRequest): Promise<string | null> {
+  const session = await auth()
+  if (session?.user && isProductSeller(session.user)) {
+    const seller = await prisma.seller.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    return seller?.id || null
+  }
+
+  const mobileAuth = await verifyMobileAuth(request, UserRole.SELLER_PRODUCT)
+  if (mobileAuth.success) {
+    return mobileAuth.seller.id
+  }
+
+  return null
+}
+
 /** GET: Fetch seller's stored media images */
 export async function GET(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  const sellerId = await getSellerIdFromSessionOrMobile(request)
+  if (!sellerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true },
-  })
-
-  if (!seller) {
-    return NextResponse.json({ error: "Seller profile not found" }, { status: 404 })
-  }
-
   const images = await prisma.sellerMediaImage.findMany({
-    where: { sellerId: seller.id },
+    where: { sellerId },
     orderBy: { createdAt: "desc" },
   })
 
@@ -43,18 +54,9 @@ export async function GET(request: NextRequest) {
 
 /** POST: Upload images to S3 and save DB records */
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  const sellerId = await getSellerIdFromSessionOrMobile(request)
+  if (!sellerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true },
-  })
-
-  if (!seller) {
-    return NextResponse.json({ error: "Seller profile not found" }, { status: 404 })
   }
 
   const formData = await request.formData()
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
 
       const record = await prisma.sellerMediaImage.create({
         data: {
-          sellerId: seller.id,
+          sellerId,
           url,
           filename: file.name || "image" + ext,
           size: file.size,
@@ -130,18 +132,9 @@ export async function POST(request: NextRequest) {
 
 /** DELETE: Delete a media image record by ID */
 export async function DELETE(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  const sellerId = await getSellerIdFromSessionOrMobile(request)
+  if (!sellerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true },
-  })
-
-  if (!seller) {
-    return NextResponse.json({ error: "Seller profile not found" }, { status: 404 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -158,7 +151,7 @@ export async function DELETE(request: NextRequest) {
 
   // Ensure image belongs to seller
   const existing = await prisma.sellerMediaImage.findFirst({
-    where: { id, sellerId: seller.id },
+    where: { id, sellerId },
   })
 
   if (!existing) {
@@ -174,18 +167,9 @@ export async function DELETE(request: NextRequest) {
 
 /** PATCH: Update isUsed status for single or bulk image IDs */
 export async function PATCH(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  const sellerId = await getSellerIdFromSessionOrMobile(request)
+  if (!sellerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const seller = await prisma.seller.findUnique({
-    where: { userId: session.user.id },
-    select: { id: true },
-  })
-
-  if (!seller) {
-    return NextResponse.json({ error: "Seller profile not found" }, { status: 404 })
   }
 
   const body = await request.json().catch(() => ({}))
@@ -201,7 +185,7 @@ export async function PATCH(request: NextRequest) {
   await prisma.sellerMediaImage.updateMany({
     where: {
       id: { in: ids },
-      sellerId: seller.id,
+      sellerId,
     },
     data: { isUsed },
   })
