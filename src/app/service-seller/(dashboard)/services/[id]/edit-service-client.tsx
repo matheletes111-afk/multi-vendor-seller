@@ -366,7 +366,7 @@ export function EditServiceClient({
             <PricingFields
               basePriceLabel="Base price (for fixed-price services)"
               defaultBasePrice={service.basePrice ?? 0}
-              defaultDiscount={service.discount ?? 0}
+              defaultDiscount={service.discount && service.discount > 0 && service.basePrice ? Math.max(0, Math.round((service.basePrice - service.discount) * 100) / 100) : 0}
               defaultHasGst={service.hasGst ?? true}
               showBasePrice={true}
               requireBasePrice={false}

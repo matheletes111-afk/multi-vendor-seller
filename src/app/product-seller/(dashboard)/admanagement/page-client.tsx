@@ -30,6 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/table"
+import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
+import { PayNowButton } from "@/components/ads/pay-now-button"
 
 type Ad = {
   id: string
@@ -45,6 +47,10 @@ type Ad = {
   endAt: string
   product: { id: string; name: string; slug: string } | null
   rejectionReason: string | null
+  paymentStatus?: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED" | string
+  payableAmount?: number
+  flotPaymentLink?: string | null
+  flotOrderId?: string | null
   _count: { adClicks: number }
 }
 
@@ -85,6 +91,12 @@ export function ProductSellerAdmanagementPageClient() {
 
   useEffect(() => {
     fetchAds()
+
+    const onFocus = () => {
+      fetchAds()
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
   }, [fetchAds])
 
   const paramsError = searchParams.get("error")
@@ -231,7 +243,12 @@ export function ProductSellerAdmanagementPageClient() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {ad.product?.name ?? "Own business ad"}
                       </TableCell>
-                      <TableCell>{statusBadge(ad)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-start gap-1">
+                          {statusBadge(ad)}
+                          <PaymentStatusBadge status={ad.paymentStatus} />
+                        </div>
+                      </TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(ad.startAt).toLocaleDateString()} - {new Date(ad.endAt).toLocaleDateString()}
                       </TableCell>
@@ -246,7 +263,15 @@ export function ProductSellerAdmanagementPageClient() {
                       <TableCell className="hidden sm:table-cell text-right">{ad._count.adClicks}</TableCell>
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-wrap justify-end gap-1.5 items-center">
+                          {!isEnded && ad.paymentStatus !== "COMPLETED" && (
+                            <PayNowButton
+                              adId={ad.id}
+                              paymentStatus={ad.paymentStatus || "PENDING"}
+                              flotPaymentLink={ad.flotPaymentLink}
+                              onStatusChanged={fetchAds}
+                            />
+                          )}
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/product-seller/admanagement/${ad.id}`}>
                               <Eye className="mr-1 h-3 w-3" />

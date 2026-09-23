@@ -31,7 +31,13 @@ export async function GET(
     return NextResponse.json({ error: "Service not found" }, { status: 404 })
   }
 
-  return NextResponse.json(service)
+  const sellingPrice = service.basePrice != null ? Math.max(0, service.basePrice - (service.discount || 0)) : null
+
+  return NextResponse.json({
+    ...service,
+    sellingPrice,
+    discountedPrice: sellingPrice,
+  })
 }
 
 export async function DELETE(
@@ -103,11 +109,24 @@ export async function PUT(
   if (typeof body.hasGst === "boolean") {
     updateData.hasGst = body.hasGst
   }
+  const effectiveBasePrice = typeof body.basePrice === "number" ? (body.basePrice > 0 ? body.basePrice : null) : service.basePrice
   if (typeof body.basePrice === "number") {
     updateData.basePrice = body.basePrice > 0 ? body.basePrice : null
   }
-  if (typeof body.discount === "number") {
-    updateData.discount = body.discount >= 0 ? Math.round(body.discount * 100) / 100 : 0
+  const rawSelling =
+    typeof body.sellingPrice === "number" && body.sellingPrice > 0
+      ? body.sellingPrice
+      : typeof body.discount === "number" && body.discount > 0
+      ? body.discount
+      : 0
+  if (typeof body.discount === "number" || typeof body.sellingPrice === "number") {
+    let discount = 0
+    if (effectiveBasePrice && rawSelling > 0) {
+      if (rawSelling < effectiveBasePrice) {
+        discount = Math.round((effectiveBasePrice - rawSelling) * 100) / 100
+      }
+    }
+    updateData.discount = discount
   }
   if (typeof body.duration === "number") {
     updateData.duration = body.duration > 0 ? Math.round(body.duration) : null

@@ -32,7 +32,16 @@ export async function GET(
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
-  return NextResponse.json(product)
+  const formattedVariants = product.variants.map((v) => ({
+    ...v,
+    sellingPrice: Math.max(0, v.price - (v.discount || 0)),
+    discountedPrice: Math.max(0, v.price - (v.discount || 0)),
+  }))
+
+  return NextResponse.json({
+    ...product,
+    variants: formattedVariants,
+  })
 }
 
 export async function PUT(
@@ -136,7 +145,22 @@ export async function PUT(
         const vName = typeof v?.name === "string" ? sanitizeInput(v.name) : "Variant"
         const vPrice = Number(v?.price ?? 0)
         const vStock = Number(v?.stock ?? 0)
-        const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+        const rawSellingPrice =
+          (v as any)?.sellingPrice !== undefined && (v as any)?.sellingPrice !== null && String((v as any).sellingPrice).trim() !== ""
+            ? Number((v as any).sellingPrice)
+            : (v as any)?.selling_price !== undefined && (v as any)?.selling_price !== null && String((v as any).selling_price).trim() !== ""
+            ? Number((v as any).selling_price)
+            : v?.discount !== undefined && v?.discount !== null && String(v.discount).trim() !== ""
+            ? Number(v.discount)
+            : undefined
+
+        let vDiscount = 0
+        if (rawSellingPrice !== undefined && !isNaN(rawSellingPrice) && rawSellingPrice > 0) {
+          if (rawSellingPrice > vPrice) {
+            return NextResponse.json({ error: `Selling price (${rawSellingPrice}) cannot exceed regular price (${vPrice})` }, { status: 400 })
+          }
+          vDiscount = Math.round((vPrice - rawSellingPrice) * 100) / 100
+        }
         const vWeight = v?.weight !== undefined && v?.weight !== null ? Number(v.weight) : null
         const vHeight = v?.height !== undefined && v?.height !== null ? Number(v.height) : 0
         const vWidth = v?.width !== undefined && v?.width !== null ? Number(v.width) : 0

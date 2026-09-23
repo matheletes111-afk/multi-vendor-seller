@@ -44,7 +44,10 @@ export function EditServiceClient({ serviceId }: { serviceId: string }) {
           setServiceCategoryId(service.serviceCategoryId)
           setServiceType(service.serviceType)
           setBasePrice(service.basePrice !== null ? service.basePrice : "")
-          setDiscount(service.discount || 0)
+          const initialSelling = service.discount && service.discount > 0 && service.basePrice
+            ? Math.max(0, Math.round((service.basePrice - service.discount) * 100) / 100)
+            : 0
+          setDiscount(initialSelling)
           setDuration(service.duration !== null ? service.duration : "")
           setIsActive(service.isActive)
         }
@@ -63,8 +66,8 @@ export function EditServiceClient({ serviceId }: { serviceId: string }) {
       if (basePrice === "" || isNaN(Number(basePrice)) || Number(basePrice) <= 0) {
         return setError("Base Price is required and must be greater than 0 for Fixed Price services")
       }
-      if (discount < 0 || discount > Number(basePrice)) {
-        return setError("Discount must be between 0 and Base Price")
+      if (discount > Number(basePrice)) {
+        return setError("Selling price cannot exceed Base Price")
       }
     }
 
@@ -225,7 +228,7 @@ export function EditServiceClient({ serviceId }: { serviceId: string }) {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="srvDisc" className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Discount ($)</Label>
+                    <Label htmlFor="srvDisc" className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Selling Price ($)</Label>
                     <Input
                       id="srvDisc"
                       type="number"
@@ -233,8 +236,14 @@ export function EditServiceClient({ serviceId }: { serviceId: string }) {
                       className="rounded-2xl h-12 bg-background border-muted"
                       value={discount}
                       onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="Discount"
+                      placeholder="e.g. 80 (leave 0 for base price)"
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      Enter final price you want to sell (e.g. if Price is 100 and you enter 80, customer pays 80).
+                    </p>
+                    {discount > 0 && Number(basePrice) > 0 && discount < Number(basePrice) && (
+                      <p className="text-[11px] text-emerald-600 font-medium">Customer discount: ${(Number(basePrice) - discount).toFixed(2)} ({Math.round(((Number(basePrice) - discount) / Number(basePrice)) * 100)}% OFF)</p>
+                    )}
                   </div>
                 </div>
               )}

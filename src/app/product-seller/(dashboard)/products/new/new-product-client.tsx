@@ -394,7 +394,11 @@ export function NewProductClient() {
       const v = variants[i]
       const price = parseFloat(v.price)
       const stock = parseInt(v.stock, 10)
-      const discount = parseFloat(v.discount) || 0
+      const sellingPrice = parseFloat(v.discount) || 0
+      if (sellingPrice > price) {
+        setError(`Variant ${i + 1}: Selling price (${sellingPrice}) cannot exceed regular price (${price})`)
+        return
+      }
       const weight = v.weight ? parseFloat(v.weight) : null
       const height = v.height ? parseFloat(v.height) : 0
       const width = v.width ? parseFloat(v.width) : 0
@@ -446,7 +450,7 @@ export function NewProductClient() {
       variantsPayload.push({
         name: v.name.trim() || `Variant ${i + 1}`,
         price,
-        discount,
+        discount: sellingPrice,
         hasGst: v.hasGst,
         stock,
         weight,
@@ -734,12 +738,29 @@ export function NewProductClient() {
                         <Input placeholder="e.g. Standard, Red / M" value={v.name} onChange={(e) => updateVariant(i, "name", e.target.value)} required />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">Price (INR) <span className="text-destructive">*</span></Label>
+                        <Label className="text-xs font-semibold">Regular Price / MRP (INR) <span className="text-destructive">*</span></Label>
                         <Input type="number" step="0.01" min="0" placeholder="0.00" value={v.price} onChange={(e) => updateVariant(i, "price", e.target.value)} required />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">Discount (INR)</Label>
-                        <Input type="number" step="0.01" min="0" placeholder="0" value={v.discount} onChange={(e) => updateVariant(i, "discount", e.target.value)} />
+                        <Label className="text-xs font-semibold">Selling Price (INR)</Label>
+                        <Input type="number" step="0.01" min="0" placeholder="e.g. 80 (leave 0 for MRP)" value={v.discount} onChange={(e) => updateVariant(i, "discount", e.target.value)} />
+                        <p className="text-[11px] text-muted-foreground">
+                          Enter final price you want to sell (e.g. if MRP is ₹100 and you enter ₹80, customer pays ₹80).
+                        </p>
+                        {(() => {
+                          const p = parseFloat(v.price) || 0
+                          const sp = parseFloat(v.discount) || 0
+                          if (sp > 0 && p > 0) {
+                            if (sp < p) {
+                              const diff = Math.round((p - sp) * 100) / 100
+                              const pct = Math.round((diff / p) * 100)
+                              return <p className="text-[11px] text-emerald-600 font-medium">Customer pays ₹{sp} (₹{diff} / {pct}% OFF)</p>
+                            } else if (sp > p) {
+                              return <p className="text-[11px] text-destructive font-medium">Selling price cannot exceed MRP (₹{p})</p>
+                            }
+                          }
+                          return null
+                        })()}
                       </div>
                     </div>
 

@@ -23,7 +23,16 @@ export async function GET(
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    return NextResponse.json(product)
+    const formattedVariants = product.variants.map((v) => ({
+      ...v,
+      sellingPrice: Math.max(0, v.price - (v.discount || 0)),
+      discountedPrice: Math.max(0, v.price - (v.discount || 0)),
+    }))
+
+    return NextResponse.json({
+      ...product,
+      variants: formattedVariants,
+    })
   } catch (error) {
     console.error("Error fetching single admin product:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -120,7 +129,20 @@ export async function PUT(
         const vName = typeof v?.name === "string" ? v.name.trim() : "Variant"
         const vPrice = Number(v?.price ?? 0)
         const vStock = Number(v?.stock ?? 0)
-        const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
+        const rawSellingPrice =
+          (v as any)?.sellingPrice !== undefined && (v as any)?.sellingPrice !== null && String((v as any).sellingPrice).trim() !== ""
+            ? Number((v as any).sellingPrice)
+            : v?.discount !== undefined && v?.discount !== null && String(v.discount).trim() !== ""
+            ? Number(v.discount)
+            : undefined
+
+        let vDiscount = 0
+        if (rawSellingPrice !== undefined && !isNaN(rawSellingPrice) && rawSellingPrice > 0) {
+          if (rawSellingPrice > vPrice) {
+            return NextResponse.json({ error: `Selling price (${rawSellingPrice}) cannot exceed regular price (${vPrice})` }, { status: 400 })
+          }
+          vDiscount = Math.round((vPrice - rawSellingPrice) * 100) / 100
+        }
         if (isNaN(vPrice) || vPrice <= 0 || isNaN(vStock) || vStock < 0) {
           return NextResponse.json({ error: "Each variant must have valid price and stock" }, { status: 400 })
         }

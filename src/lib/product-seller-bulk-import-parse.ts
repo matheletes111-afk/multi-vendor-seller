@@ -125,7 +125,10 @@ function mapGridToRows(aoa: unknown[][], sheetErrors: string[]): { rows: BulkDat
   const headerRow = (aoa[0] ?? []).map((c) => normalizeHeader(String(c ?? "")))
   const colIndexToKey = new Map<number, BulkColumnKey>()
   headerRow.forEach((h, idx) => {
-    const key = h === "variant_images" ? "product_variant_images" : h
+    let key = h === "variant_images" ? "product_variant_images" : h
+    if (key === "selling_price" || key === "discounted_price" || key === "discount_price") {
+      key = "discount"
+    }
     if (KEY_SET.has(key)) {
       colIndexToKey.set(idx, key as BulkColumnKey)
     }
@@ -240,8 +243,8 @@ export function exampleDataRows(categories: string[]): string[][] {
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
         "Standard Version",   // variant_name
-        "99.99",              // price
-        "10",                 // discount
+        "100",                // price (Price = 100)
+        "80",                 // discount (Enter final price to sell: 80 -> customer pays 80)
         "Yes",                // gst_applicable
         "100",                // stock
         `SKU-${idx + 1}-STD`, // sku_code
@@ -266,8 +269,8 @@ export function exampleDataRows(categories: string[]): string[][] {
         "NEW",                // condition
         "0",                  // delivery_charge_per_km
         "Premium Version",    // variant_name
-        "149.99",             // price
-        "15",                 // discount
+        "200",                // price (Price = 200)
+        "160",                // discount (Enter final price to sell: 160 -> customer pays 160)
         "Yes",                // gst_applicable
         "50",                 // stock
         `SKU-${idx + 1}-PREM`,// sku_code
@@ -325,7 +328,8 @@ export function buildTemplateXlsx(
     ["• product_name: The name of the product."],
     ["• brand (optional): Brand name (e.g. 'Nike', 'Apple', 'Samsung')."],
     ["• variant_name: Name of the variant (e.g. 'Red / Large', '64GB', 'Standard')."],
-    ["• price: Price for this variant (e.g. 299.99)."],
+    ["• price: Regular MRP / Original price of variant (e.g. 100)."],
+    ["• discount: Enter the final price you want to sell (e.g. 80). For example: if Price is 100 and you enter 80 in discount, the customer will buy at 80 and the stored discount is 20. Leave blank or enter same as price if no discount."],
     ["• stock: Quantity in stock (e.g. 50)."],
     [""],
     ["3. IMAGES, WEIGHT & DIMENSIONS:"],
@@ -336,8 +340,9 @@ export function buildTemplateXlsx(
     ["• condition (optional): 'NEW' or 'USED' (default is NEW)."],
     ["• delivery_charge_per_km (optional): Additional delivery charge per km (default 0)."],
     [""],
-    ["4. FILE LIMITS:"],
+    ["4. FILE LIMITS & DUMMY DATA:"],
     ["• Maximum 500 data rows per Excel/CSV import."],
+    ["• Dummy data example: Price = 100, Discount/Selling Price = 80 (customer will pay 80)."],
     ["• Please replace or delete the example rows in the 'Products' tab before importing."],
   ]
   const ws2 = XLSX.utils.aoa_to_sheet(instr)

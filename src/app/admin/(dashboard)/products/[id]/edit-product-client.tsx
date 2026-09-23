@@ -80,7 +80,7 @@ export function EditProductClient({ productId }: { productId: string }) {
               name: v.name,
               sku: v.sku || "",
               price: v.price,
-              discount: v.discount || 0,
+              discount: (v.discount != null && v.discount > 0) ? Math.max(0, Math.round((v.price - v.discount) * 100) / 100) : 0,
               stock: v.stock || 0,
               returnType: v.returnType || "NON_RETURNABLE",
               returnDays: v.returnDays || 0,
@@ -136,7 +136,7 @@ export function EditProductClient({ productId }: { productId: string }) {
     for (const v of variants) {
       if (isNaN(v.price) || v.price <= 0) return setError(`Variant "${v.name}" price must be greater than 0`)
       if (isNaN(v.stock) || v.stock < 0) return setError(`Variant "${v.name}" stock must be at least 0`)
-      if (v.discount < 0 || v.discount > v.price) return setError(`Discount for "${v.name}" must be between 0 and price`)
+      if (v.discount > v.price) return setError(`Selling price for "${v.name}" cannot exceed regular price`)
     }
 
     setSaving(true)
@@ -383,14 +383,21 @@ export function EditProductClient({ productId }: { productId: string }) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Discount ($)</Label>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Selling Price ($)</Label>
                     <Input
                       type="number"
                       step="0.01"
                       className="rounded-xl h-11 bg-background border-muted"
+                      placeholder="e.g. 80 (leave 0 for base price)"
                       value={v.discount}
                       onChange={(e) => handleVariantChange(index, "discount", Math.max(0, parseFloat(e.target.value) || 0))}
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      Enter final price you want to sell (e.g. if Price is 100 and you enter 80, customer pays 80).
+                    </p>
+                    {v.discount > 0 && v.price > 0 && v.discount < v.price && (
+                      <p className="text-[11px] text-emerald-600 font-medium">Customer discount: ${(v.price - v.discount).toFixed(2)} ({Math.round(((v.price - v.discount) / v.price) * 100)}% OFF)</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">

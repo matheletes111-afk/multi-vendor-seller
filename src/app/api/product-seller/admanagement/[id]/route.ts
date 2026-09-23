@@ -40,6 +40,10 @@ export async function GET(
     totalBudget: Number(ad.totalBudget),
     spentAmount: Number(ad.spentAmount),
     maxCpc: Number(ad.maxCpc),
+    payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
+    paymentStatus: ad.paymentStatus,
+    flotPaymentLink: ad.flotPaymentLink,
+    flotOrderId: ad.flotOrderId,
     targetCountries: ad.targetCountries as string[] | null,
   })
 }
@@ -154,6 +158,13 @@ export async function PATCH(
     const maxCpc = body.maxCpc ? Number(body.maxCpc) : Number(ad.maxCpc)
     const startAt = body.startAt ? new Date(String(body.startAt)) : ad.startAt
     const endAt = body.endAt ? new Date(String(body.endAt)) : ad.endAt
+
+    if (ad.paymentStatus === "COMPLETED" && body.totalBudget && Number(body.totalBudget) > Number(ad.totalBudget)) {
+      return NextResponse.json(
+        { error: "Cannot increase budget on an already paid ad. Please create a new ad with the desired budget." },
+        { status: 400 }
+      )
+    }
 
     if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 })
 

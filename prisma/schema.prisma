@@ -870,6 +870,17 @@ model SellerAd {
   startAt         DateTime
   rejectionReason String?        @db.Text
   endAt           DateTime
+
+  // Float Payment Integration Fields
+  paymentStatus       PaymentStatus  @default(PENDING)
+  paymentMethod       String?        @default("FLOAT")
+  payableAmount       Decimal?       @db.Decimal(10, 2)
+  flotOrderId         String?        @unique
+  flotInternalOrderId String?
+  flotPaymentLink     String?
+  flotRequestId       String?
+  paidAt              DateTime?
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -889,6 +900,7 @@ model SellerAd {
   @@index([foodItemId])
   @@index([customerUserId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([startAt, endAt])
   @@map("seller_ads")
 }

@@ -128,7 +128,18 @@ export async function POST(request: NextRequest) {
     typeof body.description === "string" && body.description.trim() ? sanitizeInput(body.description.trim()) : null
 
   const basePrice = typeof body.basePrice === "number" && body.basePrice > 0 ? body.basePrice : null
-  const discount = typeof body.discount === "number" && body.discount > 0 ? Math.round(body.discount * 100) / 100 : 0
+  const rawSelling =
+    typeof body.sellingPrice === "number" && body.sellingPrice > 0
+      ? body.sellingPrice
+      : typeof body.discount === "number" && body.discount > 0
+      ? body.discount
+      : 0
+  let discount = 0
+  if (basePrice && rawSelling > 0) {
+    if (rawSelling < basePrice) {
+      discount = Math.round((basePrice - rawSelling) * 100) / 100
+    }
+  }
   const hasGst = typeof body.hasGst === "boolean" ? body.hasGst : true
   const duration = typeof body.duration === "number" && body.duration > 0 ? Math.round(body.duration) : null
 

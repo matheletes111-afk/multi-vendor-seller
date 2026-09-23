@@ -146,7 +146,11 @@ export function NewAdForm({
     const data = await res.json().catch(() => ({}))
     setLoading(false)
     if (res.ok && data.success) {
-      router.replace(successPath)
+      if (data.requiresPayment && data.paymentUrl) {
+        window.location.href = data.paymentUrl
+      } else {
+        router.replace(successPath)
+      }
     } else {
       setError(data.error || "Failed to create ad")
     }
