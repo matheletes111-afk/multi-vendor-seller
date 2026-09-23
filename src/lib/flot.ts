@@ -40,13 +40,38 @@ const DEFAULT_MERCHANT_ID = "40bd76d6-de05-4ca3-9e32-47eed6e657b1"
  * Retrieve Flot Private Key from environment or certs directory
  */
 export function getFlotPrivateKey(): string {
-  // 1. Direct environment variable (e.g. Vercel / Production)
-  if (process.env.FLOT_PRIVATE_KEY) {
-    let key = process.env.FLOT_PRIVATE_KEY
-    if (key.includes("\\n")) {
-      key = key.replace(/\\n/g, "\n")
+  // 1. Direct environment variable (e.g. AWS Amplify, Vercel, Docker)
+  let rawKey = process.env.FLOT_PRIVATE_KEY || process.env.FLOT_PRIVATE_KEY_BASE64
+
+  if (rawKey) {
+    let key = rawKey.trim()
+
+    // Strip surrounding double quotes or single quotes if added by shell or env
+    if (
+      (key.startsWith('"') && key.endsWith('"')) ||
+      (key.startsWith("'") && key.endsWith("'"))
+    ) {
+      key = key.slice(1, -1).trim()
     }
-    return key.trim()
+
+    // Check if string is base64 encoded
+    if (!key.includes("BEGIN") && !key.includes("PRIVATE KEY")) {
+      try {
+        const decoded = Buffer.from(key, "base64").toString("utf8")
+        if (decoded.includes("PRIVATE KEY")) {
+          key = decoded.trim()
+        }
+      } catch {
+        // Continue with original if not base64
+      }
+    }
+
+    // Replace literal escaped \n with real newline characters
+    key = key.replace(/\\n/g, "\n")
+
+    if (key.includes("PRIVATE KEY")) {
+      return key
+    }
   }
 
   // 2. Custom path from env

@@ -9,9 +9,26 @@ import {
 import { getAppleRootCertificates } from "./apple-certs"
 
 function getApplePrivateKey(): string {
-  // Method 1: Direct string from environment variable (ideal for Vercel/Cloud)
+  // Method 1: Direct string from environment variable (ideal for Vercel/Cloud/Amplify)
   if (process.env.APPLE_IAP_PRIVATE_KEY) {
-    return process.env.APPLE_IAP_PRIVATE_KEY.replace(/\\n/g, "\n")
+    let key = process.env.APPLE_IAP_PRIVATE_KEY.trim()
+    if (
+      (key.startsWith('"') && key.endsWith('"')) ||
+      (key.startsWith("'") && key.endsWith("'"))
+    ) {
+      key = key.slice(1, -1).trim()
+    }
+    if (!key.includes("BEGIN") && !key.includes("PRIVATE KEY")) {
+      try {
+        const decoded = Buffer.from(key, "base64").toString("utf8")
+        if (decoded.includes("PRIVATE KEY")) {
+          key = decoded.trim()
+        }
+      } catch {
+        // Continue with original
+      }
+    }
+    return key.replace(/\\n/g, "\n")
   }
 
   // Method 2: File path from environment variable (ideal for VPS/local)
