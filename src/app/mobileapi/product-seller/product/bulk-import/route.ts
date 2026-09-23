@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { isProductSeller } from "@/lib/rbac"
-import { verifyMobileAuth } from "@/lib/mobile-auth-server"
 import { UserRole } from "@prisma/client"
+import { verifyMobileAuth } from "@/lib/mobile-auth-server"
 import { checkProductLimit } from "@/lib/subscriptions"
 import { parseBulkFile, parseVariantAttributes, type BulkDataRow } from "@/lib/product-seller-bulk-import-parse"
 import { getSmartFallbackDimensions } from "@/lib/ai-dimensions"
 import { startBulkAIDimensionJob } from "@/lib/bulk-ai-dimension-queue"
 import {
   parseVariantInput,
-  sellerHasSelectedCategory,
   slugFromName,
   uniqueSlugSuffix,
   type NormalizedVariant,
   type VariantInput,
 } from "@/lib/product-seller-product-payload"
+
+export const dynamic = "force-dynamic"
 
 const MAX_DATA_ROWS = 500
 const MAX_FILE_BYTES = 8 * 1024 * 1024
@@ -61,9 +60,9 @@ function levenshteinDistance(a: string, b: string): number {
         matrix[i][j] = matrix[i - 1][j - 1]
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
         )
       }
     }
@@ -125,25 +124,16 @@ type PreparedProduct = {
   variants: NormalizedVariant[]
 }
 
+/**
+ * POST /mobileapi/product-seller/product/bulk-import
+ * Import products & variants in bulk from an uploaded Excel (.xlsx) or CSV file.
+ */
 export async function POST(request: NextRequest) {
-  let sellerUserId: string | null = null
-
-  const session = await auth()
-  if (session?.user && isProductSeller(session.user)) {
-    sellerUserId = session.user.id
-  } else {
-    const mobileAuth = await verifyMobileAuth(request, UserRole.SELLER_PRODUCT)
-    if (mobileAuth.success) {
-      sellerUserId = mobileAuth.user.id
-    }
-  }
-
-  if (!sellerUserId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await verifyMobileAuth(request, UserRole.SELLER_PRODUCT)
+  if (!auth.success) return auth.errorResponse
 
   const seller = await prisma.seller.findUnique({
-    where: { userId: sellerUserId },
+    where: { id: auth.seller.id },
     include: {
       selectedCategories: {
         where: { isActive: true },
@@ -151,27 +141,45 @@ export async function POST(request: NextRequest) {
       },
     },
   })
-  if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+
+  if (!seller) {
+    return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
+  }
   if (!seller.isApproved) {
-    return NextResponse.json({ error: "Your seller account is pending approval." }, { status: 403 })
+    return NextResponse.json(
+      { success: false, error: "Your seller account is pending approval." },
+      { status: 403 }
+    )
   }
   if (seller.isSuspended) {
-    return NextResponse.json({ error: "Your seller account has been suspended." }, { status: 403 })
+    return NextResponse.json(
+      { success: false, error: "Your seller account has been suspended." },
+      { status: 403 }
+    )
   }
 
   let formData: FormData
   try {
     formData = await request.formData()
   } catch {
-    return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "Expected multipart/form-data with a 'file' field." },
+      { status: 400 }
+    )
   }
 
   const file = formData.get("file")
   if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: "Upload a .csv or .xlsx file" }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "Please upload a valid .csv or .xlsx file." },
+      { status: 400 }
+    )
   }
   if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json({ error: "File too large (max 8 MB)" }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "File too large (max 8 MB allowed)." },
+      { status: 400 }
+    )
   }
 
   const buf = Buffer.from(await file.arrayBuffer())
@@ -180,7 +188,11 @@ export async function POST(request: NextRequest) {
 
   if (rows.length > MAX_DATA_ROWS) {
     return NextResponse.json(
-      { error: `Too many data rows (max ${MAX_DATA_ROWS})`, errors },
+      {
+        success: false,
+        error: `Too many data rows (maximum ${MAX_DATA_ROWS} allowed).`,
+        errors,
+      },
       { status: 400 }
     )
   }
@@ -198,11 +210,14 @@ export async function POST(request: NextRequest) {
     if (errors.length === 0) {
       errors.push("No data rows found. Add at least one product row below the header, with category and variant fields.")
     }
-    return NextResponse.json({ error: "Import failed", errors }, { status: 400 })
+    return NextResponse.json({ success: false, error: "Import failed", errors }, { status: 400 })
   }
 
   if (errors.length > 0) {
-    return NextResponse.json({ error: "Import validation failed", errors: [...new Set(errors)] }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "Import validation failed", errors: [...new Set(errors)] },
+      { status: 400 }
+    )
   }
 
   const groupMap = new Map<string, BulkDataRow[]>()
@@ -250,8 +265,8 @@ export async function POST(request: NextRequest) {
         description = desc
       }
     }
-    
-    const firstValidCharge = sorted.find(r => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
+
+    const firstValidCharge = sorted.find((r) => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
     const deliveryChargePerKm = firstValidCharge ? parseCleanNumber(firstValidCharge) || 0 : 0
 
     if (nameConflict) continue
@@ -276,10 +291,10 @@ export async function POST(request: NextRequest) {
     let matchedCategory = findBestCategoryMatch(inputCategoryText, seller.selectedCategories)
 
     if (!matchedCategory) {
-      // 1. Try to match globally from all active categories in the database
+      // 1. Try to match globally from all active categories in database
       const allActiveCategories = await prisma.category.findMany({
         where: { isActive: true },
-        select: { id: true, name: true, weightMandatory: true }
+        select: { id: true, name: true, weightMandatory: true },
       })
       const globalMatchedCategory = findBestCategoryMatch(inputCategoryText, allActiveCategories)
 
@@ -289,18 +304,17 @@ export async function POST(request: NextRequest) {
           where: { id: seller.id },
           data: {
             selectedCategories: {
-              connect: { id: globalMatchedCategory.id }
-            }
-          }
+              connect: { id: globalMatchedCategory.id },
+            },
+          },
         })
-        // Add to seller's local selectedCategories list so we don't connect it again
         seller.selectedCategories.push(globalMatchedCategory)
         matchedCategory = globalMatchedCategory
       } else {
-        // 2. Create a brand new category!
-        const cleanName = inputCategoryText.trim().replace(/\b\w/g, c => c.toUpperCase())
+        // 2. Create a brand new category
+        const cleanName = inputCategoryText.trim().replace(/\b\w/g, (c) => c.toUpperCase())
         const cleanSlug = `${slugFromName(cleanName)}-${uniqueSlugSuffix()}`
-        
+
         // Find the first available image of the product from the excel sheet
         let firstCategoryImg: string | null = null
         for (const r of sorted) {
@@ -338,26 +352,25 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Double check if a category with this name already exists in database (e.g. inactive or casing difference)
         const existingByName = await prisma.category.findFirst({
           where: { name: { equals: cleanName, mode: "insensitive" } },
-          select: { id: true, name: true, weightMandatory: true, image: true, isActive: true }
+          select: { id: true, name: true, weightMandatory: true, image: true, isActive: true },
         })
 
         if (existingByName) {
           await prisma.seller.update({
             where: { id: seller.id },
             data: {
-              selectedCategories: { connect: { id: existingByName.id } }
-            }
+              selectedCategories: { connect: { id: existingByName.id } },
+            },
           })
           if (!existingByName.isActive || (!existingByName.image && firstCategoryImg)) {
             await prisma.category.update({
               where: { id: existingByName.id },
               data: {
                 isActive: true,
-                ...(firstCategoryImg && !existingByName.image ? { image: firstCategoryImg, mobileIcon: firstCategoryImg } : {})
-              }
+                ...(firstCategoryImg && !existingByName.image ? { image: firstCategoryImg, mobileIcon: firstCategoryImg } : {}),
+              },
             })
           }
           seller.selectedCategories.push(existingByName)
@@ -372,13 +385,12 @@ export async function POST(request: NextRequest) {
               mobileIcon: firstCategoryImg || null,
               isActive: true,
               sellers: {
-                connect: { id: seller.id }
-              }
+                connect: { id: seller.id },
+              },
             },
-            select: { id: true, name: true, weightMandatory: true }
+            select: { id: true, name: true, weightMandatory: true },
           })
-          
-          // Add to seller's local list to prevent duplicate create calls
+
           seller.selectedCategories.push(newCategory)
           matchedCategory = newCategory
         }
@@ -386,10 +398,10 @@ export async function POST(request: NextRequest) {
     }
 
     const groupCategoryId = matchedCategory.id
-    const subcategoryId: string | null = null // subcategories are removed from bulk upload
+    const subcategoryId: string | null = null
 
-    const firstValidCondition = sorted.find(r => (r.cells.condition ?? "").trim())?.cells.condition?.trim().toUpperCase()
-    const condition = (firstValidCondition === "USED") ? "USED" : "NEW"
+    const firstValidCondition = sorted.find((r) => (r.cells.condition ?? "").trim())?.cells.condition?.trim().toUpperCase()
+    const condition = firstValidCondition === "USED" ? "USED" : "NEW"
 
     const variants: NormalizedVariant[] = []
     for (const r of sorted) {
@@ -475,7 +487,7 @@ export async function POST(request: NextRequest) {
         errors.push(`Row ${r.excelRow}: ${parsed.error}`)
         continue
       }
-      
+
       const isWeightMandatory = matchedCategory?.weightMandatory ?? false
       if (isWeightMandatory && (parsed.variant.weight === null || parsed.variant.weight <= 0)) {
         errors.push(`Row ${r.excelRow}: weight is mandatory for category ${matchedCategory?.name || ""}`)
@@ -508,17 +520,21 @@ export async function POST(request: NextRequest) {
   }
 
   if (errors.length > 0) {
-    return NextResponse.json({ error: "Import validation failed", errors: [...new Set(errors)] }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: "Import validation failed", errors: [...new Set(errors)] },
+      { status: 400 }
+    )
   }
 
   if (prepared.length === 0) {
-    return NextResponse.json({ error: "Nothing to import" }, { status: 400 })
+    return NextResponse.json({ success: false, error: "Nothing to import" }, { status: 400 })
   }
 
   const limitCheck = await checkProductLimit(seller.id)
   if (!limitCheck.allowed) {
     return NextResponse.json(
       {
+        success: false,
         error: `Product limit reached. Plan allows ${limitCheck.limit}. Upgrade to add more.`,
       },
       { status: 403 }
@@ -527,6 +543,7 @@ export async function POST(request: NextRequest) {
   if (limitCheck.limit != null && limitCheck.current + prepared.length > limitCheck.limit) {
     return NextResponse.json(
       {
+        success: false,
         error: `This import would create ${prepared.length} products but your plan allows ${limitCheck.limit} total (${limitCheck.current} in use).`,
       },
       { status: 403 }
@@ -601,21 +618,35 @@ export async function POST(request: NextRequest) {
     const variantCount = prepared.reduce((acc, p) => acc + p.variants.length, 0)
 
     return NextResponse.json({
+      success: true,
       ok: true,
+      data: {
+        createdProducts: created.length,
+        createdVariants: variantCount,
+        jobId,
+      },
       createdProducts: created.length,
       createdVariants: variantCount,
       jobId,
+      message: `Successfully imported ${created.length} product(s) with ${variantCount} variant(s).`,
     })
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string }
     if (err.code === "P2002") {
       return NextResponse.json(
-        { error: "A product slug conflict occurred. Retry the import.", errors: ["A product slug conflict occurred. Please retry the import."] },
+        {
+          success: false,
+          error: "A product slug conflict occurred. Please retry the import.",
+          errors: ["A product slug conflict occurred. Please retry the import."],
+        },
         { status: 400 }
       )
     }
-    console.error("bulk-import", e)
+    console.error("Mobile bulk import error:", e)
     const errMsg = err?.message || String(e || "An unexpected error occurred during import.")
-    return NextResponse.json({ error: "Failed to import products", errors: [errMsg] }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: "Failed to import products", errors: [errMsg] },
+      { status: 500 }
+    )
   }
 }

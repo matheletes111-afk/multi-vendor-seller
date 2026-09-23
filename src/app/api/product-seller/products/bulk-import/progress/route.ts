@@ -2,11 +2,28 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isProductSeller } from "@/lib/rbac"
+import { verifyMobileAuth } from "@/lib/mobile-auth-server"
+import { UserRole } from "@prisma/client"
 import { getSellerActiveJob, getJobStatus } from "@/lib/bulk-ai-dimension-queue"
 
 export async function GET(request: NextRequest) {
+  let sellerId: string | null = null
+
   const session = await auth()
-  if (!session?.user || !isProductSeller(session.user)) {
+  if (session?.user && isProductSeller(session.user)) {
+    const seller = await prisma.seller.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    })
+    sellerId = seller?.id || null
+  } else {
+    const mobileAuth = await verifyMobileAuth(request, UserRole.SELLER_PRODUCT)
+    if (mobileAuth.success) {
+      sellerId = mobileAuth.seller.id
+    }
+  }
+
+  if (!sellerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -16,14 +33,7 @@ export async function GET(request: NextRequest) {
   let job = jobId ? getJobStatus(jobId) : null
 
   if (!job) {
-    // Must look up by sellerId (not userId — they differ in this schema)
-    const seller = await prisma.seller.findUnique({
-      where: { userId: session.user.id },
-      select: { id: true },
-    })
-    if (seller) {
-      job = getSellerActiveJob(seller.id)
-    }
+    job = getSellerActiveJob(sellerId)
   }
 
   if (!job) {

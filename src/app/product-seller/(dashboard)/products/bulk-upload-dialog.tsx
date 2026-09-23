@@ -12,10 +12,72 @@ import {
   DialogTrigger,
 } from "@/ui/dialog"
 import { Label } from "@/ui/label"
-import { Upload, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Upload, AlertTriangle, CheckCircle2, ChevronDown, HelpCircle } from "lucide-react"
 
 type Subcategory = { id: string; name: string; slug: string }
 type CategoryWithSub = { id: string; name: string; slug: string; subcategories: Subcategory[] }
+
+const FIELD_GROUPS = [
+  {
+    id: "basic",
+    title: "1. Basic Product Info",
+    badge: "5 columns",
+    fields: [
+      { num: 1, header: "category", req: "Yes", desc: "Category name (matches your assigned or marketplace category)", example: "Clothing & Fashion" },
+      { num: 2, header: "product_name", req: "Yes", desc: "Product title (identical names group into multi-variant product)", example: "Slim Fit T-Shirt" },
+      { num: 3, header: "brand", req: "No", desc: "Brand or manufacturer name", example: "Nike" },
+      { num: 4, header: "product_description", req: "No", desc: "Full product description text", example: "100% combed cotton" },
+      { num: 5, header: "condition", req: "No", desc: "NEW or USED (defaults to NEW)", example: "NEW" },
+    ],
+  },
+  {
+    id: "pricing",
+    title: "2. Pricing & Stock",
+    badge: "4 columns",
+    fields: [
+      { num: 8, header: "price", req: "Yes", desc: "Original MRP / Listed Price", example: "100" },
+      { num: 9, header: "discount", req: "No", desc: "Final selling price customer pays (e.g. 80)", example: "80" },
+      { num: 10, header: "gst_applicable", req: "No", desc: "Tax applicable: Yes or No (default: Yes)", example: "Yes" },
+      { num: 11, header: "stock", req: "Yes", desc: "Available inventory quantity", example: "50" },
+    ],
+  },
+  {
+    id: "variants",
+    title: "3. Variants & Media",
+    badge: "4 columns",
+    fields: [
+      { num: 7, header: "variant_name", req: "Yes", desc: "Variant option title (size, color, pack)", example: "Black / L" },
+      { num: 12, header: "sku_code", req: "No", desc: "Your internal SKU identifier", example: "TSHIRT-BLK-L" },
+      { num: 17, header: "product_variant_images", req: "No", desc: "Image URLs separated by pipe (|)", example: "https://.../1.jpg | https://.../2.jpg" },
+      { num: 18, header: "variant_details", req: "No", desc: "Attributes: color: Black, size: Regular (or JSON)", example: "color: Black, size: L" },
+    ],
+  },
+  {
+    id: "shipping",
+    title: "4. Shipping & Dimensions",
+    badge: "6 columns",
+    fields: [
+      { num: 6, header: "delivery_charge_per_km", req: "No", desc: "Custom delivery fee per KM (0 for standard)", example: "0" },
+      { num: 13, header: "weight", req: "Cond.", desc: "Weight in KG (mandatory if category requires weight)", example: "0.35" },
+      { num: 14, header: "height", req: "No", desc: "Package height in CM (AI auto-fallback)", example: "5" },
+      { num: 15, header: "width", req: "No", desc: "Package width in CM (AI auto-fallback)", example: "20" },
+      { num: 16, header: "depth", req: "No", desc: "Package depth in CM (AI auto-fallback)", example: "30" },
+      { num: 24, header: "delivery_days", req: "No", desc: "Estimated delivery days (default: 7)", example: "5" },
+    ],
+  },
+  {
+    id: "policies",
+    title: "5. Policies & Specifications",
+    badge: "5 columns",
+    fields: [
+      { num: 19, header: "specifications", req: "No", desc: "Technical specifications text", example: "180 GSM cotton" },
+      { num: 20, header: "additional_details", req: "No", desc: "Extra notes or care instructions", example: "Machine wash cold" },
+      { num: 21, header: "return_policy", req: "No", desc: "Returnable or Non-Returnable", example: "Returnable" },
+      { num: 22, header: "return_limit_days", req: "No", desc: "Return window in days", example: "7" },
+      { num: 23, header: "replacement_allowed", req: "No", desc: "Replacement allowed: Yes or No", example: "Yes" },
+    ],
+  },
+]
 
 export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string) => void }) {
   const [open, setOpen] = useState(false)
@@ -27,6 +89,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null)
 
   const loadCategories = useCallback(() => {
     setLoadingCats(true)
@@ -43,6 +106,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string)
       setResult(null)
       setImportErrors([])
       setFile(null)
+      setActiveAccordion(null)
       loadCategories()
     }
   }, [open, loadCategories])
@@ -198,11 +262,99 @@ export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string)
           <div className="rounded-lg border bg-blue-500/5 p-4 text-xs space-y-2">
             <p className="font-semibold text-blue-600 dark:text-blue-400">Pro Tips & Format Guidelines:</p>
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
-              <li><strong>Price & Discount</strong>: In <code>price</code> enter the original price (MRP, e.g. 100). In <code>discount</code>, enter the <strong>final price you want to sell</strong> (e.g. if Price = 100 and you want to sell for 80, enter 80. Customer pays 80). Leave blank or 0 for full price.</li>
-              <li><strong>Variants</strong>: If you have multiple items for the same product, give them the <strong>exact same product name</strong> (e.g. "T-Shirt") in consecutive rows, and differentiate them using the <code>variant_name</code> column.</li>
-              <li><strong>GST & Policy</strong>: Write <strong>Yes</strong> or <strong>No</strong> in <code>gst_applicable</code> and <code>replacement_allowed</code> columns. Use <strong>Returnable</strong> or <strong>Non-Returnable</strong> in <code>return_policy</code>.</li>
-              <li><strong>Details & Specs</strong>: Input key-value JSON in <code>variant_details</code> (e.g. <code>{"{\"color\": \"red\"}"}</code>) for custom options.</li>
+              <li><strong>Price & Discount</strong>: In <code>price</code> enter original MRP (e.g. 100). In <code>discount</code>, enter the <strong>final price you want to sell</strong> (e.g. if Price = 100 and you enter 80, customer pays 80).</li>
+              <li><strong>Multiple Variants</strong>: To create 1 product with multiple variants (e.g. Size S, M, L), use the <strong>exact same product_name</strong> in consecutive rows.</li>
+              <li><strong>Variant Details</strong>: Write simple key-value pairs like <code>color: Black, size: Regular</code> (no quotes or JSON braces required).</li>
+              <li><strong>Images</strong>: Separate multiple image URLs with vertical pipe <code>|</code>.</li>
             </ul>
+          </div>
+
+          {/* Detailed Field-by-Field Reference Accordion View (by default off) */}
+          <div className="rounded-xl border bg-muted/20 p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <HelpCircle className="h-3.5 w-3.5 text-primary" />
+                  Field-by-Field Column Guide (24 Columns Reference)
+                </h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Click any category below to inspect field formats and examples.
+                </p>
+              </div>
+              {activeAccordion && (
+                <button
+                  type="button"
+                  onClick={() => setActiveAccordion(null)}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  Collapse
+                </button>
+              )}
+            </div>
+
+            <div className="divide-y divide-border/60 rounded-lg border bg-background overflow-hidden">
+              {FIELD_GROUPS.map((group) => {
+                const isOpen = activeAccordion === group.id
+                return (
+                  <div key={group.id} className="transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => setActiveAccordion((prev) => (prev === group.id ? null : group.id))}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/40 transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-foreground">{group.title}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {group.badge}
+                        </span>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                          isOpen ? "rotate-180 text-primary" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-3 pt-0 animate-in fade-in-50 duration-200">
+                        <div className="overflow-x-auto rounded-md border bg-muted/10">
+                          <table className="w-full text-left border-collapse text-[11px]">
+                            <thead>
+                              <tr className="border-b bg-muted/50 font-semibold text-muted-foreground">
+                                <th className="p-2 w-8">#</th>
+                                <th className="p-2">Header</th>
+                                <th className="p-2">Required</th>
+                                <th className="p-2">What to put</th>
+                                <th className="p-2">Example</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/40">
+                              {group.fields.map((f) => (
+                                <tr key={f.header} className="hover:bg-muted/20">
+                                  <td className="p-2 font-mono text-muted-foreground">{f.num}</td>
+                                  <td className="p-2 font-semibold font-mono text-foreground">{f.header}</td>
+                                  <td className="p-2">
+                                    {f.req === "Yes" ? (
+                                      <span className="text-destructive font-medium">Yes</span>
+                                    ) : f.req === "Cond." ? (
+                                      <span className="text-amber-600 dark:text-amber-400 font-medium">Cond.</span>
+                                    ) : (
+                                      <span className="text-muted-foreground">No</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2 text-foreground/90">{f.desc}</td>
+                                  <td className="p-2 text-muted-foreground font-mono text-[10px]">{f.example}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* Step 2: Upload */}
