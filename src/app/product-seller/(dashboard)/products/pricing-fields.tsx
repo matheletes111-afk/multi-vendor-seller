@@ -44,12 +44,14 @@ export function PricingFields({
     return () => clearInterval(t)
   }, [basePriceName, discountName, hasGstName])
 
-  const pricePerItem = Math.max(0, basePrice - discount)
+  const sellingPrice = discount > 0 ? discount : basePrice
+  const discountAmount = (discount > 0 && basePrice > 0 && discount < basePrice) ? Math.max(0, basePrice - discount) : 0
+  const discountPct = discountAmount > 0 && basePrice > 0 ? Math.round((discountAmount / basePrice) * 100) : 0
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Customer will see: base price, discount, then price per item (base − discount).
+        Enter the regular price and the final selling price you want customers to pay.
       </p>
       {showBasePrice && (
         <div className="space-y-2">
@@ -68,23 +70,35 @@ export function PricingFields({
         </div>
       )}
       <div className="space-y-2">
-        <Label htmlFor={discountName}>Discount (amount per item)</Label>
+        <Label htmlFor={discountName}>Selling Price / Discounted Price</Label>
         <Input
           id={discountName}
           name={discountName}
           type="number"
           step="0.01"
           min="0"
-          placeholder="0.00"
+          placeholder="e.g. 80 (leave 0 or empty for full base price)"
           defaultValue={defaultDiscount}
           onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
         />
+        <p className="text-[11px] text-muted-foreground">
+          Enter the final price you want to sell (e.g. if Price is ₹100 and you enter ₹80, the customer will buy at ₹80).
+        </p>
+        {discount > basePrice && basePrice > 0 && (
+          <p className="text-xs text-destructive font-medium">Selling price cannot exceed base price ({formatCurrency(basePrice)})</p>
+        )}
       </div>
-      <div className="rounded-md border bg-muted/50 p-3 text-sm">
+      <div className="rounded-md border bg-muted/50 p-3 text-sm space-y-1.5">
         <div className="flex justify-between font-medium">
-          <span className="text-muted-foreground">Price per item (after discount)</span>
-          <span>{formatCurrency(pricePerItem)}</span>
+          <span className="text-muted-foreground">Customer pays</span>
+          <span className="text-emerald-600 font-semibold">{formatCurrency(sellingPrice)}</span>
         </div>
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Customer discount</span>
+            <span>{formatCurrency(discountAmount)} ({discountPct}% OFF)</span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3 hidden">
         <label className="text-sm font-medium">Has GST?</label>

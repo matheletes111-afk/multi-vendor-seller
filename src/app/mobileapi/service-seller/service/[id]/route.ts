@@ -40,7 +40,16 @@ export async function GET(
 
     if (!service) return NextResponse.json({ success: false, error: "Service not found" }, { status: 404 })
 
-    return NextResponse.json({ success: true, data: service })
+    const sellingPrice = service.basePrice != null ? Math.max(0, service.basePrice - (service.discount || 0)) : null
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...service,
+        sellingPrice,
+        discountedPrice: sellingPrice,
+      },
+    })
   } catch (error) {
     console.error("Mobile get service error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
@@ -88,9 +97,23 @@ export async function PUT(
     }
     if (body.description !== undefined) updateData.description = typeof body.description === "string" ? sanitizeInput(body.description) : body.description
     if (body.serviceCategoryId !== undefined) updateData.serviceCategoryId = body.serviceCategoryId
-    if (body.serviceType !== undefined) updateData.serviceType = body.serviceType
+    const effectiveBasePrice = body.basePrice !== undefined ? body.basePrice : existing.basePrice
     if (body.basePrice !== undefined) updateData.basePrice = body.basePrice
-    if (body.discount !== undefined) updateData.discount = Math.round((Number(body.discount) || 0) * 100) / 100
+    const rawSelling =
+      typeof (body as any).sellingPrice === "number" && (body as any).sellingPrice > 0
+        ? (body as any).sellingPrice
+        : typeof body.discount === "number" && body.discount > 0
+        ? body.discount
+        : 0
+    if (body.discount !== undefined || (body as any).sellingPrice !== undefined) {
+      let discount = 0
+      if (effectiveBasePrice && rawSelling > 0) {
+        if (rawSelling < effectiveBasePrice) {
+          discount = Math.round((effectiveBasePrice - rawSelling) * 100) / 100
+        }
+      }
+      updateData.discount = discount
+    }
     if (body.hasGst !== undefined) updateData.hasGst = body.hasGst
     if (body.duration !== undefined) updateData.duration = body.duration
     if (body.weeklyAvailability !== undefined) updateData.weeklyAvailability = body.weeklyAvailability
@@ -104,7 +127,9 @@ export async function PUT(
       include: { serviceCategory: true, slots: true, packages: true },
     })
 
-    return NextResponse.json({ success: true, data: service })
+    const sellingPrice = service.basePrice != null ? Math.max(0, service.basePrice - (service.discount || 0)) : null
+
+    return NextResponse.json({ success: true, data: { ...service, sellingPrice, discountedPrice: sellingPrice } })
   } catch (error: any) {
     if (error.code === "P2002") return NextResponse.json({ success: false, error: "Service with this name already exists" }, { status: 400 })
     console.error("Mobile update service error:", error)

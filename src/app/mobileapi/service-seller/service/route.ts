@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
 
     const nameRaw = typeof body.name === "string" ? body.name.trim() : ""
     const name = sanitizeInput(nameRaw)
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
     const categoryId = typeof body.serviceCategoryId === "string" ? body.serviceCategoryId : ""
     const serviceType = body.serviceType === "FIXED_PRICE" ? "FIXED_PRICE" : "APPOINTMENT"
  
@@ -135,9 +136,19 @@ export async function POST(request: NextRequest) {
     const hasCategory = seller.selectedServiceCategories.some(c => c.id === categoryId)
     if (!hasCategory) return NextResponse.json({ success: false, error: "Category not in your allowed list" }, { status: 400 })
  
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
     const basePrice = typeof body.basePrice === "number" ? body.basePrice : null
-    const discount = Math.round((Number(body.discount) || 0) * 100) / 100
+    const rawSelling =
+      typeof (body as any).sellingPrice === "number" && (body as any).sellingPrice > 0
+        ? (body as any).sellingPrice
+        : typeof body.discount === "number" && body.discount > 0
+        ? body.discount
+        : 0
+    let discount = 0
+    if (basePrice && rawSelling > 0) {
+      if (rawSelling < basePrice) {
+        discount = Math.round((basePrice - rawSelling) * 100) / 100
+      }
+    }
     const duration = typeof body.duration === "number" ? body.duration : null
     const sanitizedDescription = typeof body.description === "string" ? sanitizeInput(body.description) : null
  

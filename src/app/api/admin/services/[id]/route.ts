@@ -23,7 +23,13 @@ export async function GET(
       return NextResponse.json({ error: "Service not found" }, { status: 404 })
     }
 
-    return NextResponse.json(service)
+    const sellingPrice = service.basePrice != null ? Math.max(0, service.basePrice - (service.discount || 0)) : null
+
+    return NextResponse.json({
+      ...service,
+      sellingPrice,
+      discountedPrice: sellingPrice,
+    })
   } catch (error) {
     console.error("Error fetching single admin service:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -70,8 +76,21 @@ export async function PUT(
     if (body.serviceType !== undefined) {
       updateData.serviceType = body.serviceType === "APPOINTMENT" ? "APPOINTMENT" : "FIXED_PRICE"
     }
+    const effectiveBasePrice = body.basePrice !== undefined ? (body.basePrice !== null ? Number(body.basePrice || 0) : null) : existing.basePrice
     if (body.basePrice !== undefined) updateData.basePrice = body.basePrice !== null ? Number(body.basePrice || 0) : null
-    if (body.discount !== undefined) updateData.discount = Math.round(Number(body.discount || 0) * 100) / 100
+    const rawSelling =
+      typeof body.discount === "number" && body.discount > 0
+        ? body.discount
+        : 0
+    if (body.discount !== undefined) {
+      let discount = 0
+      if (effectiveBasePrice && rawSelling > 0) {
+        if (rawSelling < effectiveBasePrice) {
+          discount = Math.round((effectiveBasePrice - rawSelling) * 100) / 100
+        }
+      }
+      updateData.discount = discount
+    }
     if (body.hasGst !== undefined) updateData.hasGst = body.hasGst === true
     if (body.duration !== undefined) updateData.duration = body.duration !== null ? Math.floor(Number(body.duration || 0)) : null
 

@@ -1,0 +1,254 @@
+================================================================================
+MEEEM MARKETPLACE - MOBILE SELLER API DOCUMENTATION
+PRODUCT & SERVICE PRICING: DISCOUNT AS SELLING PRICE WORKFLOW
+================================================================================
+Updated: September 23, 2026
+Applies to:
+  1. Product Seller Mobile App (Flutter / React Native / iOS / Android)
+  2. Service Seller Mobile App (Flutter / React Native / iOS / Android)
+
+================================================================================
+1. OVERVIEW & CALCULATION LOGIC (READ THIS FIRST)
+================================================================================
+Previously, the discount input was treated as a subtraction amount.
+Per merchant workflow requirement, SELLERS ENTER THE FINAL SELLING PRICE:
+
+Client Formula:
+- Regular Price / MRP / Base Price: 100
+- Target Price Seller Wants to Sell For: 80
+- Seller enters: "80" in the Selling Price / Discount field.
+- Backend automatically calculates & saves in DB: discount = 100 - 80 = 20.
+- Customer sees on Marketplace: MRP = 100, Discount = 20 (20% OFF), Final Price = 80.
+
+Key Mobile Dev Takeaways:
+1. When CREATING or UPDATING:
+   - Send `sellingPrice` (or `discount`) with the target selling price (e.g. 80).
+   - If selling at full MRP / regular price with no discount, leave `sellingPrice: 0` or omit it.
+2. When FETCHING (GET) for Edit Screen:
+   - The API returns `sellingPrice` (and alias `discountedPrice`) calculated for you!
+   - Always pre-fill your mobile UI input with `sellingPrice`.
+3. The database schema has NOT changed (`price`/`discount` for product variants, `basePrice`/`discount` for services). All math is handled automatically by the backend.
+
+================================================================================
+2. PRODUCT SELLER MOBILE APIS
+================================================================================
+
+A. CREATE PRODUCT
+-----------------
+Endpoint: POST /mobileapi/product-seller/product
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+In each item of the `variants` array, provide:
+- `price`: Regular MRP (e.g. 100)
+- `sellingPrice` (or `discount`): The final price customer should pay (e.g. 80)
+- `stock`: Available quantity (e.g. 50)
+
+Sample JSON Payload:
+{
+  "name": "Men Casual T-Shirt",
+  "categoryId": "cm0c1xabc...",
+  "description": "Premium 100% cotton casual t-shirt",
+  "variants": [
+    {
+      "name": "Blue / L",
+      "price": 100,
+      "sellingPrice": 80,   // Customer pays 80; Backend DB stores discount = 20
+      "stock": 50,
+      "images": ["https://s3.example.com/products/blue-l.jpg"]
+    }
+  ]
+}
+
+Note: You can use the key name "sellingPrice" OR "discount". Both accept the final selling price (80).
+
+B. GET PRODUCT FOR EDIT SCREEN
+------------------------------
+Endpoint: GET /mobileapi/product-seller/product/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Sample Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm5a9xabc...",
+    "name": "Men Casual T-Shirt",
+    "variants": [
+      {
+        "id": "var001...",
+        "name": "Blue / L",
+        "price": 100,             // Original MRP
+        "discount": 20,           // Stored DB discount amount
+        "sellingPrice": 80,       // <-- USE THIS TO PRE-FILL YOUR MOBILE INPUT!
+        "discountedPrice": 80,   // Alias of sellingPrice
+        "stock": 50,
+        "images": ["https://s3.example.com/products/blue-l.jpg"]
+      }
+    ]
+  }
+}
+
+Mobile UI Form Binding (Flutter Example):
+----------------------------------------
+// Original Price Controller:
+TextEditingController priceCtrl = TextEditingController(text: variant.price.toString());
+
+// Selling Price Controller (pre-fill with sellingPrice):
+TextEditingController sellingPriceCtrl = TextEditingController(
+  text: (variant.sellingPrice != null && variant.sellingPrice > 0 && variant.sellingPrice < variant.price)
+    ? variant.sellingPrice.toString()
+    : ""
+);
+
+C. UPDATE PRODUCT
+-----------------
+Endpoint: PUT /mobileapi/product-seller/product/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+Sample Payload:
+{
+  "name": "Men Casual T-Shirt",
+  "variants": [
+    {
+      "id": "var001...",
+      "name": "Blue / L",
+      "price": 100,
+      "sellingPrice": 80,   // Seller enters 80 -> DB discount becomes 20
+      "stock": 45
+    }
+  ]
+}
+
+Response (200 OK):
+Returns the updated product and variants including calculated `sellingPrice` and `discountedPrice`.
+
+================================================================================
+3. SERVICE SELLER MOBILE APIS
+================================================================================
+
+A. CREATE SERVICE
+-----------------
+Endpoint: POST /mobileapi/service-seller/service
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+Fields:
+- `basePrice`: Standard/regular price (e.g. 500)
+- `sellingPrice` (or `discount`): The final price customer pays (e.g. 400)
+  Backend automatically stores: discount = 500 - 400 = 100.
+
+Option 1: JSON Payload:
+{
+  "name": "Deep Home AC Service",
+  "serviceCategoryId": "cm0c1xabc...",
+  "serviceType": "FIXED_PRICE",
+  "basePrice": 500,
+  "sellingPrice": 400,   // Customer pays 400; DB stores discount = 100
+  "duration": 60,
+  "description": "Complete indoor & outdoor AC maintenance",
+  "images": ["https://s3.example.com/services/ac-service.jpg"]
+}
+
+Option 2: Multipart / FormData:
+- `name`: "Deep Home AC Service"
+- `serviceCategoryId`: "cm0c1xabc..."
+- `serviceType`: "FIXED_PRICE"
+- `basePrice`: 500
+- `sellingPrice`: 400    // (or `discount`: 400)
+- `duration`: 60
+- `description`: "Complete indoor & outdoor AC maintenance"
+- `images`: [binary files or URLs]
+
+B. GET SERVICE FOR EDIT SCREEN
+------------------------------
+Endpoint: GET /mobileapi/service-seller/service/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Sample Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm5a9xabc...",
+    "name": "Deep Home AC Service",
+    "serviceCategoryId": "cm0c1xabc...",
+    "serviceType": "FIXED_PRICE",
+    "basePrice": 500,            // Standard/Original Price
+    "discount": 100,             // Stored DB discount amount
+    "sellingPrice": 400,         // <-- USE THIS TO PRE-FILL YOUR MOBILE INPUT!
+    "discountedPrice": 400,     // Alias of sellingPrice
+    "duration": 60,
+    "description": "Complete indoor & outdoor AC maintenance",
+    "images": ["https://s3.example.com/services/ac-service.jpg"],
+    "isActive": true
+  }
+}
+
+Mobile UI Form Binding (Flutter Example):
+----------------------------------------
+// Regular Base Price Controller:
+TextEditingController basePriceCtrl = TextEditingController(
+  text: service.basePrice != null ? service.basePrice.toString() : ""
+);
+
+// Selling Price Controller (pre-fill with sellingPrice):
+TextEditingController sellingPriceCtrl = TextEditingController(
+  text: (service.sellingPrice != null && service.sellingPrice > 0 && service.sellingPrice < (service.basePrice ?? 0))
+    ? service.sellingPrice.toString()
+    : ""
+);
+
+C. UPDATE SERVICE
+-----------------
+Endpoint: PUT /mobileapi/service-seller/service/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+Sample Payload:
+{
+  "name": "Deep Home AC Service",
+  "basePrice": 500,
+  "sellingPrice": 350    // Seller updates price to 350 -> DB discount becomes 150
+}
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm5a9xabc...",
+    "name": "Deep Home AC Service",
+    "basePrice": 500,
+    "discount": 150,
+    "sellingPrice": 350,
+    "discountedPrice": 350,
+    "updatedAt": "2026-09-23T12:00:00.000Z"
+  }
+}
+
+================================================================================
+4. VALIDATION RULES & EDGE CASES (APPLIES TO BOTH PRODUCT & SERVICE)
+================================================================================
+1. Selling Price Cannot Exceed Base/Regular Price:
+   - If `sellingPrice > price` (e.g. MRP 100, sellingPrice 120), the API rejects with 400 Bad Request:
+     {
+       "success": false,
+       "error": "Selling price (120) cannot exceed regular price (100)"
+     }
+
+2. Selling At Full Price (No Discount):
+   - Leave `sellingPrice: 0` or omit it or set it equal to `price`.
+   - The backend sets `discount = 0`.
+
+3. Client-Side UI Helpful Hint:
+   Under the Selling Price input field in the Mobile App, it is recommended to display a small hint:
+   "Enter the final price you want to sell (e.g., if price is 100 and you enter 80, customer pays 80)."
+
+================================================================================
+END OF DOCUMENT
+================================================================================

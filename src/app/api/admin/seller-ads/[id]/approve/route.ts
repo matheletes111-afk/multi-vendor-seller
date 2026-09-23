@@ -19,6 +19,12 @@ export async function POST(
     if (ad.status !== "PENDING_APPROVAL") {
       return NextResponse.json({ error: "Ad is not pending approval" }, { status: 400 })
     }
+    if (ad.paymentStatus !== "COMPLETED") {
+      return NextResponse.json(
+        { error: `Cannot approve ad. Payment status is ${ad.paymentStatus}. Payment must be COMPLETED first.` },
+        { status: 400 }
+      )
+    }
     await prisma.sellerAd.update({
       where: { id },
       data: { status: "ACTIVE" },

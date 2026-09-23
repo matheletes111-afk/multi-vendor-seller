@@ -6,6 +6,8 @@ export type VariantInput = {
   sku?: string
   price?: number
   discount?: number
+  sellingPrice?: number
+  selling_price?: number
   hasGst?: boolean
   stock?: number
   weight?: number
@@ -61,16 +63,35 @@ export function parseVariantInput(
   const vName = typeof v?.name === "string" ? v.name.trim() : `Variant ${index + 1}`
   const vPrice = Number(v?.price ?? 0)
   const vStock = Number(v?.stock ?? 0)
-  const vDiscount = Math.round(Number(v?.discount ?? 0) * 100) / 100
   const vWeight = v?.weight !== undefined && v?.weight !== null ? Number(v.weight) : null
   const vHeight = v?.height !== undefined && v?.height !== null ? Number(v.height) : 0
   const vWidth = v?.width !== undefined && v?.width !== null ? Number(v.width) : 0
   const vDepth = v?.depth !== undefined && v?.depth !== null ? Number(v.depth) : 0
+
+  // Client enters the target selling price (e.g. 60 for a 100 rs item).
+  // In DB, discount is stored as (price - sellingPrice) = 100 - 60 = 40.
+  const rawSellingPrice =
+    v?.sellingPrice !== undefined && v?.sellingPrice !== null && String(v.sellingPrice).trim() !== ""
+      ? Number(v.sellingPrice)
+      : v?.selling_price !== undefined && v?.selling_price !== null && String(v.selling_price).trim() !== ""
+      ? Number(v.selling_price)
+      : v?.discount !== undefined && v?.discount !== null && String(v.discount).trim() !== ""
+      ? Number(v.discount)
+      : undefined
+
   if (isNaN(vPrice) || vPrice <= 0) {
     return { ok: false, error: `Variant ${index + 1}: valid price required` }
   }
   if (isNaN(vStock) || vStock < 0) {
     return { ok: false, error: `Variant ${index + 1}: valid stock required` }
+  }
+
+  let vDiscount = 0
+  if (rawSellingPrice !== undefined && !isNaN(rawSellingPrice) && rawSellingPrice > 0) {
+    if (rawSellingPrice > vPrice) {
+      return { ok: false, error: `Variant ${index + 1}: selling price (${rawSellingPrice}) cannot exceed regular price (${vPrice})` }
+    }
+    vDiscount = Math.round((vPrice - rawSellingPrice) * 100) / 100
   }
   const vReturnType = v?.returnType === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE"
   const vReturnDaysRaw = typeof v?.returnDays === "number" ? v.returnDays : undefined

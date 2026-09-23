@@ -5,6 +5,7 @@ import { isProductSeller } from "@/lib/rbac"
 import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { initiateAdPayment } from "@/lib/ad-payment"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -68,6 +69,10 @@ export async function GET(request: NextRequest) {
       totalBudget: Number(ad.totalBudget),
       spentAmount: Number(ad.spentAmount),
       maxCpc: Number(ad.maxCpc),
+      payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
+      paymentStatus: ad.paymentStatus,
+      flotPaymentLink: ad.flotPaymentLink,
+      flotOrderId: ad.flotOrderId,
       targetCountries: ad.targetCountries as string[] | null,
       couponCode: usage?.coupon?.code || null,
       couponDiscount,
@@ -256,6 +261,7 @@ export async function POST(request: NextRequest) {
         // @ts-ignore
         mobileCreativeUrl: mobileCreativeUrl || null,
         status: "PENDING_APPROVAL",
+        paymentStatus: "PENDING",
         totalBudget,
         spentAmount: 0,
         maxCpc,
@@ -269,16 +275,29 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (appliedCoupon) {
-      const { recordSellerCouponUsage } = await import("@/lib/coupons")
-      await recordSellerCouponUsage({
-        couponId: appliedCoupon.id,
-        userId: session.user.id,
-        sellerAdId: createdAd.id
-      })
+    const paymentResult = await initiateAdPayment({
+      adId: createdAd.id,
+      totalBudget,
+      couponCode: (body.couponCode as string) || null,
+      userId: session.user.id,
+    })
+
+    if (!paymentResult.success && paymentResult.error) {
+      return NextResponse.json({
+        success: false,
+        error: paymentResult.error,
+        ad: createdAd,
+      }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true, ad: createdAd })
+    return NextResponse.json({
+      success: true,
+      ad: createdAd,
+      requiresPayment: paymentResult.requiresPayment,
+      paymentUrl: paymentResult.paymentUrl,
+      payableAmount: paymentResult.payableAmount,
+      couponDiscount: paymentResult.couponDiscount,
+    })
   } catch (error: unknown) {
     return NextResponse.json(
       { error: `Failed to create ad: ${error instanceof Error ? error.message : "Unknown"}` },

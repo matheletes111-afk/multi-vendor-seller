@@ -198,6 +198,7 @@ export function BulkUploadDialog({ onImported }: { onImported?: (jobId?: string)
           <div className="rounded-lg border bg-blue-500/5 p-4 text-xs space-y-2">
             <p className="font-semibold text-blue-600 dark:text-blue-400">Pro Tips & Format Guidelines:</p>
             <ul className="list-disc pl-4 space-y-1 text-muted-foreground font-medium">
+              <li><strong>Price & Discount</strong>: In <code>price</code> enter the original price (MRP, e.g. 100). In <code>discount</code>, enter the <strong>final price you want to sell</strong> (e.g. if Price = 100 and you want to sell for 80, enter 80. Customer pays 80). Leave blank or 0 for full price.</li>
               <li><strong>Variants</strong>: If you have multiple items for the same product, give them the <strong>exact same product name</strong> (e.g. "T-Shirt") in consecutive rows, and differentiate them using the <code>variant_name</code> column.</li>
               <li><strong>GST & Policy</strong>: Write <strong>Yes</strong> or <strong>No</strong> in <code>gst_applicable</code> and <code>replacement_allowed</code> columns. Use <strong>Returnable</strong> or <strong>Non-Returnable</strong> in <code>return_policy</code>.</li>
               <li><strong>Details & Specs</strong>: Input key-value JSON in <code>variant_details</code> (e.g. <code>{"{\"color\": \"red\"}"}</code>) for custom options.</li>

@@ -26,6 +26,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
 import { Input } from "@/ui/input"
+import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
 
 type Ad = {
   id: string
@@ -34,6 +35,7 @@ type Ad = {
   creativeType: string
   creativeUrl: string
   status: string
+  paymentStatus?: string
   rejectionReason: string | null
   totalBudget: number
   spentAmount: number
@@ -416,7 +418,12 @@ export function AdminSellerAdsPageClient() {
                     <TableCell>
                       <Badge variant="outline" className="font-medium uppercase text-[9px] tracking-tight bg-muted/5">{ad.creativeType}</Badge>
                     </TableCell>
-                    <TableCell>{statusBadge(ad)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 items-start">
+                        {statusBadge(ad)}
+                        <PaymentStatusBadge status={ad.paymentStatus} />
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs font-medium">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-foreground">{formatCurrency(ad.spentAmount)}</span>
@@ -446,7 +453,8 @@ export function AdminSellerAdsPageClient() {
                         <>
                           <Button
                             size="sm"
-                            disabled={loadingId === ad.id}
+                            disabled={loadingId === ad.id || ad.paymentStatus !== "COMPLETED"}
+                            title={ad.paymentStatus !== "COMPLETED" ? "Cannot approve unpaid ad" : "Approve ad"}
                             onClick={async () => {
                               setLoadingId(ad.id)
                               await approveAd(ad.id)

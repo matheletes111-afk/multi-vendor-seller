@@ -500,7 +500,8 @@ export function AdminSettingsClient() {
           <span>System & Economics</span>
         </button>
 
-        <button
+        {/* Tab hidden as per requirement: App Updates & Versions */}
+        {/* <button
           type="button"
           onClick={() => setActiveTab("app_updates")}
           className={cn(
@@ -512,7 +513,7 @@ export function AdminSettingsClient() {
         >
           <Smartphone className="w-4 h-4 text-amber-500" />
           <span>App Updates & Versions</span>
-        </button>
+        </button> */}
 
         <button
           type="button"
