@@ -44,6 +44,19 @@ frontend:
         - echo "FIREBASE_CLIENT_EMAIL=$FIREBASE_CLIENT_EMAIL" >> .env
         - echo "FIREBASE_PRIVATE_KEY=$FIREBASE_PRIVATE_KEY" >> .env
         - echo "FIREBASE_PRIVATE_KEY_BASE64=$FIREBASE_PRIVATE_KEY_BASE64" >> .env
+        # Flot Payment Gateway
+        - echo "FLOT_BASE_URL=$FLOT_BASE_URL" >> .env
+        - echo "FLOT_MERCHANT_ID=$FLOT_MERCHANT_ID" >> .env
+        - echo "FLOT_PRIVATE_KEY=$FLOT_PRIVATE_KEY" >> .env
+        - echo "FLOT_WEBHOOK_USERNAME=$FLOT_WEBHOOK_USERNAME" >> .env
+        - echo "FLOT_WEBHOOK_PASSWORD=$FLOT_WEBHOOK_PASSWORD" >> .env
+        # Apple In-App Purchase (StoreKit 2)
+        - echo "APPLE_IAP_ISSUER_ID=$APPLE_IAP_ISSUER_ID" >> .env
+        - echo "APPLE_IAP_KEY_ID=$APPLE_IAP_KEY_ID" >> .env
+        - echo "APPLE_IAP_PRIVATE_KEY=$APPLE_IAP_PRIVATE_KEY" >> .env
+        - echo "APPLE_BUNDLE_ID=$APPLE_BUNDLE_ID" >> .env
+        - echo "APPLE_APP_ID=$APPLE_APP_ID" >> .env
+        - echo "APPLE_ENVIRONMENT=$APPLE_ENVIRONMENT" >> .env
         - npx prisma generate
     build:
       commands:
