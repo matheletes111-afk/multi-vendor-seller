@@ -116,8 +116,11 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mobile rider phone-otp send error:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: error?.message || "Internal server error" },
+      { status: 500 }
+    )
   }
 }

@@ -70,6 +70,10 @@ export async function GET(request: NextRequest) {
         success: false,
         error: "RSA-PSS Signing Failed",
         details: e?.message,
+        keyLength: config.privateKey?.length,
+        hasBegin: config.privateKey?.includes("BEGIN"),
+        hasEnd: config.privateKey?.includes("END"),
+        hint: "Please set FLOT_PRIVATE_KEY_BASE64 in AWS Amplify Console with the one-line Base64 string.",
       },
       { status: 500 }
     )

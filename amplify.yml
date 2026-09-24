@@ -4,6 +4,7 @@ frontend:
     preBuild:
       commands:
         - npm install --legacy-peer-deps --include=dev
+        - npm install --os=linux --cpu=x64 sharp
         # Write environment variables to .env for Next.js runtime
         - echo "DATABASE_URL=$DATABASE_URL" >> .env
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env
@@ -48,8 +49,10 @@ frontend:
         - echo "FLOT_BASE_URL=$FLOT_BASE_URL" >> .env
         - echo "FLOT_MERCHANT_ID=$FLOT_MERCHANT_ID" >> .env
         - echo "FLOT_PRIVATE_KEY=$FLOT_PRIVATE_KEY" >> .env
+        - echo "FLOT_PRIVATE_KEY_BASE64=$FLOT_PRIVATE_KEY_BASE64" >> .env
         - echo "FLOT_WEBHOOK_USERNAME=$FLOT_WEBHOOK_USERNAME" >> .env
         - echo "FLOT_WEBHOOK_PASSWORD=$FLOT_WEBHOOK_PASSWORD" >> .env
+        - node -e 'if (process.env.FLOT_PRIVATE_KEY && !process.env.FLOT_PRIVATE_KEY_BASE64) { require("fs").appendFileSync(".env", "\nFLOT_PRIVATE_KEY=" + JSON.stringify(process.env.FLOT_PRIVATE_KEY) + "\n"); }' 2>/dev/null || true
         # Apple In-App Purchase (StoreKit 2)
         - echo "APPLE_IAP_ISSUER_ID=$APPLE_IAP_ISSUER_ID" >> .env
         - echo "APPLE_IAP_KEY_ID=$APPLE_IAP_KEY_ID" >> .env
