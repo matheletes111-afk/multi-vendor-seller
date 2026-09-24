@@ -22,44 +22,52 @@ export function normalizePhoneNumber(input: string, defaultCountryCode: string =
   const digits = clean.replace(/\D/g, "")
   if (!digits) return ""
 
+  const defaultCc = defaultCountryCode.replace(/\D/g, "") || "232"
+
+  // Common countries where callers mistakenly write +<CC>0... (trunk zero)
+  // Sierra Leone (+232 0...), UK (+44 0...), Nigeria (+234 0...), Ghana (+233 0...), Kenya (+254 0...)
+  const trunkZeroCodes = ["232", "44", "234", "233", "254"]
+  if (defaultCc && !trunkZeroCodes.includes(defaultCc)) {
+    trunkZeroCodes.unshift(defaultCc)
+  }
+
+  // Helper to strip trunk zero for known country codes
+  function stripTrunkZero(cc: string, nationalDigits: string): string {
+    if (trunkZeroCodes.includes(cc) && nationalDigits.startsWith("0") && nationalDigits.length >= 7) {
+      return `+${cc}${nationalDigits.replace(/^0+/, "")}`
+    }
+    return `+${cc}${nationalDigits}`
+  }
+
+  // 1. If entered with '+' (e.g. +919064898395, +14085551234, +23288994462, +232088994462)
   if (hasPlus) {
-    // If entered as +232088994462, check 1 to 3 digit country codes and remove the leading 0 after CC
-    for (let ccLen = 1; ccLen <= 3; ccLen++) {
-      if (digits.length > ccLen + 6) {
-        const cc = digits.slice(0, ccLen)
-        const rest = digits.slice(ccLen)
-        if (rest.startsWith("0")) {
-          return `+${cc}${rest.replace(/^0+/, "")}`
-        }
+    for (const cc of trunkZeroCodes) {
+      if (digits.startsWith(cc) && digits.length >= cc.length + 6) {
+        return stripTrunkZero(cc, digits.slice(cc.length))
       }
     }
     return `+${digits}`
   }
 
-  // If entered with country code but no + (e.g. 232088994462 or 23288994462 or 919876543210):
-  if (!digits.startsWith("0") && digits.length >= 10) {
-    for (let ccLen = 1; ccLen <= 3; ccLen++) {
-      if (digits.length > ccLen + 6) {
-        const cc = digits.slice(0, ccLen)
-        const rest = digits.slice(ccLen)
-        if (rest.startsWith("0")) {
-          return `+${cc}${rest.replace(/^0+/, "")}`
-        }
-      }
-    }
-    return `+${digits}`
-  }
-
-  // If entered as a local number with leading zero (e.g. 088994462 / 076123456):
-  const ccDigits = defaultCountryCode.replace(/\D/g, "")
+  // 2. If entered as a local number with leading zero (e.g. 088994462 / 076123456)
   if (digits.startsWith("0")) {
     const withoutZero = digits.replace(/^0+/, "")
-    return `+${ccDigits}${withoutZero}`
+    return `+${defaultCc}${withoutZero}`
   }
 
-  // If entered as 8-digit local number without leading zero (e.g. 88994462):
+  // 3. If entered with country code but no + (e.g. 232088994462, 23288994462, 919064898395, 14085551234)
+  const commonCodes = ["232", "91", "1", "44", "233", "234", "254", "256", "250", defaultCc]
+  commonCodes.sort((a, b) => b.length - a.length)
+
+  for (const cc of commonCodes) {
+    if (digits.startsWith(cc) && digits.length >= cc.length + 6) {
+      return stripTrunkZero(cc, digits.slice(cc.length))
+    }
+  }
+
+  // 4. If entered as 8 or 9 digit local number without leading zero (e.g. 88994462 in SL)
   if (digits.length <= 9) {
-    return `+${ccDigits}${digits}`
+    return `+${defaultCc}${digits}`
   }
 
   return `+${digits}`

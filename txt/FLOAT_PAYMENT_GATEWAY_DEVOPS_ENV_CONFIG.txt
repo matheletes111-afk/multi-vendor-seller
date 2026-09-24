@@ -1,0 +1,119 @@
+================================================================================
+FLOAT (FLOT) PAYMENT GATEWAY — DEVOPS ENVIRONMENT CONFIGURATION GUIDE
+================================================================================
+Project: MEEEM Multi-Vendor Platform
+Last Updated: 2026-09-24
+Target Platform: AWS Amplify / Docker / Production VPS
+
+--------------------------------------------------------------------------------
+1. CRITICAL NOTICE FOR DEVOPS / SERVER ADMINISTRATORS
+--------------------------------------------------------------------------------
+RSA Private Keys in PEM format contain 30+ lines with newlines. In CI/CD pipelines
+like AWS Amplify, writing multiline environment variables into `.env` using shell 
+commands (e.g. `echo "KEY=$KEY" >> .env`) truncates everything after the first 
+line (`-----BEGIN RSA PRIVATE KEY-----`), breaking the key.
+
+To prevent this issue, we provide the EXACT private key encoded as a SINGLE-LINE 
+Base64 string (`FLOT_PRIVATE_KEY_BASE64`). The application code automatically decodes 
+and cryptographically verifies it at runtime.
+
+--------------------------------------------------------------------------------
+2. ENVIRONMENT VARIABLES TO CONFIGURE IN AWS AMPLIFY CONSOLE
+--------------------------------------------------------------------------------
+Navigate to:
+AWS Amplify Console -> App settings -> Environment variables
+
+Add or update the following variables:
+
+--------------------------------------------------------------------------------
+VARIABLE 1: FLOT_PRIVATE_KEY_BASE64
+--------------------------------------------------------------------------------
+Name:
+FLOT_PRIVATE_KEY_BASE64
+
+Value (Copy the entire one-line string below without spaces):
+LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBek9ZMWtTd0FJVGlEMnN3TWdEc2RJKzQrZUV1YTlFMzJPL3pPKzVvdXg5VFpuekJwCkswRG9uelZ6NEpDa285bFJLNTV6MVdib2NlR3BEU05sRWFqK2N1TmpjL1I5MzhnNjNGZ3N3OGtyQ2NVWk1NbDEKbnc2SDZsQUU1K2pvaVhIYnpIeHorVE9FVm9VN3p4OTREOE5LbmNPa3ZNUkt1YU10WUI0YXRNTWFvN1hRT3BiLwpTTi9DYTNxdVkyOGhub1Q3ODNPR01kbXFPckVYL25Pb0U4c0V4SUJXZlpSUFVDNE5ZMCs0WmxiM29KeURZdnhIClgvVGlCaEd1Uy84RFZrQXc0T2hIUXF3OVVlN2hiSG9HK1F1T3lmUEI0K0IyTmVqT2tCNktQc0NST2JFaHMvdzYKTHJ2Ym5TTjQzZnRFZzNYMEJqU24weHo1dXdkd3lleTVhR2RzNlFJREFRQUJBb0lCQUNqZlR4WXJVY2RPcjdhbwpkMkhvNk5JdkJ4VVY5ODM5OHoxYUc2dkN3TXdwNEZOSjQrQzE3UEU5UjJVblZVQTk3RndvR25FYU93bmtlc1ZkCkp4OFR0OVlSRjlpY2o3TmhES1RCamdSc0Q0SytaMXo5QXRKOG9vNFI4amlVbERZK21ScThSS0lVTGJUWWxPcW4KRzFzQm1NUEpvQVhybmdCVDFZeFQxUDN6NFUrQWJEZlRiYTQ2bnMrUDhuRitzZU1MYlJZRzY2UkhxSzNuanRYVgpwSFZZQlU1dXBQN1hEQjB6SUxidWJJZm9sTkNLUTRYcGVPbmc4Z0J1YWE4TTNja0FZZ0lKYjJRQzRhbm9FV1NRCjQydy9VcU94TlpxaUhFS242NEJ3MnFZOS9YRHhhU3NwMUVrQ1Z2MW1XOFpES1F6ZzRiQWw4eTdUMVpXd3Y1Y3MKOWptbXJnRUNnWUVBL1ZCV051eEF2Rjd3MW9sNXJaaU9kMUs2OE0yMzMwWWl4aS9CMk0ra2hha0lzMHdSejBKRwpMV0NCaWRoQnNNUVJ0WVRmR3dRTGhIbHZESVB0OXJGWGxDK2dBdWZoVytiQ2VhcUxBMWV4cFBobW0wNGh0TlVFCmNmTk51SjlPMFh0a0lrS3VUNmtVVklMQ0E4NStwT044NURqaGJrZFdVWWF5ZTdNdTJISGJBQ2tDZ1lFQXp4SngKWlUwcU1jL2JoV0dwYUZGeVg3VEs5VkkxVVROcEhrSk1wRGwzOTBaNG03UVZnWHFmU1BPYlZrZjAzNW4xOEIwYwpScUcwc1BaNFFPWUpVVTF1VnZpY3NwMDE0b1QzK2oyY09HSG96dFZ6Z3ZvL1VNalo1dFpYZHh5QkZwS2lrZ3RiCjFKTE5MME1CMmxRR3UxQkdLbmo5czhPR3ozNzBJd0xMeTBEN25zRUNnWUVBOTlRL1pTQ2kvU2lOeS9kWU9rVEYKTFd5ZFJMYWZyQ3U4SGRYZmV6VTdLeUdEUjVlbTNQVmtIMFVKdDBrQ2krUm54d1dtR1pKTmltQWNDMHlQNWdqLwpQQldVSVFPbjhmZkVVTEJQclFlQTMzdS9OemFydDNXcEVhc09ZUkJMVnB1NERlVGJFVWpFZ1NJa213RE4ycGhPCk9pS0VPeFpFRnlNSFFBckFURGFvSW5FQ2dZQk56dzVSRkdmUWc5eG5DRVdSNzFqYzRhQ0tBalFLcVJqTXgvam8KbExlaGNSZU0ybVJpWE9OUmxFaEFhWlY0Ri9BMEk1d21aa2p4WGd2ZHh4S2xQRVZENVBOc29tcEhEZFBvY2hJcgpsWTdYZVptSUUrU0t4STRza1VvWWRkdUQwZUhJb3dBRXBvejNQMlNJMTU0WDhKZ05DWjI3V0xObGNMem9FdnJsCkN5d0JnUUtCZ1FDcnJ5eGl4SzB6bklvakhyaUdLTDZGWWhNUnhxY1BUOWxhcW4reGJjeUp4dndxQlpFTXBsMkYKeUYyWkZYc1VBSGJHdWZ5dXpUTlc5T2o5WVdhZE1qMW56aG10c1dYN1piVSsxb2hKRWlRZXQxMlQ5ZW5FSW1HZgpXaktOczlzYlZOM1JNKytGcXh3d0pXSnBjWXpZeXF1MXprazFtdmtLV0FVciswNkU4SUluS1E9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+
+--------------------------------------------------------------------------------
+VARIABLE 2: FLOT_BASE_URL
+--------------------------------------------------------------------------------
+Name:
+FLOT_BASE_URL
+
+Value:
+https://api.stage.flotme.ai
+
+--------------------------------------------------------------------------------
+VARIABLE 3: FLOT_MERCHANT_ID
+--------------------------------------------------------------------------------
+Name:
+FLOT_MERCHANT_ID
+
+Value:
+40bd76d6-de05-4ca3-9e32-47eed6e657b1
+
+--------------------------------------------------------------------------------
+VARIABLE 4: FLOT_WEBHOOK_USERNAME
+--------------------------------------------------------------------------------
+Name:
+FLOT_WEBHOOK_USERNAME
+
+Value:
+meeem_flot_webhook
+
+--------------------------------------------------------------------------------
+VARIABLE 5: FLOT_WEBHOOK_PASSWORD
+--------------------------------------------------------------------------------
+Name:
+FLOT_WEBHOOK_PASSWORD
+
+Value:
+meeem_flot_secret_2026
+
+--------------------------------------------------------------------------------
+3. VERIFICATION & LIVE DIAGNOSTIC ENDPOINT
+--------------------------------------------------------------------------------
+Once the environment variables are saved in AWS Amplify Console and the latest 
+Git build is completed, test the live connection by opening:
+
+https://www.meeemsl.com/api/flot/test?secret=meeem_flot_secret_2026
+
+Expected Successful Response:
+{
+  "success": true,
+  "message": "Float Payment Gateway is CONNECTED and ready to accept payments!",
+  "diagnostic": {
+    "baseUrl": "https://api.stage.flotme.ai",
+    "merchantId": "40bd76d6-de05-4ca3-9e32-47eed6e657b1",
+    "signatureEngine": "RSA-4096 / SHA-512 / PSS"
+  },
+  "floatResponse": {
+    "attemptId": "...",
+    "paymentUrl": "https://checkout.stage.flotme.ai/..."
+  }
+}
+
+--------------------------------------------------------------------------------
+4. DETAILS TO SUBMIT TO FLOAT (FLOT) TEAM
+--------------------------------------------------------------------------------
+Webhook URL:
+https://www.meeemsl.com/api/webhooks/flot
+
+Webhook HTTP Basic Auth Credentials:
+Username: meeem_flot_webhook
+Password: meeem_flot_secret_2026
+
+Merchant Public Key (Matches the Private Key above):
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzOY1kSwAITiD2swMgDsd
+I+4+eEua9E32O/zO+5oux9TZnzBpK0DonzVz4JCko9lRK55z1WboceGpDSNlEaj+
+cuNjc/R938g63Fgsw8krCcUZMMl1nw6H6lAE5+joiXHbzHxz+TOEVoU7zx94D8NK
+ncOkvMRKuaMtYB4atMMao7XQOpb/SN/Ca3quY28hnoT783OGMdmqOrEX/nOoE8sE
+xIBWfZRPUC4NY0+4Zlb3oJyDYvxHX/TiBhGuS/8DVkAw4OhHQqw9Ue7hbHoG+QuO
+yfPB4+B2NejOkB6KPsCRObEhs/w6LrvbnSN43ftEg3X0BjSn0xz5uwdwyey5aGds
+6QIDAQAB
+-----END PUBLIC KEY-----
+
+Payment Return URL:
+https://www.meeemsl.com/ads/payment-return?orderId={orderId}
+================================================================================

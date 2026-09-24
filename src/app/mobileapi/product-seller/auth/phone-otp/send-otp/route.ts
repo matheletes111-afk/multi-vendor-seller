@@ -104,8 +104,11 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         resendCooldown: RESEND_COOLDOWN_MS / 1000,
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mobile product seller phone-otp send error:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: error?.message || "Internal server error" },
+      { status: 500 }
+    )
   }
 }

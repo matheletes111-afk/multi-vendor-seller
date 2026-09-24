@@ -37,40 +37,81 @@ const DEFAULT_BASE_URL = "https://api.stage.flotme.ai"
 const DEFAULT_MERCHANT_ID = "40bd76d6-de05-4ca3-9e32-47eed6e657b1"
 
 /**
+ * Cleans, decodes (if base64), reformats, and cryptographically validates an RSA private key.
+ * Returns the valid PEM string if OpenSSL can sign with it, otherwise returns null.
+ */
+function cleanAndValidateKey(raw: string | undefined | null): string | null {
+  if (!raw || typeof raw !== "string") return null
+  let key = raw.trim()
+  if (!key) return null
+
+  // Strip surrounding quotes if present
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1).trim()
+  }
+
+  // 1. Try base64 decode if it does not contain PEM headers directly
+  if (!key.includes("BEGIN") && !key.includes("PRIVATE KEY")) {
+    try {
+      const decoded = Buffer.from(key, "base64").toString("utf8")
+      if (decoded.includes("PRIVATE KEY")) {
+        key = decoded.trim()
+      }
+    } catch {
+      // not base64, continue
+    }
+  }
+
+  // 2. Replace escaped \n with real newline characters
+  key = key.replace(/\\n/g, "\n").replace(/\r/g, "")
+
+  // 3. If headers are present but lines were concatenated with spaces
+  if (key.includes("BEGIN") && key.includes("END") && !key.includes("\n")) {
+    key = key
+      .replace(/(-----BEGIN [^-]+-----)\s*/, "$1\n")
+      .replace(/\s*(-----END [^-]+-----)/, "\n$1")
+  }
+
+  // 4. Must contain both BEGIN and END and be of reasonable length (>= 500 characters)
+  if (!key.includes("BEGIN") || !key.includes("END") || key.length < 500) {
+    return null
+  }
+
+  // 5. Test with crypto.createSign to ensure OpenSSL can decode it
+  try {
+    const signer = crypto.createSign("RSA-SHA512")
+    signer.update("TEST")
+    signer.sign(
+      {
+        key,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+      },
+      "base64"
+    )
+    return key
+  } catch {
+    return null
+  }
+}
+
+/**
  * Retrieve Flot Private Key from environment or certs directory
  */
 export function getFlotPrivateKey(): string {
-  // 1. Direct environment variable (e.g. AWS Amplify, Vercel, Docker)
-  let rawKey = process.env.FLOT_PRIVATE_KEY || process.env.FLOT_PRIVATE_KEY_BASE64
+  // Check environment variables (BASE64 first, then direct key)
+  const envCandidates = [
+    process.env.FLOT_PRIVATE_KEY_BASE64,
+    process.env.FLOT_PRIVATE_KEY,
+  ]
 
-  if (rawKey) {
-    let key = rawKey.trim()
-
-    // Strip surrounding double quotes or single quotes if added by shell or env
-    if (
-      (key.startsWith('"') && key.endsWith('"')) ||
-      (key.startsWith("'") && key.endsWith("'"))
-    ) {
-      key = key.slice(1, -1).trim()
-    }
-
-    // Check if string is base64 encoded
-    if (!key.includes("BEGIN") && !key.includes("PRIVATE KEY")) {
-      try {
-        const decoded = Buffer.from(key, "base64").toString("utf8")
-        if (decoded.includes("PRIVATE KEY")) {
-          key = decoded.trim()
-        }
-      } catch {
-        // Continue with original if not base64
-      }
-    }
-
-    // Replace literal escaped \n with real newline characters
-    key = key.replace(/\\n/g, "\n")
-
-    if (key.includes("PRIVATE KEY")) {
-      return key
+  for (const candidate of envCandidates) {
+    if (candidate) {
+      const valid = cleanAndValidateKey(candidate)
+      if (valid) return valid
     }
   }
 
@@ -81,18 +122,30 @@ export function getFlotPrivateKey(): string {
       ? customPath
       : path.join(process.cwd(), customPath)
     if (fs.existsSync(resolvedCustom)) {
-      return fs.readFileSync(resolvedCustom, "utf8").trim()
+      const fileContent = fs.readFileSync(resolvedCustom, "utf8")
+      const valid = cleanAndValidateKey(fileContent)
+      if (valid) return valid
     }
   }
 
   // 3. Default certs folder in project
   const defaultCertPath = path.join(process.cwd(), "certs", "flot_private_key.pem")
   if (fs.existsSync(defaultCertPath)) {
-    return fs.readFileSync(defaultCertPath, "utf8").trim()
+    const fileContent = fs.readFileSync(defaultCertPath, "utf8")
+    const valid = cleanAndValidateKey(fileContent)
+    if (valid) return valid
+  }
+
+  // If we reach here, check if an invalid or truncated key was passed to give a helpful error
+  const rawKey = process.env.FLOT_PRIVATE_KEY || process.env.FLOT_PRIVATE_KEY_BASE64
+  if (rawKey) {
+    throw new Error(
+      `Flot private key in environment is malformed or truncated (length: ${rawKey.length} chars). If using AWS Amplify, please set FLOT_PRIVATE_KEY_BASE64 with the one-line Base64 encoded private key.`
+    )
   }
 
   throw new Error(
-    "Flot private key not found. Please set FLOT_PRIVATE_KEY in .env or provide certs/flot_private_key.pem"
+    "Flot private key not found. Please set FLOT_PRIVATE_KEY or FLOT_PRIVATE_KEY_BASE64 in .env or provide certs/flot_private_key.pem"
   )
 }
 
