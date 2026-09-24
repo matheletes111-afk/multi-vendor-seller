@@ -2,6 +2,7 @@ import { randomUUID } from "crypto"
 import path from "path"
 import fs from "fs/promises"
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import sharp from "sharp"
 
 type UploadArgs = {
   /** Folder prefix in storage, e.g. "categories" or "subcategories" */
@@ -528,8 +529,69 @@ export async function uploadPublicFile(args: UploadArgs): Promise<string> {
   // Centralized security guard for file validation
   validateFileSignature(buffer, safeExt, finalContentType)
 
-  // Strip EXIF / IPTC / XMP metadata from image buffers before storage (Issue #17)
-  buffer = stripImageMetadata(buffer, safeExt)
+  // Convert raster images to WebP format before storage (drastically improving website and app speed)
+  const cleanExtLower = safeExt.toLowerCase()
+  const CONVERTIBLE_IMAGE_EXTS = new Set([
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".gif",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".heic",
+    ".heif",
+    ".avif",
+  ])
+
+  const isRasterImage =
+    CONVERTIBLE_IMAGE_EXTS.has(cleanExtLower) ||
+    (finalContentType.startsWith("image/") && !finalContentType.includes("svg") && !finalContentType.includes("pdf"))
+
+  if (isRasterImage) {
+    const isGif = cleanExtLower === ".gif" || finalContentType.toLowerCase().includes("gif")
+    try {
+      // Automatically rotate based on EXIF orientation (crucial for smartphone camera photos),
+      // resize excessively large images to max 1920px (standard e-commerce ultra-HD resolution)
+      // to compress images down to well under 1-2MB WebP (typically 150KB-400KB), and encode to WebP
+      let webpBuffer = await sharp(buffer, { animated: isGif })
+        .rotate()
+        .resize({
+          width: 1920,
+          height: 1920,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 80, effort: 4 })
+        .toBuffer()
+
+      // Strict ceiling: ensure the compressed image buffer stays under 1.8MB
+      if (webpBuffer.length > 1.8 * 1024 * 1024 && !isGif) {
+        webpBuffer = await sharp(buffer)
+          .rotate()
+          .resize({
+            width: 1400,
+            height: 1400,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 70, effort: 4 })
+          .toBuffer()
+      }
+
+      buffer = webpBuffer
+      safeExt = ".webp"
+      finalContentType = "image/webp"
+    } catch (conversionErr) {
+      console.warn("Failed to convert image to WebP format, using original format:", conversionErr)
+      // Fallback: strip EXIF / IPTC / XMP metadata from image buffer before storage
+      buffer = stripImageMetadata(buffer, safeExt)
+    }
+  } else {
+    // Non-image or non-convertible file (PDF, video, SVG)
+    buffer = stripImageMetadata(buffer, safeExt)
+  }
 
   const fileName = `${prefix}-${Date.now()}-${randomUUID()}${safeExt}`
 

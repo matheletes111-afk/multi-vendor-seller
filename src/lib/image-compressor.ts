@@ -178,10 +178,10 @@ export async function compressImage(
       safeResolve(file)
     }, 6000)
 
-    const isWebp = file.type === "image/webp" || /\.webp$/i.test(fileName)
-    const outputType = isWebp ? "image/webp" : "image/jpeg"
+    // Always convert to WebP for maximum website speed and smaller upload sizes (preserves alpha transparency)
+    const outputType = "image/webp"
     const cleanName = fileName.replace(/\.[^/.]+$/, "") || "photo"
-    const outputName = `${cleanName}.${isWebp ? "webp" : "jpg"}`
+    const outputName = `${cleanName}.webp`
 
     const renderToCanvasAndResolve = (source: CanvasImageSource, naturalWidth: number, naturalHeight: number) => {
       let width = naturalWidth
@@ -219,11 +219,6 @@ export async function compressImage(
         return
       }
 
-      // If output is JPEG, pre-fill with white so transparent PNGs/WebPs don't get ugly black backgrounds
-      if (outputType === "image/jpeg") {
-        ctx.fillStyle = "#ffffff"
-        ctx.fillRect(0, 0, width, height)
-      }
 
       try {
         ctx.drawImage(source, 0, 0, width, height)

@@ -24,10 +24,16 @@ TABLE OF CONTENTS
 5. BULK PRODUCT IMPORT APIS
    5.1 Upload & Import Spreadsheet (POST)
    5.2 Background AI Dimensions Job Progress & Status (GET)
-6. SPREADSHEET COLUMN SPECIFICATION & RULES (24 COLUMNS)
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (23 COLUMNS)
 7. MULTI-VARIANT GROUPING & AUTO-CATEGORY LOGIC
 8. SUBSCRIPTION LIMITS & ERROR HANDLING
 9. CLIENT INTEGRATION EXAMPLES (FLUTTER & REACT NATIVE)
+10. MOBILE DEVELOPER ACTION GUIDE: RECENT PRODUCT CRUD & BULK UPLOAD UPDATES
+   10.1 Removal of Per-KM Delivery Charge (Hide in UI, Defaults to 0)
+   10.2 Automated Platform Shipping (Weight + Dimensions + Zone Engine)
+   10.3 Bulk Template Update: 23 Columns (Previously 24)
+   10.4 Mobile Product CRUD Complete API Reference & Payloads (POST & PUT)
+   10.5 Key Field Rules & Validation Checklist for Mobile Developers
 
 ================================================================================
 1. OVERVIEW & CAPABILITY STATUS
@@ -77,7 +83,7 @@ Q2: Are the Excel templates COMMON between Web and Mobile?
 A2: YES, 100% COMMON.
     - The backend uses the exact same template generator (`buildTemplateXlsx`)
       for both web and mobile.
-    - Both contain the exact same 24 columns, headers, dummy rows, and instructions.
+    - Both contain the exact same 23 columns, headers, dummy rows, and instructions.
     - A template downloaded on Web can be uploaded from the Mobile App.
     - A template downloaded from the Mobile App can be uploaded on the Web.
     - Both use the same atomic database transaction, validation engine, category
@@ -358,11 +364,6 @@ Success Response (200 OK):
         "description": "NEW or USED (defaults to NEW)"
       },
       {
-        "key": "delivery_charge_per_km",
-        "required": false,
-        "description": "Custom per-km delivery fee if applicable"
-      },
-      {
         "key": "variant_name",
         "required": true,
         "description": "Variant title e.g. 'Red / XL' or 'Standard'"
@@ -459,7 +460,6 @@ Success Response (200 OK):
       "brand": "Meeem Basics",
       "product_description": "100% organic cotton breathable casual t-shirt.",
       "condition": "NEW",
-      "delivery_charge_per_km": "0",
       "variant_name": "Black / L",
       "price": "29.99",
       "discount": "5",
@@ -584,7 +584,7 @@ If no active job is found:
 }
 
 ================================================================================
-6. SPREADSHEET COLUMN SPECIFICATION & RULES (24 COLUMNS)
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (23 COLUMNS)
 ================================================================================
 
 | #  | Column Header             | Req? | What To Put (Detailed Instructions for Sellers)                                                      | Small Concrete Example |
@@ -594,27 +594,27 @@ If no active job is found:
 | 3  | `brand`                   | NO   | Brand or manufacturer name. Leave blank if unbranded.                                                | Nike                   |
 | 4  | `product_description`     | NO   | Full overview and description of the product.                                                        | 100% organic cotton... |
 | 5  | `condition`               | NO   | Item condition: NEW or USED (default is NEW).                                                        | NEW                    |
-| 6  | `delivery_charge_per_km`  | NO   | Custom shipping fee per km. Enter 0 for standard delivery.                                           | 0                      |
-| 7  | `variant_name`            | YES  | Specific name of this variant (size, color, pack, or model).                                        | Black / L              |
-| 8  | `price`                   | YES  | Original MRP / listed price before discount (positive number).                                       | 100                    |
-| 9  | `discount`                | NO   | Final selling price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = 100.    | 80                     |
-| 10 | `gst_applicable`          | NO   | Tax applicable? Enter Yes or No (default is Yes).                                                    | Yes                    |
-| 11 | `stock`                   | YES  | Available stock quantity for this variant (integer >= 0).                                            | 50                     |
-| 12 | `sku_code`                | NO   | Your internal SKU / barcode identifier for inventory tracking.                                       | TSHIRT-BLK-L           |
-| 13 | `weight`                  | COND | Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.                      | 0.35                   |
-| 14 | `height`                  | NO   | Package height in CM (auto-estimated by AI if omitted).                                              | 5                      |
-| 15 | `width`                   | NO   | Package width in CM (auto-estimated by AI if omitted).                                               | 20                     |
-| 16 | `depth`                   | NO   | Package depth in CM (auto-estimated by AI if omitted).                                               | 30                     |
-| 17 | `product_variant_images`  | NO   | Public image URLs separated by vertical bar (|) or newline.                                          | https://.../1.jpg      |
-| 18 | `variant_details`         | NO   | Natural attributes: color: Black, size: Regular (JSON also supported).                               | color: Black, size: L  |
-| 19 | `specifications`          | NO   | Technical bullet points or specifications.                                                           | 180 GSM, Machine wash  |
-| 20 | `additional_details`      | NO   | Care instructions, warranty, or additional seller notes.                                             | Wash cold, do not iron |
-| 21 | `return_policy`           | NO   | Return policy: Returnable or Non-Returnable (default is Non-Returnable).                             | Returnable             |
-| 22 | `return_limit_days`       | NO   | Return window in days if Returnable (e.g. 7 or 14).                                                  | 7                      |
-| 23 | `replacement_allowed`     | NO   | Is product replacement allowed? Enter Yes or No (default is No).                                     | Yes                    |
-| 24 | `delivery_days`           | NO   | Estimated delivery time in days (integer >= 1, default is 7).                                        | 5                      |
+| 6  | `variant_name`            | YES  | Specific name of this variant (size, color, pack, or model).                                        | Black / L              |
+| 7  | `price`                   | YES  | Original MRP / listed price before discount (positive number).                                       | 100                    |
+| 8  | `discount`                | NO   | Final selling price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = 100.    | 80                     |
+| 9  | `gst_applicable`          | NO   | Tax applicable? Enter Yes or No (default is Yes).                                                    | Yes                    |
+| 10 | `stock`                   | YES  | Available stock quantity for this variant (integer >= 0).                                            | 50                     |
+| 11 | `sku_code`                | NO   | Your internal SKU / barcode identifier for inventory tracking.                                       | TSHIRT-BLK-L           |
+| 12 | `weight`                  | COND | Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.                      | 0.35                   |
+| 13 | `height`                  | NO   | Package height in CM (auto-estimated by AI if omitted).                                              | 5                      |
+| 14 | `width`                   | NO   | Package width in CM (auto-estimated by AI if omitted).                                               | 20                     |
+| 15 | `depth`                   | NO   | Package depth in CM (auto-estimated by AI if omitted).                                               | 30                     |
+| 16 | `product_variant_images`  | NO   | Public image URLs separated by vertical bar (|) or newline.                                          | https://.../1.jpg      |
+| 17 | `variant_details`         | NO   | Natural attributes: color: Black, size: Regular (JSON also supported).                               | color: Black, size: L  |
+| 18 | `specifications`          | NO   | Technical bullet points or specifications.                                                           | 180 GSM, Machine wash  |
+| 19 | `additional_details`      | NO   | Care instructions, warranty, or additional seller notes.                                             | Wash cold, do not iron |
+| 20 | `return_policy`           | NO   | Return policy: Returnable or Non-Returnable (default is Non-Returnable).                             | Returnable             |
+| 21 | `return_limit_days`       | NO   | Return window in days if Returnable (e.g. 7 or 14).                                                  | 7                      |
+| 22 | `replacement_allowed`     | NO   | Is product replacement allowed? Enter Yes or No (default is No).                                     | Yes                    |
+| 23 | `delivery_days`           | NO   | Estimated delivery time in days (integer >= 1, default is 7).                                        | 5                      |
 
 KEY NOTES ON SPREADSHEET RULES:
+- Delivery Charges Removed / Default 0: Delivery charges are now automatically calculated platform-wide based on package dimensions (height, width, depth), destination region/zone, and product weight. The old custom per-KM delivery charge (`delivery_charge_per_km`) has been removed from the template and UI, and defaults to 0 on the backend.
 - Simplified Variant Details: Instead of typing JSON with braces and quotes, sellers can simply enter natural key-value pairs like:
   `color: Black, size: Regular` or `color: Gold | size: Premium` (comma, semicolon, or pipe separated). Standard JSON like `{"color":"Black","size":"Regular"}` is also fully supported.
 - Required Variant Fields: Every row MUST have `variant_name`, `price`, and `stock`.
@@ -810,6 +810,376 @@ export async function importProducts(file: { uri: string; name: string; type: st
   }
 }
 ```
+
+================================================================================
+10. MOBILE DEVELOPER ACTION GUIDE: RECENT PRODUCT CRUD & BULK UPLOAD UPDATES
+================================================================================
+
+*** CRITICAL INTEGRATION NOTICE FOR MOBILE APPLICATION DEVELOPERS ***
+This section specifies the recent architectural changes made to the Product Seller
+APIs that affect both Bulk Spreadsheet Upload and Single Product CRUD (Add/Edit
+Product forms). Please update your mobile screens, form controls, and API payloads
+accordingly.
+
+--------------------------------------------------------------------------------
+10.1 REMOVAL OF PER-KM DELIVERY CHARGE (`deliveryChargePerKm`)
+--------------------------------------------------------------------------------
+1. Why this changed:
+   - Previously, products had an optional `deliveryChargePerKm` field where sellers
+     could enter a custom charge per kilometer.
+   - CURRENT ARCHITECTURE: Customer shipping & delivery charges are now calculated
+     automatically platform-wide by the server-side logistics engine using:
+       a) Package Dimensions: Height, Width, Depth in CM
+       b) Product Weight: in KG (mandatory for categories with weightMandatory=true)
+       c) Destination Region / Zone: Customer delivery address state and region
+   - Because shipping rates are now determined by weight, package dimensions, and
+     destination zone, the manual per-KM delivery charge is deprecated and no longer
+     needed from sellers.
+
+2. Mobile App Action Items for UI/UX:
+   - Screen: "Add New Product" (Create Form)
+     -> HIDE OR REMOVE the "Delivery Charge Per KM" (`deliveryChargePerKm`) input field.
+     -> Do NOT prompt the seller to enter a per-km delivery charge.
+   - Screen: "Edit Product" (Update Form)
+     -> HIDE OR REMOVE the `deliveryChargePerKm` input field.
+   - Screen: "Product Details / Preview"
+     -> Do NOT display any per-KM delivery charge badge or row.
+     -> The backend returns `deliveryChargePerKm: 0` for compatibility.
+
+3. Mobile App Action Items for API Payloads:
+   - When calling `POST /mobileapi/product-seller/product` (Create):
+     -> Omit `deliveryChargePerKm` entirely, or send `0`.
+     -> Backend automatically defaults `deliveryChargePerKm` to `0`.
+   - When calling `PUT /mobileapi/product-seller/product/:id` (Edit):
+     -> Omit `deliveryChargePerKm` entirely, or send `0`.
+   - When calling `POST /mobileapi/product-seller/product/bulk-import` (Bulk Import):
+     -> The spreadsheet template now contains 23 columns (previously 24).
+     -> Column `delivery_charge_per_km` has been removed.
+     -> Backend automatically sets `deliveryChargePerKm = 0` for all imported items.
+     -> If an older template containing `delivery_charge_per_km` is uploaded, the
+        server safely ignores the column without throwing validation errors.
+
+--------------------------------------------------------------------------------
+10.2 AUTOMATED PLATFORM SHIPPING (WEIGHT + DIMENSIONS + ZONE ENGINE)
+--------------------------------------------------------------------------------
+The platform now calculates delivery costs dynamically for customers at checkout:
+- Volumetric vs Dead Weight: The shipping engine compares dead weight (kg) with
+  volumetric weight `(H x W x D in cm) / 5000` and charges according to the higher value.
+- Regional Delivery Zones: Destination address is mapped to intra-city, intra-state,
+  or inter-state zones with configured rate bands.
+- Seller Advantage: Sellers no longer have to guess per-km rates; customers receive
+  accurate, transparent shipping fees calculated instantly.
+
+--------------------------------------------------------------------------------
+10.3 BULK TEMPLATE UPDATE: 23 COLUMNS (PREVIOUSLY 24)
+--------------------------------------------------------------------------------
+If your mobile app uses the JSON template schema endpoint:
+  GET /mobileapi/product-seller/product/bulk-template?format=json
+
+The response now contains 23 column definitions instead of 24.
+- `delivery_charge_per_km` has been removed from both `columns` and `sampleRow`.
+- The column order for the 23 columns is:
+    1: category
+    2: product_name
+    3: brand
+    4: product_description
+    5: condition
+    6: variant_name
+    7: price
+    8: discount
+    9: gst_applicable
+   10: stock
+   11: sku_code
+   12: weight
+   13: height
+   14: width
+   15: depth
+   16: product_variant_images
+   17: variant_details
+   18: specifications
+   19: additional_details
+   20: return_policy
+   21: return_limit_days
+   22: replacement_allowed
+   23: delivery_days
+
+--------------------------------------------------------------------------------
+10.4 MOBILE PRODUCT CRUD: COMPLETE API REFERENCE & PAYLOADS
+--------------------------------------------------------------------------------
+
+------------------------------------------------------------
+A. CREATE PRODUCT (Single Product Creation)
+------------------------------------------------------------
+Endpoint: POST /mobileapi/product-seller/product
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+Required Top-Level Fields:
+  - `name`: string (Product title, required)
+  - `categoryId`: string (UUID of approved category, required)
+  - `variants`: Array of at least 1 variant object (required)
+
+Optional Top-Level Fields:
+  - `subcategoryId`: string | null (Optional subcategory UUID)
+  - `brand`: string (Optional brand name)
+  - `description`: string (Optional detailed description)
+  - `condition`: "NEW" | "USED" (Defaults to "NEW")
+  - NOTE: `deliveryChargePerKm` is NOT required (defaults to 0).
+
+Variant Fields (Inside `variants` array):
+  - `name`: string (Variant label e.g. "Size 40 / Sky Blue", required)
+  - `price`: number (Original MRP / Base price, required, > 0)
+  - `discount`: number (Final selling price customer pays, e.g. 999. Defaults to 0 / full price)
+  - `stock`: integer (Available inventory quantity, required, >= 0)
+  - `sku`: string (Optional unique inventory tracking code)
+  - `hasGst`: boolean (Apply tax: true / false, defaults to true)
+  - `weight`: number (Package weight in KG. MANDATORY if category has weightMandatory=true)
+  - `height`: number (Package height in CM, defaults to AI fallback if omitted)
+  - `width`: number (Package width in CM, defaults to AI fallback if omitted)
+  - `depth`: number (Package depth in CM, defaults to AI fallback if omitted)
+  - `deliveryDays`: integer (Expected delivery days, defaults to 7, min 1)
+  - `returnType`: "RETURNABLE" | "NON_RETURNABLE" (Defaults to "NON_RETURNABLE")
+  - `returnDays`: integer (Return window days e.g. 7 or 14, required if returnType is RETURNABLE)
+  - `replacementAllowed`: boolean (Allow exchange/replacement: true / false)
+  - `attributes`: Record<string, string> (e.g. { "Color": "Sky Blue", "Size": "40" })
+  - `images`: string[] (Array of public S3 image URLs for this variant)
+
+JSON Request Example (Create Product):
+```json
+{
+  "name": "Men Premium Cotton Slim Fit Shirt",
+  "categoryId": "cm0c1xabc0001...",
+  "subcategoryId": "cm0c4pabc0002...",
+  "brand": "Meeem Classics",
+  "description": "Breathable formal and casual 100% combed cotton shirt.",
+  "condition": "NEW",
+  "variants": [
+    {
+      "name": "Sky Blue / 40",
+      "sku": "SHIRT-BLU-40",
+      "price": 1299,
+      "discount": 999,
+      "hasGst": true,
+      "stock": 35,
+      "weight": 0.45,
+      "height": 4,
+      "width": 25,
+      "depth": 32,
+      "deliveryDays": 5,
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "attributes": {
+        "Color": "Sky Blue",
+        "Size": "40"
+      },
+      "images": [
+        "https://s3.amazonaws.com/uploads/products/shirt-blue-1.jpg",
+        "https://s3.amazonaws.com/uploads/products/shirt-blue-2.jpg"
+      ]
+    },
+    {
+      "name": "White / 42",
+      "sku": "SHIRT-WHT-42",
+      "price": 1299,
+      "discount": 999,
+      "hasGst": true,
+      "stock": 20,
+      "weight": 0.45,
+      "height": 4,
+      "width": 25,
+      "depth": 32,
+      "deliveryDays": 5,
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "attributes": {
+        "Color": "White",
+        "Size": "42"
+      },
+      "images": [
+        "https://s3.amazonaws.com/uploads/products/shirt-white-1.jpg"
+      ]
+    }
+  ]
+}
+```
+
+Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prod_cm9dtv8ms0001...",
+    "sellerId": "cm99v25w0abc...",
+    "categoryId": "cm0c1xabc0001...",
+    "name": "Men Premium Cotton Slim Fit Shirt",
+    "slug": "men-premium-cotton-slim-fit-shirt",
+    "deliveryChargePerKm": 0,
+    "condition": "NEW",
+    "variants": [ ... ]
+  }
+}
+```
+
+------------------------------------------------------------
+B. EDIT PRODUCT (Single Product Update)
+------------------------------------------------------------
+Endpoint: PUT /mobileapi/product-seller/product/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+  Content-Type: application/json (or multipart/form-data)
+
+JSON Request Example (Edit Product):
+```json
+{
+  "name": "Men Premium Cotton Slim Fit Shirt (Updated)",
+  "categoryId": "cm0c1xabc0001...",
+  "description": "Updated product description text...",
+  "condition": "NEW",
+  "isActive": true,
+  "variants": [
+    {
+      "name": "Sky Blue / 40",
+      "sku": "SHIRT-BLU-40",
+      "price": 1299,
+      "discount": 899,
+      "hasGst": true,
+      "stock": 50,
+      "weight": 0.45,
+      "height": 4,
+      "width": 25,
+      "depth": 32,
+      "deliveryDays": 4,
+      "returnType": "RETURNABLE",
+      "returnDays": 7,
+      "replacementAllowed": true,
+      "images": [
+        "https://s3.amazonaws.com/uploads/products/shirt-blue-1.jpg"
+      ]
+    }
+  ]
+}
+```
+
+Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prod_cm9dtv8ms0001...",
+    "name": "Men Premium Cotton Slim Fit Shirt (Updated)",
+    "deliveryChargePerKm": 0,
+    "isActive": true,
+    "variants": [ ... ]
+  }
+}
+```
+
+------------------------------------------------------------
+C. GET SINGLE PRODUCT
+------------------------------------------------------------
+Endpoint: GET /mobileapi/product-seller/product/:id
+Headers:
+  Authorization: Bearer <TOKEN>
+
+Success Response (200 OK):
+```json
+{
+  "success": true,
+  "data": {
+    "id": "prod_cm9dtv8ms0001...",
+    "sellerId": "cm99v25w0abc...",
+    "name": "Men Premium Cotton Slim Fit Shirt",
+    "slug": "men-premium-cotton-slim-fit-shirt",
+    "deliveryChargePerKm": 0,
+    "condition": "NEW",
+    "isActive": true,
+    "category": {
+      "id": "cm0c1xabc0001...",
+      "name": "Clothing & Fashion",
+      "slug": "clothing-fashion"
+    },
+    "variants": [
+      {
+        "id": "var_cm9dtv8ms0002...",
+        "name": "Sky Blue / 40",
+        "price": 1299,
+        "discount": 300,
+        "sellingPrice": 999,
+        "discountedPrice": 999,
+        "stock": 35,
+        "weight": 0.45,
+        "height": 4,
+        "width": 25,
+        "depth": 32,
+        "deliveryDays": 5,
+        "returnType": "RETURNABLE",
+        "returnDays": 7,
+        "replacementAllowed": true,
+        "images": [ ... ]
+      }
+    ]
+  }
+}
+```
+
+--------------------------------------------------------------------------------
+10.5 KEY FIELD RULES & VALIDATION CHECKLIST FOR MOBILE DEVELOPERS
+--------------------------------------------------------------------------------
+
+1. SELLING PRICE VS DISCOUNT CALCULATION:
+   - When seller enters MRP = ₹1000 and Selling Price = ₹800:
+     - `price`: 1000
+     - `discount`: 800 (The client sends the intended selling price of 800).
+     - The backend automatically stores `discount = 200` (1000 - 800) in database.
+     - On GET responses, `sellingPrice` and `discountedPrice` are automatically returned
+       as `800` so mobile screens can show:
+       "MRP: ₹1000 | Selling Price: ₹800 (₹200 OFF / 20% OFF)"
+   - Validation Rule: Selling price cannot exceed regular price (`sellingPrice <= price`).
+
+2. ESTIMATED DELIVERY DAYS (`deliveryDays`):
+   - Provide an input field "Estimated Delivery Time (Days)" on each variant.
+   - Pre-populate with default value `7`.
+   - Must be an integer >= 1 (e.g. 3, 5, 7).
+
+3. DIMENSIONS & WEIGHT (SHIPPING ACCURACY):
+   - `weight` (KG): Mandatory if category has `weightMandatory = true`.
+     If mandatory and weight is missing/<=0, API returns:
+     `"Variant X: weight is mandatory for category <CategoryName>"`
+   - `height`, `width`, `depth` (CM): Provide number inputs on mobile. If left blank,
+     the server automatically applies AI category-specific package dimensions.
+
+4. CHECKLIST FOR MOBILE UI UPDATES:
+   [X] Removed `deliveryChargePerKm` field from Add Product Screen.
+   [X] Removed `deliveryChargePerKm` field from Edit Product Screen.
+   [X] Added/Verified `deliveryDays` input field (defaults to 7).
+   [X] Verified `price` (MRP) and `discount` (Selling Price) input fields.
+   [X] Verified `weight` (kg), `height` (cm), `width` (cm), and `depth` (cm) inputs.
+   [X] Updated Bulk Template column count to 23 columns (no `delivery_charge_per_km`).
+   [X] Verified all uploaded product & media images are stored as high-performance `.webp` in S3.
+
+5. AUTOMATED WEBP IMAGE CONVERSION & S3 SPEED OPTIMIZATION:
+   - Applicable Endpoints:
+     * Product CRUD: POST & PUT `/mobileapi/product-seller/product` (variant images)
+     * Bulk Media Upload: POST `/mobileapi/product-seller/upload/bulk-images`
+   - Server-Side Auto Conversion:
+     * All uploaded images (JPEG, PNG, HEIC, TIFF, BMP, WebP, GIF) are automatically processed
+       and converted to Google WebP format (`image/webp`) before uploading to Amazon S3.
+     * The resulting public S3 URL will end with `.webp` (e.g. `https://s3.amazonaws.com/uploads/products/product-1718000-uuid.webp`).
+     * In `sellerMediaImage` database records, `mimeType` is `"image/webp"` and `filename` has `.webp` extension.
+   - Core Advantages:
+     * 65% - 80% smaller image size compared to raw JPEG/PNG without visual quality degradation.
+     * Drastically faster app catalog rendering and website browsing speed.
+     * Automatic EXIF orientation rotation: Photos snapped on Android or iPhone cameras
+       are rotated upright automatically before EXIF stripping (prevents sideways images).
+     * Full transparency support (PNG transparent logos & product cutouts retain alpha channel).
+   - Mobile Developer Recommendation:
+     * Mobile apps can continue uploading standard `image/jpeg` or `image/png` FormData files —
+       the server handles conversion automatically.
+     * Optionally, mobile apps may also encode images into WebP before transmission to minimize
+       seller cellular data usage and speed up mobile network requests.
 
 ================================================================================
 END OF BULK PRODUCT & BULK IMAGE MOBILE API DOCUMENTATION

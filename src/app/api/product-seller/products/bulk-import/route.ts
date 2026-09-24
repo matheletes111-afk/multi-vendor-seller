@@ -251,8 +251,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    const firstValidCharge = sorted.find(r => (r.cells.delivery_charge_per_km ?? "").trim())?.cells.delivery_charge_per_km?.trim()
-    const deliveryChargePerKm = firstValidCharge ? parseCleanNumber(firstValidCharge) || 0 : 0
+    // Delivery charge per km is deprecated as shipping is now calculated based on dimension, zone, and weight
+    const deliveryChargePerKm = 0
 
     if (nameConflict) continue
 
