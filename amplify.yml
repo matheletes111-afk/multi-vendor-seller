@@ -4,7 +4,7 @@ frontend:
     preBuild:
       commands:
         - npm install --legacy-peer-deps --include=dev
-        - npm install --legacy-peer-deps --os=linux --cpu=x64 sharp
+        - npm install --legacy-peer-deps --include=dev --os=linux --cpu=x64 sharp
         # Write environment variables to .env for Next.js runtime
         - echo "DATABASE_URL=$DATABASE_URL" >> .env
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env

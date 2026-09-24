@@ -10,7 +10,7 @@ const nextConfig = {
       },
     ],
   },
-  serverExternalPackages: ["xlsx", "firebase-admin"],
+  serverExternalPackages: ["xlsx", "firebase-admin", "sharp"],
   typescript: {
     ignoreBuildErrors: true,
   },
