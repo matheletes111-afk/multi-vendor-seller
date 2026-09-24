@@ -1,3 +1,5 @@
+import { Suspense } from "react"
+import { PageLoader } from "@/components/ui/page-loader"
 import { SellerAnalyticsClient } from "@/app/admin/(dashboard)/sellers/[id]/analytics/seller-analytics-client"
 
 interface HotelSellerAnalyticsPageProps {
@@ -10,6 +12,8 @@ export default async function HotelSellerAnalyticsPage({ params }: HotelSellerAn
   const { id } = await params
 
   return (
-    <SellerAnalyticsClient id={id} initialSellerType="HOTEL" />
+    <Suspense fallback={<PageLoader />}>
+      <SellerAnalyticsClient id={id} initialSellerType="HOTEL" />
+    </Suspense>
   )
 }

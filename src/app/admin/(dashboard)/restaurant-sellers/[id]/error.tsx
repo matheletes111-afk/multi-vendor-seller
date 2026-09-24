@@ -38,13 +38,25 @@ export default function RestaurantSellerError({
         >
           <RotateCcw className="h-4 w-4" /> Try Again
         </Button>
-        <Link href="/admin/restaurant-sellers">
-          <Button
-            className="rounded-2xl gap-2 font-bold text-xs uppercase tracking-wider h-11 px-5 bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Sellers
-          </Button>
-        </Link>
+        <Button
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              const stored = sessionStorage.getItem("admin_sellers_last_list_url")
+              if (stored && stored.startsWith("/admin/")) {
+                window.location.href = stored
+                return
+              }
+              if (window.history.length > 1) {
+                window.history.back()
+                return
+              }
+            }
+            window.location.href = "/admin/restaurant-sellers"
+          }}
+          className="rounded-2xl gap-2 font-bold text-xs uppercase tracking-wider h-11 px-5 bg-indigo-600 hover:bg-indigo-700 text-white"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Sellers
+        </Button>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -49,6 +49,8 @@ interface SellerAnalyticsClientProps {
 
 export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalyticsClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrlParam = searchParams.get("returnUrl") || searchParams.get("from")
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "90d" | "1y" | "all">("30d")
   const [data, setData] = useState<SellerAnalyticsPayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -142,7 +144,13 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.back()}
+            onClick={() => {
+              if (returnUrlParam) {
+                router.push(returnUrlParam)
+              } else {
+                router.back()
+              }
+            }}
             className="rounded-2xl h-10 w-10 border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900 shadow-sm"
             title="Return to previous directory"
           >
@@ -233,7 +241,7 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
 
           {/* Profile Shortcut */}
           <Link
-            href={profileUrl}
+            href={`${profileUrl}${returnUrlParam ? `?returnUrl=${encodeURIComponent(returnUrlParam)}` : ""}`}
             className="h-9 px-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-semibold gap-1.5 shadow-sm inline-flex items-center"
             title="View Full Profile / Manage"
           >

@@ -1,3 +1,5 @@
+import { Suspense } from "react"
+import { PageLoader } from "@/components/ui/page-loader"
 import { SellerIdClient } from "./seller-id-client"
 
 interface SellerDetailsPageProps {
@@ -10,6 +12,8 @@ export default async function SellerDetailsPage({ params }: SellerDetailsPagePro
   const { id } = await params
   
   return (
-    <SellerIdClient id={id} />
+    <Suspense fallback={<PageLoader />}>
+      <SellerIdClient id={id} />
+    </Suspense>
   )
 }

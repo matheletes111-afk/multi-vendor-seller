@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
@@ -22,6 +22,8 @@ interface SellerIdClientProps {
 
 export function SellerIdClient({ id }: SellerIdClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrlParam = searchParams.get("returnUrl") || searchParams.get("from")
   const [seller, setSeller] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -165,13 +167,40 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
     }
   }
 
+  const handleBack = () => {
+    if (returnUrlParam) {
+      router.push(returnUrlParam)
+      return
+    }
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("admin_sellers_last_list_url")
+      if (stored && stored.startsWith("/admin/")) {
+        router.push(stored)
+        return
+      }
+      if (window.history.length > 1) {
+        router.back()
+        return
+      }
+    }
+    router.push("/admin/sellers")
+  }
+
+  const getBackLabel = () => {
+    const target = returnUrlParam || (typeof window !== "undefined" ? sessionStorage.getItem("admin_sellers_last_list_url") : null) || ""
+    if (target.includes("all-sellers")) return "Back to All Sellers"
+    if (target.includes("hotel-sellers")) return "Back to Hotel Sellers"
+    if (target.includes("restaurant-sellers")) return "Back to Restaurant Sellers"
+    return "Back to Sellers"
+  }
+
   if (loading && !seller) return <PageLoader />
 
   if (!seller && !loading) return (
     <div className="container mx-auto p-10 text-center space-y-4">
       <AlertCircle className="h-10 w-10 text-destructive mx-auto" />
       <h1 className="text-xl font-bold">Seller not found</h1>
-      <Button onClick={() => router.push("/admin/sellers")}>Back to List</Button>
+      <Button onClick={handleBack}>{getBackLabel()}</Button>
     </div>
   )
 
@@ -184,7 +213,8 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
             variant="ghost" 
             size="icon" 
             className="rounded-full h-10 w-10 border bg-background shadow-sm hover:bg-muted"
-            onClick={() => router.push("/admin/sellers")}
+            onClick={handleBack}
+            title={getBackLabel()}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -195,12 +225,14 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
                 {seller.type}
               </Badge>
             </div>
-            <p className="text-muted-foreground text-sm font-medium mt-1 uppercase tracking-wider opacity-60">Seller Profile / #{id.slice(-8)}</p>
+            <p className="text-muted-foreground text-sm font-medium mt-1 uppercase tracking-wider opacity-60">
+              {returnUrlParam?.includes("all-sellers") ? "All Sellers Directory" : "Seller Profile"} / #{id.slice(-8)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/admin/sellers/${id}/analytics?sellerType=${seller.type || "PRODUCT"}`}
+            href={`/admin/sellers/${id}/analytics?sellerType=${seller.type || "PRODUCT"}${returnUrlParam ? `&returnUrl=${encodeURIComponent(returnUrlParam)}` : ""}`}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-xs font-bold transition-all shadow-sm"
             title="View Dedicated Analytics"
           >

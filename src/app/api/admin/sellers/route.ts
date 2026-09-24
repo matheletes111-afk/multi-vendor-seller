@@ -143,6 +143,8 @@ export async function GET(request: NextRequest) {
       processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === true)
     } else if (docStatus === "INCOMPLETE") {
       processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === false)
+    } else if (docStatus === "COMPLETE_UNDER_REVIEW" || docStatus === "DOC_COMPLETE_UNDER_REVIEW") {
+      processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === true && !s.isApproved && !s.isSuspended && s.status !== "REJECTED")
     }
 
     // Multi-column sorting
@@ -240,6 +242,16 @@ export async function GET(request: NextRequest) {
             return sortOrder === "desc" ? (ratioB - ratioA) : (ratioA - ratioB)
           }
 
+          return newestFirst
+        }
+        case "doccompleteunderreview":
+        case "documentcompleteunderreview":
+        case "doc_complete_under_review": {
+          const isTargetA = (a.documentEvaluation?.isComplete === true && !a.isApproved && !a.isSuspended && a.status !== "REJECTED") ? 1 : 0
+          const isTargetB = (b.documentEvaluation?.isComplete === true && !b.isApproved && !b.isSuspended && b.status !== "REJECTED") ? 1 : 0
+          if (isTargetA !== isTargetB) {
+            return sortOrder === "asc" ? (isTargetA - isTargetB) : (isTargetB - isTargetA)
+          }
           return newestFirst
         }
         case "date":

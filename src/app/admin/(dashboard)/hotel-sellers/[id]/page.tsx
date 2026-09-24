@@ -1,9 +1,11 @@
+import { Suspense } from "react"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
 import { redirect, notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { HotelSellerDetailClient } from "./hotel-seller-detail-client"
 import { getPresignedUrlOrOriginal } from "@/lib/s3-presigned"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export default async function HotelSellerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -129,5 +131,9 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
     )
   }
 
-  return <HotelSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <HotelSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
+    </Suspense>
+  )
 }
