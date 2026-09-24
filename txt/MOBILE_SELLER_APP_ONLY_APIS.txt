@@ -42,7 +42,7 @@ B. JSON Payload Example:
   "subcategoryId": "subcat-uuid-456",
   "description": "Premium pure cotton bedsheet set.",
   "condition": "NEW",
-  "deliveryChargePerKm": 5,
+  // deliveryChargePerKm is hidden in UI & defaults to 0 (delivery fee is calculated based on weight, dimension, and zone)
   "variants": [
     {
       "name": "Standard Size",

@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { Badge } from "@/ui/badge"
 import { PageLoader } from "@/components/ui/page-loader"
 import Checkbox from "@/ui/checkbox-v2"
+import { compressImage } from "@/lib/image-compressor"
 import {
   ArrowLeft,
   Upload,
@@ -88,7 +89,7 @@ export function BulkImageUploadClient() {
   }, [fetchImages])
 
   const handleUploadFiles = async (filesList: FileList | File[]) => {
-    const validExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif"]
+    const validExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".avif", ".bmp", ".tiff", ".tif"]
     const filesArray = Array.from(filesList).filter((f) => {
       if (f.type && f.type.startsWith("image/")) return true
       const ext = f.name ? f.name.substring(f.name.lastIndexOf(".")).toLowerCase() : ""
@@ -96,7 +97,7 @@ export function BulkImageUploadClient() {
     })
 
     if (filesArray.length === 0) {
-      setError("Please select valid image files (JPEG, PNG, WebP, GIF).")
+      setError("Please select valid image files (JPEG, PNG, WebP, HEIC, GIF, AVIF, BMP).")
       return
     }
 
@@ -112,8 +113,16 @@ export function BulkImageUploadClient() {
       const file = filesArray[i]
       setUploadProgress({ current: i + 1, total: filesArray.length })
 
+      let fileToUpload = file
+      try {
+        // Pre-compress and convert to WebP on client side for high-speed network upload
+        fileToUpload = await compressImage(file, 1600, 1600, 0.85)
+      } catch (compErr) {
+        console.warn("Client WebP compression bypassed, using original file:", compErr)
+      }
+
       const formData = new FormData()
-      formData.append("files", file)
+      formData.append("files", fileToUpload)
 
       try {
         const res = await fetch("/api/product-seller/upload/bulk-images", {
@@ -325,7 +334,7 @@ export function BulkImageUploadClient() {
               </Badge>
             </h1>
             <p className="text-sm text-muted-foreground">
-              Upload images to S3, get public URLs, mark used images, and copy links for bulk CSV/Excel product imports.
+              Upload images to S3 (auto-converted to WebP for maximum page speed), get public URLs, mark used images, and copy links for bulk CSV/Excel product imports.
             </p>
           </div>
         </div>
@@ -368,7 +377,7 @@ export function BulkImageUploadClient() {
             ref={fileInputRef}
             onChange={handleFileChange}
             multiple
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp,.tiff"
             className="hidden"
           />
 
@@ -380,7 +389,7 @@ export function BulkImageUploadClient() {
             {isDragging ? "Drop images here to upload" : "Drag & drop product images here"}
           </h3>
           <p className="text-xs text-muted-foreground mb-4 max-w-md">
-            Supports multiple images at once (JPEG, PNG, WebP, GIF up to 10MB each).
+            Supports any image format (JPEG, PNG, WebP, HEIC, GIF, AVIF up to 35MB). Automatically compressed and converted to WebP.
           </p>
 
           <Button type="button" disabled={uploading} className="shadow-md">

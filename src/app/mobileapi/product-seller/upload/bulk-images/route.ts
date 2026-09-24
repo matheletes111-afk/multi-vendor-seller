@@ -7,15 +7,46 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 
 export const dynamic = "force-dynamic"
 
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB per image
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit per image (auto-compressed down to 1-2MB WebP)
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/x-ms-bmp",
+  "image/tiff",
+]
+const ALLOWED_IMAGE_EXTS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".avif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+]
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
-  if (ct.includes("png")) return ".png"
-  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
+  if (ct.includes("heic")) return ".heic"
+  if (ct.includes("heif")) return ".heif"
   if (ct.includes("webp")) return ".webp"
+  if (ct.includes("png")) return ".png"
   if (ct.includes("gif")) return ".gif"
+  if (ct.includes("avif")) return ".avif"
+  if (ct.includes("bmp")) return ".bmp"
+  if (ct.includes("tiff")) return ".tiff"
+  if (ct.includes("jpeg") || ct.includes("jpg")) return ".jpg"
   return ".jpg"
 }
 
@@ -137,9 +168,13 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const type = (file.type || "").toLowerCase()
-    if (!type || !ALLOWED_IMAGE_TYPES.includes(type)) {
-      errors.push(`"${file.name}": Invalid file type (${type || "unknown"}). Allowed formats: JPEG, PNG, GIF, WebP.`)
+    const type = (file.type || "").toLowerCase().trim()
+    const extFromName = path.extname(file.name || "").toLowerCase().trim()
+    const isAllowedExt = ALLOWED_IMAGE_EXTS.includes(extFromName)
+    const isAllowedMime = type && (ALLOWED_IMAGE_TYPES.includes(type) || (type.startsWith("image/") && type !== "image/svg+xml"))
+
+    if (!isAllowedMime && !isAllowedExt) {
+      errors.push(`"${file.name}": Invalid file type (${type || "unknown"}). Allowed formats: JPEG, PNG, WebP, HEIC, GIF, AVIF, BMP.`)
       continue
     }
 
@@ -159,13 +194,18 @@ export async function POST(request: NextRequest) {
         prefix: "product",
       })
 
+      const isWebpUrl = url.toLowerCase().includes(".webp")
+      const cleanName = path.parse(file.name || "image").name
+      const storedFilename = isWebpUrl ? `${cleanName}.webp` : (file.name || `image${ext}`)
+      const storedMimeType = isWebpUrl ? "image/webp" : contentType
+
       const record = await prisma.sellerMediaImage.create({
         data: {
           sellerId: auth.seller.id,
           url,
-          filename: file.name || `image${ext}`,
+          filename: storedFilename,
           size: file.size,
-          mimeType: contentType,
+          mimeType: storedMimeType,
         },
       })
 

@@ -330,7 +330,7 @@ export function EditProductClient({ productId }: { productId: string }) {
     const files = e.target.files
     if (!files?.length) return
     setVariantUploadingFor(variantIndex)
-    let selected = Array.from(files).filter((f) => f.type.startsWith("image/"))
+    let selected = Array.from(files).filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(f.name))
     if (selected.length > 0) {
       try {
         const { compressImage } = await import("@/lib/image-compressor")
@@ -746,18 +746,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                   <option value="USED">Used</option>
                 </select>
               </div>
-              <div className="space-y-2" style={{ display: "none" }}>
-                <Label htmlFor="deliveryChargePerKm">Add per KM Delivery Charge (default 0)</Label>
-                <Input 
-                  id="deliveryChargePerKm" 
-                  name="deliveryChargePerKm" 
-                  type="number" 
-                  step="0.01" 
-                  min="0" 
-                  defaultValue={product.deliveryChargePerKm || 0} 
-                  placeholder="0.00" 
-                />
-              </div>
+              <input type="hidden" name="deliveryChargePerKm" value="0" />
             </div>
           </CardContent>
         </Card>
@@ -938,7 +927,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                           <input
                             ref={(el) => { variantFileInputRefs.current[i] = el }}
                             type="file"
-                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp,.tiff"
                             multiple
                             className="hidden"
                             onChange={(e) => handleVariantFileSelect(e, i)}
@@ -953,7 +942,7 @@ export function EditProductClient({ productId }: { productId: string }) {
                             <p className="text-xs font-semibold mt-2 text-foreground">
                               {variantUploadingFor === i ? "Uploading images..." : "Click to select or upload variant images"}
                             </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG, WEBP or GIF (Multiple allowed)</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">JPG, PNG, WebP, iPhone HEIC up to 35MB (Auto-compressed to WebP)</p>
                           </div>
 
                           {(v.images?.length ?? 0) > 0 && (

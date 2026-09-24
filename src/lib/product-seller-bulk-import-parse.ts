@@ -15,7 +15,6 @@ export const BULK_COLUMN_KEYS = [
   "brand",
   "product_description",
   "condition",
-  "delivery_charge_per_km",
   "variant_name",
   "price",
   "discount",
@@ -300,7 +299,6 @@ export function exampleDataRows(categories: string[]): string[][] {
         "ExampleBrand",       // brand
         "This is an example product description. Replace or delete before import.", // product_description
         "NEW",                // condition
-        "0",                  // delivery_charge_per_km
         "Standard Version",   // variant_name
         "100",                // price (Price = 100)
         "80",                 // discount (Enter final price to sell: 80 -> customer pays 80)
@@ -326,7 +324,6 @@ export function exampleDataRows(categories: string[]): string[][] {
         "ExampleBrand",       // brand
         "This is an example product description. Replace or delete before import.", // product_description
         "NEW",                // condition
-        "0",                  // delivery_charge_per_km
         "Premium Version",    // variant_name
         "200",                // price (Price = 200)
         "160",                // discount (Enter final price to sell: 160 -> customer pays 160)
@@ -385,7 +382,7 @@ export function buildTemplateXlsx(
     ["• Limits: Maximum 500 rows per file."],
     [""],
     ["=========================================================================================================================="],
-    ["COLUMN-BY-COLUMN FIELD INSTRUCTION TABLE (ALL 24 COLUMNS)"],
+    ["COLUMN-BY-COLUMN FIELD INSTRUCTION TABLE (ALL 23 COLUMNS)"],
     ["=========================================================================================================================="],
     ["Column #", "Column Header", "Required?", "What To Put (Field Description & Rules)", "Example Input"],
     ["1", "category", "YES", "Name of marketplace category. Must match one of your assigned categories or an active category.", "Clothing & Fashion"],
@@ -393,25 +390,24 @@ export function buildTemplateXlsx(
     ["3", "brand", "NO", "Brand or manufacturer name. Leave blank if unbranded.", "Nike"],
     ["4", "product_description", "NO", "Full overview and description of the product.", "100% breathable organic combed cotton t-shirt."],
     ["5", "condition", "NO", "Condition of the item: NEW or USED (defaults to NEW).", "NEW"],
-    ["6", "delivery_charge_per_km", "NO", "Custom delivery charge per kilometer. Enter 0 for standard delivery.", "0"],
-    ["7", "variant_name", "YES", "Specific name of this variant (size, color, pack, or model).", "Black / L"],
-    ["8", "price", "YES", "Original MRP / listed price before discount (positive number).", "100"],
-    ["9", "discount", "NO", "Final discounted price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = full price.", "80"],
-    ["10", "gst_applicable", "NO", "Is tax applicable? Enter Yes or No (defaults to Yes).", "Yes"],
-    ["11", "stock", "YES", "Available stock quantity for this variant (whole number >= 0).", "50"],
-    ["12", "sku_code", "NO", "Your internal SKU / barcode identifier for inventory tracking.", "TSHIRT-BLK-L"],
-    ["13", "weight", "CONDITIONAL", "Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.", "0.35"],
-    ["14", "height", "NO", "Package height in CM (estimated by AI if omitted).", "5"],
-    ["15", "width", "NO", "Package width in CM (estimated by AI if omitted).", "20"],
-    ["16", "depth", "NO", "Package depth in CM (estimated by AI if omitted).", "30"],
-    ["17", "product_variant_images", "NO", "Public image URLs separated by vertical bar (|) or newline.", "https://example.com/front.jpg | https://example.com/back.jpg"],
-    ["18", "variant_details", "NO", "Attributes describing variant: color: Black, size: Regular (JSON also accepted).", "color: Black, size: Regular"],
-    ["19", "specifications", "NO", "Technical bullet points or specifications.", "180 GSM, Pre-shrunk fabric, Machine wash cold"],
-    ["20", "additional_details", "NO", "Care instructions, warranty, or additional seller notes.", "Wash cold with like colors, do not iron on print"],
-    ["21", "return_policy", "NO", "Return policy: Returnable or Non-Returnable (defaults to Non-Returnable).", "Returnable"],
-    ["22", "return_limit_days", "NO", "Return window in days if Returnable (e.g. 7 or 14).", "7"],
-    ["23", "replacement_allowed", "NO", "Is product replacement allowed? Enter Yes or No (defaults to No).", "Yes"],
-    ["24", "delivery_days", "NO", "Estimated delivery time in days (integer >= 1, defaults to 7).", "5"],
+    ["6", "variant_name", "YES", "Specific name of this variant (size, color, pack, or model).", "Black / L"],
+    ["7", "price", "YES", "Original MRP / listed price before discount (positive number).", "100"],
+    ["8", "discount", "NO", "Final discounted price customer pays (e.g. Price=100, Discount=80 -> Customer pays 80). Blank = full price.", "80"],
+    ["9", "gst_applicable", "NO", "Is tax applicable? Enter Yes or No (defaults to Yes).", "Yes"],
+    ["10", "stock", "YES", "Available stock quantity for this variant (whole number >= 0).", "50"],
+    ["11", "sku_code", "NO", "Your internal SKU / barcode identifier for inventory tracking.", "TSHIRT-BLK-L"],
+    ["12", "weight", "CONDITIONAL", "Weight in KG. Mandatory if category requires weight, otherwise estimated by AI.", "0.35"],
+    ["13", "height", "NO", "Package height in CM (estimated by AI if omitted).", "5"],
+    ["14", "width", "NO", "Package width in CM (estimated by AI if omitted).", "20"],
+    ["15", "depth", "NO", "Package depth in CM (estimated by AI if omitted).", "30"],
+    ["16", "product_variant_images", "NO", "Public image URLs separated by vertical bar (|) or newline.", "https://example.com/front.jpg | https://example.com/back.jpg"],
+    ["17", "variant_details", "NO", "Attributes describing variant: color: Black, size: Regular (JSON also accepted).", "color: Black, size: Regular"],
+    ["18", "specifications", "NO", "Technical bullet points or specifications.", "180 GSM, Pre-shrunk fabric, Machine wash cold"],
+    ["19", "additional_details", "NO", "Care instructions, warranty, or additional seller notes.", "Wash cold with like colors, do not iron on print"],
+    ["20", "return_policy", "NO", "Return policy: Returnable or Non-Returnable (defaults to Non-Returnable).", "Returnable"],
+    ["21", "return_limit_days", "NO", "Return window in days if Returnable (e.g. 7 or 14).", "7"],
+    ["22", "replacement_allowed", "NO", "Is product replacement allowed? Enter Yes or No (defaults to No).", "Yes"],
+    ["23", "delivery_days", "NO", "Estimated delivery time in days (integer >= 1, defaults to 7).", "5"],
     [""],
     ["NOTE: Please replace or delete the example dummy rows in the 'Products' tab before importing your real catalog."]
   ]

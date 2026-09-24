@@ -814,22 +814,22 @@
                 </div>
               </div>
 
-              <!-- Delivery Charge -->
-              <div class="field-card" data-search="delivery charge per km shipping distance cost">
+              <!-- Delivery Charge (Auto-Calculated) -->
+              <div class="field-card" data-search="delivery charge shipping distance cost dimension weight zone">
                 <div class="field-header">
                   <div class="field-title-badge">
-                    <span class="field-label">Per-KM Delivery Charge</span>
-                    <span class="field-name">deliveryChargePerKm</span>
+                    <span class="field-label">Delivery Calculation</span>
+                    <span class="field-name">Automatic Platform Shipping</span>
                   </div>
-                  <span class="badge optional">Defaults to 0</span>
+                  <span class="badge optional">Automated (Defaults to 0)</span>
                 </div>
                 <div class="field-desc">
-                  If your store fulfills delivery directly, set a charge rate per kilometer from your store coordinates. Setting this to <code>0</code> makes delivery free.
+                  Delivery charges are automatically computed platform-wide based on package dimensions (height, width, depth), destination region/zone, and item weight. Per-KM delivery charge is hidden from forms and defaults to <code>0</code>.
                 </div>
                 <div class="field-meta-grid">
-                  <div class="meta-box"><b>Field Type</b><span>Number / Decimal</span></div>
-                  <div class="meta-box highlight"><b>Example Value</b><span>1.50 (charge $1.50 per KM)</span></div>
-                  <div class="meta-box"><b>Database Rule</b><span>Must be a positive number</span></div>
+                  <div class="meta-box"><b>Calculation Basis</b><span>Weight + Dimensions + Zone</span></div>
+                  <div class="meta-box highlight"><b>UI Status</b><span>Hidden in UI / Defaults to 0</span></div>
+                  <div class="meta-box"><b>Logistics</b><span>Calculated automatically at checkout</span></div>
                 </div>
               </div>
 
@@ -1298,13 +1298,6 @@
                     <td><code>NEW</code></td>
                   </tr>
 
-                  <!-- delivery_charge_per_km -->
-                  <tr class="col-group-product interactive-row" data-search="delivery_charge_per_km per km shipping distance">
-                    <td><strong>delivery_charge_per_km</strong></td>
-                    <td><span class="badge optional">No</span></td>
-                    <td>Per-kilometer shipping cost. Defaults to <code>0</code> (free delivery).</td>
-                    <td><code>1.50</code></td>
-                  </tr>
 
                   <!-- variant_name -->
                   <tr class="col-group-emerald interactive-row" data-search="variant_name size color combo key required">

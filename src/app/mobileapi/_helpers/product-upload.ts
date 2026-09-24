@@ -2,8 +2,21 @@ import { NextRequest } from "next/server"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/pjpeg"]
+const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit for incoming images (auto-compressed down to 1-2MB WebP)
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/pjpeg",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/x-ms-bmp",
+  "image/tiff",
+]
 
 export type HybridProductPayload = {
   name?: string
@@ -126,17 +139,24 @@ async function uploadAndGetUrl(file: File, folder: string, prefix: string): Prom
     ".png": "image/png",
     ".webp": "image/webp",
     ".gif": "image/gif",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".avif": "image/avif",
+    ".bmp": "image/bmp",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
   }
 
-  const type = file.type?.toLowerCase()
-  const ext = path.extname(file.name).toLowerCase() || ".jpg"
+  const type = (file.type || "").toLowerCase().trim()
+  const ext = path.extname(file.name).toLowerCase().trim() || ".jpg"
   
-  if (!type || !ALLOWED_IMAGE_TYPES.includes(type)) {
-    const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"]
-    const baseExt = ext.replace(/^\./, "")
-    if (!baseExt || !allowedExts.includes(baseExt)) {
-      throw new Error("Invalid image type. Use JPEG, PNG, GIF, or WebP.")
-    }
+  const allowedExts = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "bmp", "tiff", "tif"]
+  const baseExt = ext.replace(/^\./, "")
+  const isAllowedExt = baseExt && allowedExts.includes(baseExt)
+  const isAllowedMime = type && (ALLOWED_IMAGE_TYPES.includes(type) || (type.startsWith("image/") && type !== "image/svg+xml"))
+
+  if (!isAllowedMime && !isAllowedExt) {
+    throw new Error("Invalid image type. Use JPEG, PNG, WebP, HEIC, GIF, AVIF, or BMP.")
   }
 
   const bytes = await file.arrayBuffer()
