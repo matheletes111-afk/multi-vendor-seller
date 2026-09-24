@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -81,6 +81,15 @@ import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-ema
 export function AllSellersClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname() || "/admin/all-sellers"
+  const currentQuery = searchParams.toString()
+  const currentListUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("admin_sellers_last_list_url", currentListUrl)
+    }
+  }, [currentListUrl])
 
   // Email action & onboarding wizard states
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
@@ -448,13 +457,13 @@ export function AllSellersClient() {
 
   // Helper for generating dedicated seller details page URL
   const getSellerDetailUrl = (seller: UnifiedSellerItem) => {
-    if (seller.sellerType === "PRODUCT" || seller.sellerType === "SERVICE") {
-      return `/admin/sellers/${seller.id}`
-    }
+    let basePath = `/admin/sellers/${seller.id}`
     if (seller.sellerType === "HOTEL") {
-      return `/admin/hotel-sellers/${seller.id}`
+      basePath = `/admin/hotel-sellers/${seller.id}`
+    } else if (seller.sellerType === "RESTAURANT") {
+      basePath = `/admin/restaurant-sellers/${seller.id}`
     }
-    return `/admin/restaurant-sellers/${seller.id}`
+    return `${basePath}?returnUrl=${encodeURIComponent(currentListUrl)}`
   }
 
   // Helper for Type Badges
@@ -993,7 +1002,6 @@ export function AllSellersClient() {
                                 <div className="min-w-0">
                                   <Link
                                     href={getSellerDetailUrl(seller)}
-                                    target="_blank"
                                     className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[200px]"
                                     title="View full seller profile & details"
                                   >
@@ -1188,7 +1196,7 @@ export function AllSellersClient() {
                                 </Button>
                               )}
 
-                              <Link href={getSellerDetailUrl(seller)} target="_blank">
+                              <Link href={getSellerDetailUrl(seller)}>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1197,11 +1205,10 @@ export function AllSellersClient() {
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                   <span>Details</span>
-                                  <ExternalLink className="h-3 w-3 opacity-70" />
                                 </Button>
                               </Link>
 
-                              <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}`}>
+                              <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}&returnUrl=${encodeURIComponent(currentListUrl)}`}>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1251,17 +1258,17 @@ export function AllSellersClient() {
                                   </div>
 
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <Link href={getSellerDetailUrl(seller)} target="_blank">
+                                    <Link href={getSellerDetailUrl(seller)}>
                                       <Button
                                         variant="outline"
                                         size="sm"
                                         className="h-8 px-3 rounded-xl text-xs gap-1.5 font-semibold border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 shadow-sm"
                                       >
-                                        <ExternalLink className="h-3.5 w-3.5" /> Open Full Details Page
+                                        <Eye className="h-3.5 w-3.5" /> Open Full Details Page
                                       </Button>
                                     </Link>
 
-                                    <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}`}>
+                                    <Link href={`/admin/sellers/${seller.id}/analytics?sellerType=${seller.sellerType}&returnUrl=${encodeURIComponent(currentListUrl)}`}>
                                       <Button
                                         variant="outline"
                                         size="sm"

@@ -1,9 +1,11 @@
+import { Suspense } from "react"
 import { auth } from "@/lib/auth"
 import { isAdmin } from "@/lib/rbac"
 import { redirect, notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { RestaurantSellerDetailClient } from "./restaurant-seller-detail-client"
 import { getPresignedUrlOrOriginal } from "@/lib/s3-presigned"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export default async function RestaurantSellerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -98,5 +100,9 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
   // Serialize to plain object for client component
   const plainSeller = JSON.parse(JSON.stringify(seller))
 
-  return <RestaurantSellerDetailClient seller={plainSeller} plans={JSON.parse(JSON.stringify(allPlans))} />
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <RestaurantSellerDetailClient seller={plainSeller} plans={JSON.parse(JSON.stringify(allPlans))} />
+    </Suspense>
+  )
 }

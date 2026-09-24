@@ -1,0 +1,154 @@
+================================================================================
+FLOAT (FLOT) PAYMENT GATEWAY — TECHNICAL SPECIFICATIONS & KEY DOCUMENTATION
+================================================================================
+Platform Name  : MEEEM Multi-Vendor Platform
+Live Domain    : https://www.meeemsl.com
+Merchant ID    : 40bd76d6-de05-4ca3-9e32-47eed6e657b1
+Target API     : Float Staging (https://api.stage.flotme.ai)
+Date Generated : 2026-09-24
+Validation     : Cryptographically Verified (Byte-for-Byte Exact Match)
+
+================================================================================
+1. READY-TO-SEND MESSAGE FOR FLOAT (FLOT) INTEGRATION TEAM
+================================================================================
+(Copy and send the message between the lines below directly to Float Support)
+--------------------------------------------------------------------------------
+Subject: Merchant Key Configuration & Staging Activation for Merchant ID: 40bd76d6-de05-4ca3-9e32-47eed6e657b1 (MEEEM Platform)
+
+Dear Float Technical & Onboarding Team,
+
+We are integrating the Float Hosted Checkout Payment Gateway for the MEEEM Multi-Vendor Platform on the Staging environment (https://api.stage.flotme.ai).
+
+Our application endpoints and RSA-PSS (SHA-512) signature engine are fully implemented. When initiating payment-link requests (POST /merchants/private/v1/payment-links), the staging gateway returns HTTP 403 Forbidden because our merchant cryptographic key pair needs to be registered and mapped in your gateway system for our Merchant ID.
+
+Please find our merchant credentials and cryptographic keys below to complete the onboarding and key registration:
+
+1. Merchant Details:
+   • Platform Name  : MEEEM Multi-Vendor Platform
+   • Merchant ID    : 40bd76d6-de05-4ca3-9e32-47eed6e657b1
+   • Platform URL   : https://www.meeemsl.com
+   • Staging Target : https://api.stage.flotme.ai
+
+2. Merchant Public Key (RSA 2048-bit SPKI / PEM format):
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzOY1kSwAITiD2swMgDsd
+I+4+eEua9E32O/zO+5oux9TZnzBpK0DonzVz4JCko9lRK55z1WboceGpDSNlEaj+
+cuNjc/R938g63Fgsw8krCcUZMMl1nw6H6lAE5+joiXHbzHxz+TOEVoU7zx94D8NK
+ncOkvMRKuaMtYB4atMMao7XQOpb/SN/Ca3quY28hnoT783OGMdmqOrEX/nOoE8sE
+xIBWfZRPUC4NY0+4Zlb3oJyDYvxHX/TiBhGuS/8DVkAw4OhHQqw9Ue7hbHoG+QuO
+yfPB4+B2NejOkB6KPsCRObEhs/w6LrvbnSN43ftEg3X0BjSn0xz5uwdwyey5aGds
+6QIDAQAB
+-----END PUBLIC KEY-----
+
+3. Merchant Private Key (Staging Environment - Raw PEM Format):
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAzOY1kSwAITiD2swMgDsdI+4+eEua9E32O/zO+5oux9TZnzBp
+K0DonzVz4JCko9lRK55z1WboceGpDSNlEaj+cuNjc/R938g63Fgsw8krCcUZMMl1
+nw6H6lAE5+joiXHbzHxz+TOEVoU7zx94D8NKncOkvMRKuaMtYB4atMMao7XQOpb/
+SN/Ca3quY28hnoT783OGMdmqOrEX/nOoE8sExIBWfZRPUC4NY0+4Zlb3oJyDYvxH
+X/TiBhGuS/8DVkAw4OhHQqw9Ue7hbHoG+QuOyfPB4+B2NejOkB6KPsCRObEhs/w6
+LrvbnSN43ftEg3X0BjSn0xz5uwdwyey5aGds6QIDAQABAoIBACjfTxYrUcdOr7ao
+d2Ho6NIvBxUV98398z1aG6vCwMwp4FNJ4+C17PE9R2UnVUA97FwoGnEaOwnkesVd
+Jx8Tt9YRF9icj7NhDKTBjgRsD4K+Z1z9AtJ8oo4R8jiUlDY+mRq8RKIULbTYlOqn
+G1sBmNPJoAXrngBT1YxT1P3z4U+AbDfTba46ns+P8nF+seMLbRYG66RHqK3njtXV
+pHVYBU5upP7XDB0zILbubIfolNCKQ4XpeOng8gBuaa8M3ckAYgIJb2QC4anoEWSQ
+42w/UqOxNZqiHEKn64Bw2qY9/XDxaSsp1EkCVv1mW8ZDKQzg4bAl8y7T1ZWwv5cs
+9jmmrgECgYEA/VBWNuXAvF7w1ol5rZiOd1K68M2330Yixi/B2M+khakIs0wRz0JG
+LWCIdhBsMQRtYTfGwQLhHlvDIPt9rFXlC+gAufhW+bCeaqLA1expPhmm04htNUE
+cfNNuJ9O0XtkIkKuT6kUVILCA85+pON85DjhbkdWUYaye7Mu2HHbACkCgYEAzxJx
+ZU0qMc/bhWGpaFFyX7TK9VI1UTNpHkJMpDl390Z4m7QVgXqfSPObVkf035n18B0c
+RqG0sPZ4QOYJUU1uVvicspe014oT3+j2cOGHhoztVzgvo/UMjZ5tZXdxyBFpKikgtb
+1JLNL0MB2lQGu1BGKnj9s8OGz370IwLLy0D7nsECgYEA99Q/ZSCi/SiNy/dYOkTF
+LWWydRLafrCu8HdXfezU7KyGDR5em3PVkH0UJt0kCi+RnxwWmGZJNimAcC0yP5gj/
+PBWUIQOn8ffEULBPQrQeA33u/Nzart3WpEasOYRBLVpu4DeTbEUjEgSIkmwDN2phO
+OiKEOxZEFyMHQArATDaoInECgYBNzw5RFGfQg9xnCEWR71jc4aCKAjQKqRjMx/jo
+lLehcReM2mRiXONRlEhAaZV4F/A0I5wmZkjxXgvdxxKlPEVD5PNsompHDdPo chIr
+lY7XeZmIE+SKxI4skUoYdduD0eHIowAEpoz3P2SI154X8JgNCZ27WLNlcLzoEvrl
+CywBgQKBgQCrryxixK0znIojHriGKL6FYhMRxqcPT9laqn+xbcyJxvwqBZEMpl2F
+yF2ZFXsUAHbGuFyuzTNW9Oj9YWadMj1nzhmtsWX7ZbU+1ohJEiQet12T9enEImGf
+WjKNs9sbVN3RM++FqxwwJWJpcYzZyqu1zkz1mvkKWAUr+06E8IInKQ==
+-----END RSA PRIVATE KEY-----
+
+4. Merchant Private Key (Single-line Base64 format):
+LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBek9ZMWtTd0FJVGlEMnN3TWdEc2RJKzQrZUV1YTlFMzJPL3pPKzVvdXg5VFpuekJwCkswRG9uelZ6NEpDa285bFJLNTV6MVdib2NlR3BEU05sRWFqK2N1TmpjL1I5MzhnNjNGZ3N3OGtyQ2NVWk1NbDEKbnc2SDZsQUU1K2pvaVhIYnpIeHorVE9FVm9VN3p4OTREOE5LbmNPa3ZNUkt1YU10WUI0YXRNTWFvN1hRT3BiLwpTTi9DYTNxdVkyOGhub1Q3ODNPR01kbXFPckVYL25Pb0U4c0V4SUJXZlpSUFVDNE5ZMCs0WmxiM29KeURZdnhIClgvVGlCaEd1Uy84RFZrQXc0T2hIUXF3OVVlN2hiSG9HK1F1T3lmUEI0K0IyTmVqT2tCNktQc0NST2JFaHMvdzYKTHJ2Ym5TTjQzZnRFZzNYMEJqU24weHo1dXdkd3lleTVhR2RzNlFJREFRQUJBb0lCQUNqZlR4WXJVY2RPcjdhbwpkMkhvNk5JdkJ4VVY5ODM5OHoxYUc2dkN3TXdwNEZOSjQrQzE3UEU5UjJVblZVQTk3RndvR25FYU93bmtlc1ZkCkp4OFR0OVlSRjlpY2o3TmhES1RCamdSc0Q0SytaMXo5QXRKOG9vNFI4amlVbERZK21ScThSS0lVTGJUWWxPcW4KRzFzQm1NUEpvQVhybmdCVDFZeFQxUDN6NFUrQWJEZlRiYTQ2bnMrUDhuRitzZU1MYlJZRzY2UkhxSzNuanRYVgpwSFZZQlU1dXBQN1hEQjB6SUxidWJJZm9sTkNLUTRYcGVPbmc4Z0J1YWE4TTNja0FZZ0lKYjJRQzRhbm9FV1NRCjQydy9VcU94TlpxaUhFS242NEJ3MnFZOS9YRHhhU3NwMUVrQ1Z2MW1XOFpES1F6ZzRiQWw4eTdUMVpXd3Y1Y3MKOWptbXJnRUNnWUVBL1ZCV051eEF2Rjd3MW9sNXJaaU9kMUs2OE0yMzMwWWl4aS9CMk0ra2hha0lzMHdSejBKRwpMV0NCaWRoQnNNUVJ0WVRmR3dRTGhIbHZESVB0OXJGWGxDK2dBdWZoVytiQ2VhcUxBMWV4cFBobW0wNGh0TlVFCmNmTk51SjlPMFh0a0lrS3VUNmtVVklMQ0E4NStwT044NURqaGJrZFdVWWF5ZTdNdTJISGJBQ2tDZ1lFQXp4SngKWlUwcU1jL2JoV0dwYUZGeVg3VEs5VkkxVVROcEhrSk1wRGwzOTBaNG03UVZnWHFmU1BPYlZrZjAzNW4xOEIwYwpScUcwc1BaNFFPWUpVVTF1VnZpY3NwMDE0b1QzK2oyY09HSG96dFZ6Z3ZvL1VNalo1dFpYZHh5QkZwS2lrZ3RiCjFKTE5MME1CMmxRR3UxQkdLbmo5czhPR3ozNzBJd0xMeTBEN25zRUNnWUVBOTlRL1pTQ2kvU2lOeS9kWU9rVEYKTFd5ZFJMYWZyQ3U4SGRYZmV6VTdLeUdEUjVlbTNQVmtIMFVKdDBrQ2krUm54d1dtR1pKTmltQWNDMHlQNWdqLwpQQldVSVFPbjhmZkVVTEJQclFlQTMzdS9OemFydDNXcEVhc09ZUkJMVnB1NERlVGJFVWpFZ1NJa213RE4ycGhPCk9pS0VPeFpFRnlNSFFBckFURGFvSW5FQ2dZQk56dzVSRkdmUWc5eG5DRVdSNzFqYzRhQ0tBalFLcVJqTXgvam8KbExlaGNSZU0ybVJpWE9OUmxFaEFhWlY0Ri9BMEk1d21aa2p4WGd2ZHh4S2xQRVZENVBOc29tcEhEZFBvY2hJcgpsWTdYZVptSUUrU0t4STRza1VvWWRkdUQwZUhJb3dBRXBvejNQMlNJMTU0WDhKZ05DWjI3V0xObGNMem9FdnJsCkN5d0JnUUtCZ1FDcnJ5eGl4SzB6bklvakhyaUdLTDZGWWhNUnhxY1BUOWxhcW4reGJjeUp4dndxQlpFTXBsMkYKeUYyWkZYc1VBSGJHdWZ5dXpUTlc5T2o5WVdhZE1qMW56aG10c1dYN1piVSsxb2hKRWlRZXQxMlQ5ZW5FSW1HZgpXaktOczlzYlZOM1JNKytGcXh3d0pXSnBjWXpZeXF1MXprazFtdmtLV0FVciswNkU4SUluS1E9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+
+5. Technical Signature Specifications:
+   • Signature Algorithm : RSA-PSS (RSA_PKCS1_PSS_PADDING)
+   • Hash Function       : SHA-512
+   • Signature Header    : X-Flot-Merchant-Signature
+
+Kindly confirm once the key pair is registered and active for our Merchant ID (40bd76d6-de05-4ca3-9e32-47eed6e657b1) so we can proceed with end-to-end checkout verification.
+
+Best regards,
+MEEEM Engineering Team
+Platform: https://www.meeemsl.com
+--------------------------------------------------------------------------------
+
+
+================================================================================
+2. CRYPTOGRAPHIC VERIFICATION PROOF (INTERNAL REFERENCE)
+================================================================================
+[CHECK 1] Raw Private Key vs Base64 Private Key:
+          -> Result: 100% Exact Roundtrip Match (1,678 bytes).
+
+[CHECK 2] Raw Private Key vs Public Key:
+          -> Result: 100% Mathematical Match (SPKI export matches Public Key exactly).
+
+[CHECK 3] Base64 Key vs Public Key:
+          -> Result: 100% Mathematical Match (Base64 decode exports identical Public Key).
+
+[CHECK 4] Cryptographic Sign & Verify Test:
+          -> Result: PASSED (Payload signed via RSA-PSS / SHA-512 verified successfully).
+
+
+================================================================================
+3. STANDALONE PUBLIC KEY COPY
+================================================================================
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzOY1kSwAITiD2swMgDsd
+I+4+eEua9E32O/zO+5oux9TZnzBpK0DonzVz4JCko9lRK55z1WboceGpDSNlEaj+
+cuNjc/R938g63Fgsw8krCcUZMMl1nw6H6lAE5+joiXHbzHxz+TOEVoU7zx94D8NK
+ncOkvMRKuaMtYB4atMMao7XQOpb/SN/Ca3quY28hnoT783OGMdmqOrEX/nOoE8sE
+xIBWfZRPUC4NY0+4Zlb3oJyDYvxHX/TiBhGuS/8DVkAw4OhHQqw9Ue7hbHoG+QuO
+yfPB4+B2NejOkB6KPsCRObEhs/w6LrvbnSN43ftEg3X0BjSn0xz5uwdwyey5aGds
+6QIDAQAB
+-----END PUBLIC KEY-----
+
+
+================================================================================
+4. STANDALONE SINGLE-LINE BASE64 PRIVATE KEY
+================================================================================
+LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBek9ZMWtTd0FJVGlEMnN3TWdEc2RJKzQrZUV1YTlFMzJPL3pPKzVvdXg5VFpuekJwCkswRG9uelZ6NEpDa285bFJLNTV6MVdib2NlR3BEU05sRWFqK2N1TmpjL1I5MzhnNjNGZ3N3OGtyQ2NVWk1NbDEKbnc2SDZsQUU1K2pvaVhIYnpIeHorVE9FVm9VN3p4OTREOE5LbmNPa3ZNUkt1YU10WUI0YXRNTWFvN1hRT3BiLwpTTi9DYTNxdVkyOGhub1Q3ODNPR01kbXFPckVYL25Pb0U4c0V4SUJXZlpSUFVDNE5ZMCs0WmxiM29KeURZdnhIClgvVGlCaEd1Uy84RFZrQXc0T2hIUXF3OVVlN2hiSG9HK1F1T3lmUEI0K0IyTmVqT2tCNktQc0NST2JFaHMvdzYKTHJ2Ym5TTjQzZnRFZzNYMEJqU24weHo1dXdkd3lleTVhR2RzNlFJREFRQUJBb0lCQUNqZlR4WXJVY2RPcjdhbwpkMkhvNk5JdkJ4VVY5ODM5OHoxYUc2dkN3TXdwNEZOSjQrQzE3UEU5UjJVblZVQTk3RndvR25FYU93bmtlc1ZkCkp4OFR0OVlSRjlpY2o3TmhES1RCamdSc0Q0SytaMXo5QXRKOG9vNFI4amlVbERZK21ScThSS0lVTGJUWWxPcW4KRzFzQm1NUEpvQVhybmdCVDFZeFQxUDN6NFUrQWJEZlRiYTQ2bnMrUDhuRitzZU1MYlJZRzY2UkhxSzNuanRYVgpwSFZZQlU1dXBQN1hEQjB6SUxidWJJZm9sTkNLUTRYcGVPbmc4Z0J1YWE4TTNja0FZZ0lKYjJRQzRhbm9FV1NRCjQydy9VcU94TlpxaUhFS242NEJ3MnFZOS9YRHhhU3NwMUVrQ1Z2MW1XOFpES1F6ZzRiQWw4eTdUMVpXd3Y1Y3MKOWptbXJnRUNnWUVBL1ZCV051eEF2Rjd3MW9sNXJaaU9kMUs2OE0yMzMwWWl4aS9CMk0ra2hha0lzMHdSejBKRwpMV0NCaWRoQnNNUVJ0WVRmR3dRTGhIbHZESVB0OXJGWGxDK2dBdWZoVytiQ2VhcUxBMWV4cFBobW0wNGh0TlVFCmNmTk51SjlPMFh0a0lrS3VUNmtVVklMQ0E4NStwT044NURqaGJrZFdVWWF5ZTdNdTJISGJBQ2tDZ1lFQXp4SngKWlUwcU1jL2JoV0dwYUZGeVg3VEs5VkkxVVROcEhrSk1wRGwzOTBaNG03UVZnWHFmU1BPYlZrZjAzNW4xOEIwYwpScUcwc1BaNFFPWUpVVTF1VnZpY3NwMDE0b1QzK2oyY09HSG96dFZ6Z3ZvL1VNalo1dFpYZHh5QkZwS2lrZ3RiCjFKTE5MME1CMmxRR3UxQkdLbmo5czhPR3ozNzBJd0xMeTBEN25zRUNnWUVBOTlRL1pTQ2kvU2lOeS9kWU9rVEYKTFd5ZFJMYWZyQ3U4SGRYZmV6VTdLeUdEUjVlbTNQVmtIMFVKdDBrQ2krUm54d1dtR1pKTmltQWNDMHlQNWdqLwpQQldVSVFPbjhmZkVVTEJQclFlQTMzdS9OemFydDNXcEVhc09ZUkJMVnB1NERlVGJFVWpFZ1NJa213RE4ycGhPCk9pS0VPeFpFRnlNSFFBckFURGFvSW5FQ2dZQk56dzVSRkdmUWc5eG5DRVdSNzFqYzRhQ0tBalFLcVJqTXgvam8KbExlaGNSZU0ybVJpWE9OUmxFaEFhWlY0Ri9BMEk1d21aa2p4WGd2ZHh4S2xQRVZENVBOc29tcEhEZFBvY2hJcgpsWTdYZVptSUUrU0t4STRza1VvWWRkdUQwZUhJb3dBRXBvejNQMlNJMTU0WDhKZ05DWjI3V0xObGNMem9FdnJsCkN5d0JnUUtCZ1FDcnJ5eGl4SzB6bklvakhyaUdLTDZGWWhNUnhxY1BUOWxhcW4reGJjeUp4dndxQlpFTXBsMkYKeUYyWkZYc1VBSGJHdWZ5dXpUTlc5T2o5WVdhZE1qMW56aG10c1dYN1piVSsxb2hKRWlRZXQxMlQ5ZW5FSW1HZgpXaktOczlzYlZOM1JNKytGcXh3d0pXSnBjWXpZeXF1MXprazFtdmtLV0FVciswNkU4SUluS1E9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+
+
+================================================================================
+5. STANDALONE RAW PEM PRIVATE KEY
+================================================================================
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAzOY1kSwAITiD2swMgDsdI+4+eEua9E32O/zO+5oux9TZnzBp
+K0DonzVz4JCko9lRK55z1WboceGpDSNlEaj+cuNjc/R938g63Fgsw8krCcUZMMl1
+nw6H6lAE5+joiXHbzHxz+TOEVoU7zx94D8NKncOkvMRKuaMtYB4atMMao7XQOpb/
+SN/Ca3quY28hnoT783OGMdmqOrEX/nOoE8sExIBWfZRPUC4NY0+4Zlb3oJyDYvxH
+X/TiBhGuS/8DVkAw4OhHQqw9Ue7hbHoG+QuOyfPB4+B2NejOkB6KPsCRObEhs/w6
+LrvbnSN43ftEg3X0BjSn0xz5uwdwyey5aGds6QIDAQABAoIBACjfTxYrUcdOr7ao
+d2Ho6NIvBxUV98398z1aG6vCwMwp4FNJ4+C17PE9R2UnVUA97FwoGnEaOwnkesVd
+Jx8Tt9YRF9icj7NhDKTBjgRsD4K+Z1z9AtJ8oo4R8jiUlDY+mRq8RKIULbTYlOqn
+G1sBmNPJoAXrngBT1YxT1P3z4U+AbDfTba46ns+P8nF+seMLbRYG66RHqK3njtXV
+pHVYBU5upP7XDB0zILbubIfolNCKQ4XpeOng8gBuaa8M3ckAYgIJb2QC4anoEWSQ
+42w/UqOxNZqiHEKn64Bw2qY9/XDxaSsp1EkCVv1mW8ZDKQzg4bAl8y7T1ZWwv5cs
+9jmmrgECgYEA/VBWNuXAvF7w1ol5rZiOd1K68M2330Yixi/B2M+khakIs0wRz0JG
+LWCIdhBsMQRtYTfGwQLhHlvDIPt9rFXlC+gAufhW+bCeaqLA1expPhmm04htNUE
+cfNNuJ9O0XtkIkKuT6kUVILCA85+pON85DjhbkdWUYaye7Mu2HHbACkCgYEAzxJx
+ZU0qMc/bhWGpaFFyX7TK9VI1UTNpHkJMpDl390Z4m7QVgXqfSPObVkf035n18B0c
+RqG0sPZ4QOYJUU1uVvicspe014oT3+j2cOGHhoztVzgvo/UMjZ5tZXdxyBFpKikgtb
+1JLNL0MB2lQGu1BGKnj9s8OGz370IwLLy0D7nsECgYEA99Q/ZSCi/SiNy/dYOkTF
+LWWydRLafrCu8HdXfezU7KyGDR5em3PVkH0UJt0kCi+RnxwWmGZJNimAcC0yP5gj/
+PBWUIQOn8ffEULBPQrQeA33u/Nzart3WpEasOYRBLVpu4DeTbEUjEgSIkmwDN2phO
+OiKEOxZEFyMHQArATDaoInECgYBNzw5RFGfQg9xnCEWR71jc4aCKAjQKqRjMx/jo
+lLehcReM2mRiXONRlEhAaZV4F/A0I5wmZkjxXgvdxxKlPEVD5PNsompHDdPo chIr
+lY7XeZmIE+SKxI4skUoYdduD0eHIowAEpoz3P2SI154X8JgNCZ27WLNlcLzoEvrl
+CywBgQKBgQCrryxixK0znIojHriGKL6FYhMRxqcPT9laqn+xbcyJxvwqBZEMpl2F
+yF2ZFXsUAHbGuFyuzTNW9Oj9YWadMj1nzhmtsWX7ZbU+1ohJEiQet12T9enEImGf
+WjKNs9sbVN3RM++FqxwwJWJpcYzZyqu1zkz1mvkKWAUr+06E8IInKQ==
+-----END RSA PRIVATE KEY-----
+================================================================================

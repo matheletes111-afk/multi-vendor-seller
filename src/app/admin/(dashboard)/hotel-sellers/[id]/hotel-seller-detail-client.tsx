@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
 import { Badge } from "@/ui/badge"
@@ -67,6 +67,8 @@ interface Seller {
 
 export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; plans?: any[] }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrlParam = searchParams.get("returnUrl") || searchParams.get("from")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
@@ -95,11 +97,36 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
     }
   }
 
+  const handleBack = () => {
+    if (returnUrlParam) {
+      router.push(returnUrlParam)
+      return
+    }
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("admin_sellers_last_list_url")
+      if (stored && stored.startsWith("/admin/")) {
+        router.push(stored)
+        return
+      }
+      if (window.history.length > 1) {
+        router.back()
+        return
+      }
+    }
+    router.push("/admin/hotel-sellers")
+  }
+
+  const getBackLabel = () => {
+    const target = returnUrlParam || (typeof window !== "undefined" ? sessionStorage.getItem("admin_sellers_last_list_url") : null) || ""
+    if (target.includes("all-sellers")) return "Back to All Sellers"
+    return "Back to Hotel Sellers"
+  }
+
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-8 animate-in fade-in duration-700">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" className="rounded-full shadow-md" onClick={() => router.push("/admin/hotel-sellers")}>
+          <Button variant="outline" size="icon" className="rounded-full shadow-md" onClick={handleBack} title={getBackLabel()}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -107,12 +134,14 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
               <Building2 className="h-8 w-8 text-blue-600" />
               {seller.user.name}
             </h1>
-            <p className="text-muted-foreground font-medium">{seller.businessInfo?.businessName || "Hotel Partner"}</p>
+            <p className="text-muted-foreground font-medium">
+              {returnUrlParam?.includes("all-sellers") ? "All Sellers Directory" : (seller.businessInfo?.businessName || "Hotel Partner")}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/admin/hotel-sellers/${seller.id}/analytics`}
+            href={`/admin/hotel-sellers/${seller.id}/analytics${returnUrlParam ? `?returnUrl=${encodeURIComponent(returnUrlParam)}` : ""}`}
             className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-xs font-bold transition-all shadow-sm"
             title="View Dedicated Analytics"
           >

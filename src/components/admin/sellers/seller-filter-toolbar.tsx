@@ -108,6 +108,14 @@ export function SellerFilterToolbar({
     if (lower === "businessname" || lower === "store" || lower === "storename") return "businessName"
     if (lower === "commissionrate" || lower === "commission") return "commissionRate"
     if (lower === "docstatus" || lower === "documents") return "docStatus"
+    if (
+      lower === "doccompleteunderreview" ||
+      lower === "documentcompleteunderreview" ||
+      lower === "doc_complete_under_review" ||
+      lower === "completeunderreview"
+    ) {
+      return "docCompleteUnderReview"
+    }
     if (lower === "createdat" || lower === "date") return "createdAt"
     if (lower === "status") return "status"
     if (lower === "email") return "email"
@@ -233,6 +241,7 @@ export function SellerFilterToolbar({
               </SelectTrigger>
               <SelectContent className="rounded-2xl">
                 <SelectItem value="ALL">All Documents</SelectItem>
+                <SelectItem value="COMPLETE_UNDER_REVIEW">📋 Document Complete But Under Review</SelectItem>
                 <SelectItem value="COMPLETE">✅ Complete / Verified</SelectItem>
                 <SelectItem value="INCOMPLETE">⚠️ Incomplete / Missing</SelectItem>
               </SelectContent>
@@ -341,6 +350,7 @@ export function SellerFilterToolbar({
               <SelectContent className="rounded-2xl max-h-80">
                 <SelectItem value="createdAt_desc">📅 Registration Date (Newest)</SelectItem>
                 <SelectItem value="createdAt_asc">📅 Registration Date (Oldest)</SelectItem>
+                <SelectItem value="docCompleteUnderReview_desc">📋 Document Complete But Under Review</SelectItem>
                 <SelectItem value="businessName_asc">🏪 Business Name (A - Z)</SelectItem>
                 <SelectItem value="businessName_desc">🏪 Business Name (Z - A)</SelectItem>
                 <SelectItem value="email_asc">✉️ Email (A - Z)</SelectItem>

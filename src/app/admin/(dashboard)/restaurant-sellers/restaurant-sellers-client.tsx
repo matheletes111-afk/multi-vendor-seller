@@ -1,7 +1,7 @@
 "use client"
 
 import React, { Fragment, useState, useEffect, useCallback } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
@@ -52,6 +52,15 @@ import Link from "next/link"
 export function RestaurantSellersClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname() || "/admin/restaurant-sellers"
+  const currentQuery = searchParams.toString()
+  const currentListUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("admin_sellers_last_list_url", currentListUrl)
+    }
+  }, [currentListUrl])
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(50, Math.max(1, parseInt(searchParams.get("perPage") ?? "20", 10) || 20))
@@ -403,7 +412,7 @@ export function RestaurantSellersClient() {
                               <div className="space-y-1 min-w-0">
                                 <div className="min-w-0">
                                   <Link
-                                    href={`/admin/restaurant-sellers/${seller.id}`}
+                                    href={`/admin/restaurant-sellers/${seller.id}?returnUrl=${encodeURIComponent(currentListUrl)}`}
                                     className="font-bold text-sm text-slate-900 dark:text-slate-100 hover:text-rose-600 dark:hover:text-rose-400 hover:underline inline-flex items-center gap-1 leading-tight group truncate max-w-[190px]"
                                     title="View full restaurant seller profile & details"
                                   >
@@ -601,7 +610,7 @@ export function RestaurantSellersClient() {
                               )}
 
                               <Link
-                                href={`/admin/restaurant-sellers/${seller.id}`}
+                                href={`/admin/restaurant-sellers/${seller.id}?returnUrl=${encodeURIComponent(currentListUrl)}`}
                                 className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 text-xs font-semibold gap-1 transition-colors"
                                 title="View Full Details"
                               >
@@ -610,7 +619,7 @@ export function RestaurantSellersClient() {
                               </Link>
 
                               <Link
-                                href={`/admin/restaurant-sellers/${seller.id}/analytics`}
+                                href={`/admin/restaurant-sellers/${seller.id}/analytics?returnUrl=${encodeURIComponent(currentListUrl)}`}
                                 className="inline-flex items-center justify-center h-8 px-2.5 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-xs font-semibold gap-1 transition-colors"
                                 title="View Dedicated Analytics"
                               >

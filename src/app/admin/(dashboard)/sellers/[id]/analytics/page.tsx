@@ -1,3 +1,5 @@
+import { Suspense } from "react"
+import { PageLoader } from "@/components/ui/page-loader"
 import { SellerAnalyticsClient } from "./seller-analytics-client"
 
 interface SellerAnalyticsPageProps {
@@ -14,6 +16,8 @@ export default async function SellerAnalyticsPage({ params, searchParams }: Sell
   const sp = searchParams ? await searchParams : {}
 
   return (
-    <SellerAnalyticsClient id={id} initialSellerType={sp.sellerType} />
+    <Suspense fallback={<PageLoader />}>
+      <SellerAnalyticsClient id={id} initialSellerType={sp.sellerType} />
+    </Suspense>
   )
 }
