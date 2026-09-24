@@ -77,6 +77,9 @@ importers:
       '@types/bcryptjs':
         specifier: ^2.4.6
         version: 2.4.6
+      autoprefixer:
+        specifier: ^10.4.20
+        version: 10.5.0(postcss@8.5.15)
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -107,6 +110,9 @@ importers:
       next-themes:
         specifier: ^0.4.4
         version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      postcss:
+        specifier: ^8.4.47
+        version: 8.5.15
       prisma:
         specifier: ^5.19.1
         version: 5.22.0
@@ -134,6 +140,9 @@ importers:
       tailwind-merge:
         specifier: ^2.5.4
         version: 2.6.1
+      tailwindcss:
+        specifier: ^3.4.14
+        version: 3.4.19(tsx@4.22.3)
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.19(tsx@4.22.3))
@@ -163,21 +172,12 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.29)
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.0(postcss@8.5.15)
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
       eslint-config-next:
         specifier: ^16.0.0
         version: 16.2.6(@typescript-eslint/parser@8.60.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
-      postcss:
-        specifier: ^8.4.47
-        version: 8.5.15
-      tailwindcss:
-        specifier: ^3.4.14
-        version: 3.4.19(tsx@4.22.3)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
