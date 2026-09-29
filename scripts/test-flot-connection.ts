@@ -43,7 +43,12 @@ async function testFlotConnection() {
       console.log("   Float rejected the signature. This means the FLOT_PRIVATE_KEY in your .env")
       console.log("   does not match the Public Key registered on Float's server for Merchant ID:")
       console.log("   40bd76d6-de05-4ca3-9e32-47eed6e657b1")
-      console.log("   -> Please paste the exact private key that Float provided to you into .env.")
+    } else if (error?.message?.includes("CURRENCY_NOT_AVAILABLE_FOR_ORDER")) {
+      console.log("\n💡 DIAGNOSTIC INSIGHT:")
+      console.log("   ✅ RSA-4096 Signature Verification PASSED! The private key is 100% matched.")
+      console.log("   ❌ However, Float has not yet assigned a destination wallet & currency (SLE)")
+      console.log("      to Merchant ID: 40bd76d6-de05-4ca3-9e32-47eed6e657b1.")
+      console.log("   -> Please ask Float team to assign destination wallet & enable SLE currency.")
     } else if (error?.message?.includes("400")) {
       console.log("\n💡 HOW TO FIX 400 BAD REQUEST:")
       console.log("   One of the fields (amount, currency, merchantId) was rejected by Float.")

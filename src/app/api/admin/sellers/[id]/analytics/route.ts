@@ -27,17 +27,48 @@ export interface AnalyticsTopItem {
   revenue: number
 }
 
+export interface AnalyticsVariantItem {
+  id: string
+  name: string
+  sku: string | null
+  price: number
+  discount: number
+  stock: number
+  hasGst?: boolean
+  weight?: number | null
+  height?: number | null
+  width?: number | null
+  depth?: number | null
+  attributes?: any
+  images?: string[]
+  specification?: string | null
+  details?: string | null
+  returnType?: string
+  returnDays?: number | null
+  replacementAllowed?: boolean
+  deliveryDays?: number
+}
+
 export interface AnalyticsCatalogItem {
   id: string
   name: string
+  slug?: string
   category: string
+  subcategory?: string | null
   image: string | null
+  images?: string[]
+  description?: string | null
+  condition?: string
+  deliveryChargePerKm?: number
   price: number
   stockOrRooms?: number | null
   unitsOrBookings: number
   revenue: number
   status: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK"
+  isActive?: boolean
   createdAt: string
+  updatedAt?: string
+  variants?: AnalyticsVariantItem[]
 }
 
 export interface AnalyticsOrderItem {
@@ -190,8 +221,32 @@ async function getProductAnalytics(
   const products = await prisma.product.findMany({
     where: { sellerId: seller.id, isDeleted: false },
     include: {
-      category: { select: { name: true } },
-      variants: { select: { stock: true, price: true } },
+      category: { select: { id: true, name: true } },
+      subcategory: { select: { id: true, name: true } },
+      variants: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          price: true,
+          discount: true,
+          stock: true,
+          hasGst: true,
+          weight: true,
+          height: true,
+          width: true,
+          depth: true,
+          attributes: true,
+          images: true,
+          specification: true,
+          details: true,
+          returnType: true,
+          returnDays: true,
+          replacementAllowed: true,
+          deliveryDays: true,
+        },
+        orderBy: { price: "asc" },
+      },
       orderItems: {
         where: startDate ? { createdAt: { gte: startDate } } : undefined,
         select: { quantity: true, subtotal: true, itemStatus: true, createdAt: true },
@@ -309,21 +364,59 @@ async function getProductAnalytics(
     const rev = product.orderItems.reduce((acc, oi) => acc + (oi.subtotal || 0), 0)
 
     let firstImage: string | null = null
-    if (Array.isArray(product.images) && product.images[0]) {
-      firstImage = typeof product.images[0] === "string" ? product.images[0] : (product.images[0] as any)?.url || null
+    const imagesList: string[] = []
+    if (Array.isArray(product.images)) {
+      for (const img of product.images) {
+        const u = typeof img === "string" ? img : (img as any)?.url
+        if (u && typeof u === "string") imagesList.push(u)
+      }
+      if (imagesList.length > 0) {
+        firstImage = imagesList[0]
+      }
     }
 
     catalogItems.push({
       id: product.id,
       name: product.name,
+      slug: product.slug,
       category: product.category?.name || "General",
+      subcategory: product.subcategory?.name || null,
       image: firstImage,
+      images: imagesList,
+      description: product.description || null,
+      condition: product.condition || "NEW",
+      deliveryChargePerKm: product.deliveryChargePerKm || 0,
       price: minPrice,
       stockOrRooms: totalStock,
       unitsOrBookings: unitsSold,
       revenue: rev,
       status: !product.isActive ? "INACTIVE" : totalStock === 0 ? "OUT_OF_STOCK" : "ACTIVE",
+      isActive: product.isActive,
       createdAt: product.createdAt.toISOString(),
+      updatedAt: product.updatedAt.toISOString(),
+      variants: product.variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        sku: v.sku,
+        price: v.price,
+        discount: v.discount,
+        stock: v.stock,
+        hasGst: v.hasGst,
+        weight: v.weight,
+        height: v.height,
+        width: v.width,
+        depth: v.depth,
+        attributes: v.attributes,
+        images: Array.isArray(v.images)
+          ? (v.images as any[]).map((img: any) => (typeof img === "string" ? img : img?.url || "")).filter(Boolean)
+          : [],
+        specification: v.specification,
+        details: v.details,
+        returnType: v.returnType,
+        returnDays: v.returnDays,
+        replacementAllowed: v.replacementAllowed,
+        deliveryDays: v.deliveryDays,
+      })),
     })
 
     topItemsMap[product.id] = {
