@@ -33,7 +33,7 @@ export interface FlotPaymentAttemptResponse {
   updatedAt?: string
 }
 
-const DEFAULT_BASE_URL = "https://api.stage.flotme.ai"
+const DEFAULT_BASE_URL = "https://api.app.flotme.ai"
 const DEFAULT_MERCHANT_ID = "40bd76d6-de05-4ca3-9e32-47eed6e657b1"
 
 /**
@@ -129,11 +129,17 @@ export function getFlotPrivateKey(): string {
   }
 
   // 3. Default certs folder in project
-  const defaultCertPath = path.join(process.cwd(), "certs", "flot_private_key.pem")
-  if (fs.existsSync(defaultCertPath)) {
-    const fileContent = fs.readFileSync(defaultCertPath, "utf8")
-    const valid = cleanAndValidateKey(fileContent)
-    if (valid) return valid
+  const candidateCertPaths = [
+    path.join(process.cwd(), "certs", "private_key.pem"),
+    path.join(process.cwd(), "certs", "private-key.pem"),
+    path.join(process.cwd(), "certs", "flot_private_key.pem"),
+  ]
+  for (const certPath of candidateCertPaths) {
+    if (fs.existsSync(certPath)) {
+      const fileContent = fs.readFileSync(certPath, "utf8")
+      const valid = cleanAndValidateKey(fileContent)
+      if (valid) return valid
+    }
   }
 
   // If we reach here, check if an invalid or truncated key was passed to give a helpful error
@@ -229,9 +235,11 @@ export async function createFlotPaymentLink(
         data,
         orderId,
       })
-      throw new Error(
-        data?.message || data?.error || `Flot API error (${res.status})`
-      )
+      const errorMsg =
+        data?.errors?.[0]?.title
+          ? `${data.errors[0].title} (${data.errors[0].code})`
+          : data?.message || data?.error || `Flot API error (${res.status})`
+      throw new Error(errorMsg)
     }
 
     if (!data?.data?.id) {
