@@ -1,15 +1,45 @@
 import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 
-const MAX_BYTES = 5 * 1024 * 1024
-const ALLOWED = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+const MAX_BYTES = 10 * 1024 * 1024
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/heic",
+  "image/heif",
+  "image/bmp",
+  "image/tiff",
+]
 
-function extFromType(ct?: string | null) {
-  const t = (ct || "").toLowerCase()
+const ALLOWED_IMAGE_EXTS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".avif",
+  ".heic",
+  ".heif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+])
+
+function extFromType(ct?: string | null): string {
+  const t = (ct || "").toLowerCase().trim()
   if (t.includes("png")) return ".png"
   if (t.includes("jpeg") || t.includes("jpg")) return ".jpg"
   if (t.includes("webp")) return ".webp"
   if (t.includes("gif")) return ".gif"
+  if (t.includes("avif")) return ".avif"
+  if (t.includes("heic")) return ".heic"
+  if (t.includes("heif")) return ".heif"
+  if (t.includes("bmp")) return ".bmp"
+  if (t.includes("tiff") || t.includes("tif")) return ".tiff"
   return ".jpg"
 }
 
@@ -19,16 +49,25 @@ async function uploadBlobParts(parts: FormDataEntryValue[], folder: string, pref
     if (!part || typeof (part as Blob).arrayBuffer !== "function") continue
     const blob = part as Blob
     if (blob.size === 0) continue
-    if (blob.size > MAX_BYTES) throw new Error("Each image must be 5 MB or less.")
-    const type = ((part as File).type || "image/jpeg").toLowerCase()
-    if (!ALLOWED.includes(type)) throw new Error("Use JPEG, PNG, GIF, or WebP only.")
+    if (blob.size > MAX_BYTES) throw new Error("Each image must be 10 MB or less.")
+    const fileName = (part as File).name || ""
+    const fileExt = path.extname(fileName).toLowerCase()
+    const type = ((part as File).type || "").toLowerCase().trim()
+
+    const isAllowedMime = type ? ALLOWED_IMAGE_TYPES.includes(type) : false
+    const isAllowedExt = fileExt ? ALLOWED_IMAGE_EXTS.has(fileExt) : false
+
+    if (!isAllowedMime && !isAllowedExt) {
+      throw new Error("Invalid image format. Allowed: JPEG, PNG, WebP, GIF, AVIF, HEIC, HEIF, BMP, TIFF.")
+    }
+
     const buffer = Buffer.from(await blob.arrayBuffer())
-    const ext = path.extname((part as File).name || "") || extFromType(type)
+    const ext = fileExt || extFromType(type)
     urls.push(
       await uploadPublicFile({
         folder,
         ext,
-        contentType: type,
+        contentType: type || "image/jpeg",
         buffer,
         prefix,
       })

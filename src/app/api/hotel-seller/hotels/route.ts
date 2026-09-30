@@ -8,6 +8,59 @@ import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { checkHotelLimit, checkHotelRoomLimit } from "@/lib/subscriptions"
 import { sanitizeInput } from "@/lib/html-sanitization"
 
+const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit for incoming images (auto-compressed down to 1-2MB WebP)
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/x-ms-bmp",
+  "image/tiff",
+]
+const ALLOWED_IMAGE_EXTS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".avif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+]
+
+async function validateAndUploadHotelImage(file: File, folder: string, prefix: string): Promise<string> {
+  if (file.size > MAX_BYTES) {
+    throw new Error(`File "${file.name}" is too large. Maximum allowed size is 10 MB.`)
+  }
+
+  const type = (file.type || "").toLowerCase().trim()
+  const extFromName = path.extname(file.name || "").toLowerCase().trim()
+  const isAllowedExt = ALLOWED_IMAGE_EXTS.includes(extFromName)
+  const isAllowedMime = type && (ALLOWED_IMAGE_TYPES.includes(type) || (type.startsWith("image/") && type !== "image/svg+xml"))
+
+  if (!isAllowedMime && !isAllowedExt) {
+    throw new Error(`"${file.name}": Invalid file type. Please upload an image file (JPEG, PNG, WebP, HEIC, GIF, AVIF, BMP).`)
+  }
+
+  const ext = extFromName || (type.includes("png") ? ".png" : type.includes("webp") ? ".webp" : ".jpg")
+  return await uploadPublicFile({
+    folder,
+    ext,
+    contentType: file.type || "image/jpeg",
+    buffer: Buffer.from(await file.arrayBuffer()),
+    prefix,
+  })
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth()
   if (!session?.user || session.user.role !== UserRole.SELLER_HOTEL) {
@@ -157,37 +210,19 @@ export async function POST(request: NextRequest) {
     const imageUrls: string[] = []
     for (const file of imageFiles) {
       if (file && file.size > 0) {
-        const url = await uploadPublicFile({
-          folder: "hotels/gallery",
-          ext: path.extname(file.name) || ".jpg",
-          contentType: file.type || "image/jpeg",
-          buffer: Buffer.from(await file.arrayBuffer()),
-          prefix: "hotel-img",
-        })
+        const url = await validateAndUploadHotelImage(file, "hotels/gallery", "hotel-img")
         imageUrls.push(url)
       }
     }
 
     let logoUrl = null
     if (logoFile && logoFile.size > 0) {
-      logoUrl = await uploadPublicFile({
-        folder: "hotels/logos",
-        ext: path.extname(logoFile.name) || ".jpg",
-        contentType: logoFile.type || "image/jpeg",
-        buffer: Buffer.from(await logoFile.arrayBuffer()),
-        prefix: "hotel-logo",
-      })
+      logoUrl = await validateAndUploadHotelImage(logoFile, "hotels/logos", "hotel-logo")
     }
 
     let bannerUrl = null
     if (bannerFile && bannerFile.size > 0) {
-      bannerUrl = await uploadPublicFile({
-        folder: "hotels/banners",
-        ext: path.extname(bannerFile.name) || ".jpg",
-        contentType: bannerFile.type || "image/jpeg",
-        buffer: Buffer.from(await bannerFile.arrayBuffer()),
-        prefix: "hotel-banner",
-      })
+      bannerUrl = await validateAndUploadHotelImage(bannerFile, "hotels/banners", "hotel-banner")
     }
 
     // Upload room images first (outside transaction to prevent timeout)
@@ -199,13 +234,7 @@ export async function POST(request: NextRequest) {
 
       for (const file of roomImages) {
         if (file && file.size > 0) {
-          const url = await uploadPublicFile({
-            folder: "rooms/gallery",
-            ext: path.extname(file.name) || ".jpg",
-            contentType: file.type || "image/jpeg",
-            buffer: Buffer.from(await file.arrayBuffer()),
-            prefix: "room-img",
-          })
+          const url = await validateAndUploadHotelImage(file, "rooms/gallery", "room-img")
           roomImageUrls.push(url)
         }
       }

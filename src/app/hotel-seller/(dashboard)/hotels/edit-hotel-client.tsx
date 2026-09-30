@@ -177,7 +177,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
       const { compressImage } = await import("@/lib/image-compressor");
       compressedFiles = await Promise.all(
         files.map(async (file) => {
-          if (file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
             return await compressImage(file).catch(() => file);
           }
           return file;
@@ -471,7 +471,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
       const { compressImage } = await import("@/lib/image-compressor");
       compressedFiles = await Promise.all(
         files.map(async (file) => {
-          if (file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
             return await compressImage(file).catch(() => file);
           }
           return file;
@@ -506,7 +506,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
     const rawFile = e.target.files?.[0]
     if (rawFile) {
       let file: File = rawFile
-      if (rawFile.type.startsWith("image/")) {
+      if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
         try {
           const { compressImage } = await import("@/lib/image-compressor");
           file = await compressImage(rawFile).catch(() => rawFile);
@@ -524,7 +524,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
     const rawFile = e.target.files?.[0]
     if (rawFile) {
       let file: File = rawFile
-      if (rawFile.type.startsWith("image/")) {
+      if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
         try {
           const { compressImage } = await import("@/lib/image-compressor");
           file = await compressImage(rawFile).catch(() => rawFile);
@@ -819,7 +819,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                 >
                   <Camera className="h-6 w-6 text-primary mx-auto mb-2" />
                   <p className="text-xs font-bold uppercase">Add Photos</p>
-                  <input type="file" ref={imageInputRef} onChange={handleNewImageChange} multiple accept="image/*" className="hidden" />
+                  <input type="file" ref={imageInputRef} onChange={handleNewImageChange} multiple accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff" className="hidden" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mt-4">
@@ -853,7 +853,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     )}
-                    <input type="file" ref={logoInputRef} onChange={handleLogoChange} accept="image/*" className="hidden" />
+                    <input type="file" ref={logoInputRef} onChange={handleLogoChange} accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff" className="hidden" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -864,7 +864,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     )}
-                    <input type="file" ref={bannerInputRef} onChange={handleBannerChange} accept="image/*" className="hidden" />
+                    <input type="file" ref={bannerInputRef} onChange={handleBannerChange} accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff" className="hidden" />
                   </div>
                 </div>
               </CardContent>
@@ -1041,7 +1041,7 @@ export function EditHotelClient({ hotel }: { hotel: Hotel }) {
                       id={`room-img-input-${originalIndex}`}
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
                       className="hidden"
                       onChange={(e) => handleRoomImageChange(originalIndex, e)}
                     />

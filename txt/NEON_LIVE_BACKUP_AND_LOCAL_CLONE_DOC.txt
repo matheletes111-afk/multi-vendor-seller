@@ -1,0 +1,242 @@
+================================================================================
+NEON LIVE DATABASE BACKUP, LOCAL CLONE & RECOVERY REFERENCE GUIDE
+================================================================================
+Date: 30 September 2026
+Project: meeem multi-vendor-seller
+Database: Neon Serverless PostgreSQL (Live) -> Local PostgreSQL 18 (meeem_local)
+
+--------------------------------------------------------------------------------
+1. OBJECTIVE & SUMMARY OF ACTIONS COMPLETED
+--------------------------------------------------------------------------------
+- Purpose: Clone all live Neon DB tables and real data to local database so that
+  test data can be safely deleted from live Neon DB with a 100% reliable local
+  backup for future recovery.
+- Local Server Installed: PostgreSQL 18 (Running on localhost:5432)
+- Local UI Installed: pgAdmin 4
+- Local Database Created: "meeem_local" (Owner: postgres)
+- Live Neon DB Status: 100% Read-Only during clone; NOTHING was deleted or altered.
+- Clone Status: 100% SUCCESSFUL across all 74 tables (7,220 out of 7,220 rows matched).
+
+--------------------------------------------------------------------------------
+2. WHERE THE BACKUP FILES ARE STORED LOCALLY
+--------------------------------------------------------------------------------
+All backup files are stored in the project directory:
+Path: F:\react\meeem\multi-vendor-seller\backups\
+
+Existing saved backup files:
+1) F:\react\meeem\multi-vendor-seller\backups\neon_backup_initial.dump
+2) F:\react\meeem\multi-vendor-seller\backups\neon_backup_2026-09-30T07-29-30-026Z.dump
+
+* Note: The .dump file is in PostgreSQL Custom Compressed Format (-Fc).
+  It includes all 74 table definitions, foreign keys, primary keys, sequences,
+  indexes, and complete data rows.
+* .gitignore is configured so backups/ and *.dump files will NEVER be pushed
+  to Git/GitHub accidentally.
+
+--------------------------------------------------------------------------------
+3. HOW TO TAKE A FRESH BACKUP FROM LIVE NEON IN THE FUTURE
+--------------------------------------------------------------------------------
+METHOD A: Using Terminal / PowerShell Command (Fastest)
+Run the following single command in PowerShell:
+
+& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" "postgresql://neondb_owner:npg_pSb2Dfn1Gzhm@ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require" -Fc --no-owner --no-privileges -f "backups/neon_backup_latest.dump"
+
+METHOD B: Running the Project Script
+In the terminal, run:
+node scripts/clone-neon-to-local.mjs
+
+METHOD C: Using pgAdmin 4 GUI
+1. Open pgAdmin 4.
+2. In Servers -> Right click "Servers" -> Register -> Server:
+   - General: Name = Neon-Live
+   - Connection:
+     * Host: ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech
+     * Port: 5432
+     * Maintenance database: neondb
+     * Username: neondb_owner
+     * Password: (from .env file)
+   - Parameters -> SSL Mode = Require
+3. Expand Neon-Live -> Databases -> Right-click "neondb" -> Backup...
+4. Set Filename (e.g., F:\neon_backup_manual.dump) and Format = Custom -> Click Backup.
+
+--------------------------------------------------------------------------------
+4. HOW TO RECOVER / RESTORE DATA IF REAL DATA IS ACCIDENTALLY DELETED IN LIVE
+--------------------------------------------------------------------------------
+If you are deleting test data on live Neon and mistakenly delete real data,
+DO NOT PANIC! You have multiple 100% foolproof ways to recover:
+
+--- METHOD 1: RESTORING SPECIFIC ACCIDENTALLY DELETED ROWS / TABLES (Recommended) ---
+If you deleted a few real products, sellers, or users by mistake:
+1. Open pgAdmin 4.
+2. Under "PostgreSQL 18" -> "Databases" -> "meeem_local", open Query Tool:
+   - Run a query to find the lost data from local:
+     SELECT * FROM products WHERE id = 'YOUR_DELETED_ID';
+     (or SELECT * FROM users WHERE email = '...');
+3. Under pgAdmin, right-click the row or table, copy the data / INSERT script,
+   and run it in the Neon-Live Query Tool.
+4. Alternatively, to restore only ONE entire table's data back to live via command:
+   & "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "postgresql://neondb_owner:npg_pSb2Dfn1Gzhm@ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require" --data-only -t <table_name> "backups/neon_backup_initial.dump"
+
+--- METHOD 2: COMPLETE EMERGENCY RESTORE BACK TO LIVE NEON ---
+If a large portion of real data was deleted and you want to completely rollback
+live Neon DB to the exact snapshot taken on 30 Sep 2026:
+Run this single command in PowerShell:
+
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "postgresql://neondb_owner:npg_pSb2Dfn1Gzhm@ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require" --clean --if-exists --no-owner --no-privileges "backups/neon_backup_initial.dump"
+
+What this does:
+- Wipes the broken live state and re-populates all 74 tables and 7,220 rows
+  exactly as they were prior to deletion.
+
+--- METHOD 3: USING NEON CONSOLE'S BUILT-IN POINT-IN-TIME RECOVERY (PITR) ---
+- In Neon Console (https://console.neon.tech):
+- Neon automatically keeps timeline history for your project.
+- You can create a new branch or restore your branch to any specific minute
+  before you deleted the data.
+
+--------------------------------------------------------------------------------
+5. EXACT ROW COUNT SNAPSHOT AT THE TIME OF BACKUP (7,220 ROWS TOTAL)
+--------------------------------------------------------------------------------
+Table Name                       | Neon Live | Local meeem_local | Status
+---------------------------------+-----------+-------------------+-------
+_SellerCategories                |       438 |               438 | MATCH
+_SellerServiceCategories         |        38 |                38 | MATCH
+_prisma_migrations               |         1 |                 1 | MATCH
+accounts                         |        11 |                11 | MATCH
+ad_clicks                        |      1433 |              1433 | MATCH
+ad_managements                   |         2 |                 2 | MATCH
+banners                          |        24 |                24 | MATCH
+cart_items                       |        20 |                20 | MATCH
+categories                       |        38 |                38 | MATCH
+coupon_usages                    |         6 |                 6 | MATCH
+coupons                          |         5 |                 5 | MATCH
+food_items                       |        68 |                68 | MATCH
+food_order_items                 |        22 |                22 | MATCH
+food_orders                      |        14 |                14 | MATCH
+global_settings                  |         1 |                 1 | MATCH
+hotel_agreements                 |        10 |                10 | MATCH
+hotel_balance_transactions       |        11 |                11 | MATCH
+hotel_bank_details               |        11 |                11 | MATCH
+hotel_bookings                   |        11 |                11 | MATCH
+hotel_business_info              |        12 |                12 | MATCH
+hotel_kyc                        |        11 |                11 | MATCH
+hotel_reviews                    |         1 |                 1 | MATCH
+hotel_sellers                    |        18 |                18 | MATCH
+hotel_subscriptions              |        12 |                12 | MATCH
+hotels                           |        26 |                26 | MATCH
+order_counters                   |         1 |                 1 | MATCH
+order_item_status_history        |       369 |               369 | MATCH
+order_items                      |       132 |               132 | MATCH
+orders                           |       107 |               107 | MATCH
+otp_attempts                     |         7 |                 7 | MATCH
+payments                         |       107 |               107 | MATCH
+product_variants                 |       922 |               922 | MATCH
+products                         |       734 |               734 | MATCH
+recent_views                     |        82 |                82 | MATCH
+restaurant_agreements            |        15 |                15 | MATCH
+restaurant_balance_transactions  |         1 |                 1 | MATCH
+restaurant_bank_details          |        17 |                17 | MATCH
+restaurant_business_info         |        19 |                19 | MATCH
+restaurant_kyc                   |        17 |                17 | MATCH
+restaurant_sellers               |        30 |                30 | MATCH
+restaurant_subscriptions         |        20 |                20 | MATCH
+return_requests                  |        11 |                11 | MATCH
+reviews                          |        70 |                70 | MATCH
+rider_delivery_assignments       |       127 |               127 | MATCH
+riders                           |        24 |                24 | MATCH
+room_availability                |        20 |                20 | MATCH
+rooms                            |        54 |                54 | MATCH
+seller_ads                       |        12 |                12 | MATCH
+seller_agreements                |        97 |                97 | MATCH
+seller_balance_transactions      |        21 |                21 | MATCH
+seller_bank_details              |       102 |               102 | MATCH
+seller_business_info             |       111 |               111 | MATCH
+seller_kyc                       |       106 |               106 | MATCH
+seller_media_images              |       445 |               445 | MATCH
+sellers                          |       208 |               208 | MATCH
+service_categories               |        20 |                20 | MATCH
+service_packages                 |        74 |                74 | MATCH
+service_slots                    |        11 |                11 | MATCH
+services                         |        48 |                48 | MATCH
+stores                           |       103 |               103 | MATCH
+subcategories                    |        41 |                41 | MATCH
+subscription_plans               |        10 |                10 | MATCH
+subscriptions                    |       186 |               186 | MATCH
+support_ticket_replies           |        14 |                14 | MATCH
+support_tickets                  |         3 |                 3 | MATCH
+user_addresses                   |        19 |                19 | MATCH
+user_category_interests          |        66 |                66 | MATCH
+users                            |       376 |               376 | MATCH
+wallet_transactions              |         7 |                 7 | MATCH
+wishlist_items                   |        10 |                10 | MATCH
+---------------------------------+-----------+-------------------+-------
+--------------------------------------------------------------------------------
+Total Rows: 7,220 | Total Tables: 74 | Mismatch: 0 (100% IDENTICAL)
+================================================================================
+
+--------------------------------------------------------------------------------
+6. CONCRETE PRACTICAL EXAMPLE: HOW TO RECOVER 2 ACCIDENTALLY DELETED SELLERS
+--------------------------------------------------------------------------------
+SCENARIO:
+While deleting test data on Live Neon DB, you accidentally delete 2 real sellers
+(or 2 real products, orders, users, etc.). Because your local database "meeem_local"
+and the file "backups/neon_backup_initial.dump" hold the complete snapshot,
+here is EXACTLY how you restore them back into Live Neon DB.
+
+================================================================================
+EXAMPLE APPROACH A: THE FASTEST & EASIEST VISUAL WAY (pgAdmin 4)
+================================================================================
+STEP 1: Find the 2 deleted sellers in your Local Database:
+1. Open pgAdmin 4.
+2. In left panel: Servers -> PostgreSQL 18 -> Databases -> "meeem_local".
+3. Right-click "meeem_local" -> click "Query Tool".
+4. Run this query to find your 2 missing sellers:
+   SELECT * FROM sellers WHERE id IN ('seller_id_1', 'seller_id_2');
+   (Or search by name/email: SELECT * FROM sellers WHERE "userId" IN (...);)
+
+STEP 2: Copy as INSERT Statement:
+1. In the bottom "Data Output" panel, highlight the rows.
+2. Right-click on the selected row(s) -> Select "Copy" -> "Copy as INSERT".
+   (pgAdmin will generate the exact valid SQL INSERT statements for you!)
+
+STEP 3: Paste and Execute on Live Neon DB:
+1. In left panel: Servers -> "Neon-Live" (or right-click Servers -> Register Neon).
+2. Right-click "neondb" on Neon -> click "Query Tool".
+3. Paste the copied INSERT query into the editor.
+4. Press F5 (or the Play / Execute button).
+   Result: The 2 sellers are INSTANTLY restored back into Live Neon DB!
+
+* NOTE FOR CASCADE TABLES (e.g., Stores or Products):
+If deleting the sellers also removed their stores or products (due to CASCADE):
+Do the exact same 3 steps for the child tables from local to live:
+   SELECT * FROM stores WHERE "sellerId" IN ('seller_id_1', 'seller_id_2');
+   SELECT * FROM products WHERE "sellerId" IN ('seller_id_1', 'seller_id_2');
+   -> Copy as INSERT -> Execute on Live Neon!
+
+================================================================================
+EXAMPLE APPROACH B: RECOVERING DIRECTLY FROM .dump FILE VIA CLI
+================================================================================
+If you want to restore the entire "sellers" table (or any table) data from
+the backup file directly back into Live Neon:
+
+Run this single command in PowerShell:
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "postgresql://neondb_owner:npg_pSb2Dfn1Gzhm@ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require" --data-only --table=sellers "backups/neon_backup_initial.dump"
+
+What this does:
+- Reads the "sellers" table data from "neon_backup_initial.dump"
+- Injects missing rows directly into Live Neon DB without touching any other tables!
+
+================================================================================
+EXAMPLE APPROACH C: USING CSV EXPORT / IMPORT (Single Table or Specific Rows)
+================================================================================
+If you only want to copy specific IDs via terminal:
+
+Step 1: Export the 2 sellers from local meeem_local to a temporary CSV:
+$env:PGPASSWORD='11111111'; & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -p 5432 -d meeem_local -c "\copy (SELECT * FROM sellers WHERE id IN ('seller_id_1', 'seller_id_2')) TO 'recovered_sellers.csv' WITH CSV HEADER"
+
+Step 2: Import that CSV directly into Live Neon DB:
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" "postgresql://neondb_owner:npg_pSb2Dfn1Gzhm@ep-blue-water-ad4901cs.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require" -c "\copy sellers FROM 'recovered_sellers.csv' WITH CSV HEADER"
+
+Step 3: Delete the temporary CSV file:
+Remove-Item 'recovered_sellers.csv'
+================================================================================

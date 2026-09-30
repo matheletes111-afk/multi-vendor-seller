@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/ui/button"
@@ -16,12 +16,12 @@ export function NewFoodClient() {
   const [price, setPrice] = useState("")
   const [category, setCategory] = useState("")
   const [isVeg, setIsVeg] = useState(true)
-  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imageFiles, setImageFiles] = useState<{ file: File; preview: string }[]>([])
   const [cuisines, setCuisines] = useState<string[]>([])
   const [errorMsg, setErrorMsg] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/restaurant-seller/settings")
       .then((r) => r.json())
       .then((data) => {
@@ -42,7 +42,20 @@ export function NewFoodClient() {
         }
       })
       .catch(console.error)
-  })
+  }, [])
+
+  const imageFilesRef = useRef(imageFiles)
+  imageFilesRef.current = imageFiles
+
+  useEffect(() => {
+    return () => {
+      imageFilesRef.current.forEach((img) => {
+        try {
+          URL.revokeObjectURL(img.preview)
+        } catch (_) {}
+      })
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,8 +74,8 @@ export function NewFoodClient() {
       formData.append("category", category)
       formData.append("isVeg", String(isVeg))
       if (imageFiles.length > 0) {
-        imageFiles.forEach((file) => {
-          formData.append("images", file)
+        imageFiles.forEach((item) => {
+          formData.append("images", item.file)
         })
       }
 
@@ -200,11 +213,26 @@ export function NewFoodClient() {
               <Input
                 id="images"
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
                 multiple
-                onChange={(e) => {
+                onChange={async (e) => {
                   if (e.target.files) {
-                    setImageFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+                    const rawFiles = Array.from(e.target.files)
+                    let compressedFiles: File[] = rawFiles
+                    try {
+                      const { compressImage } = await import("@/lib/image-compressor")
+                      compressedFiles = await Promise.all(
+                        rawFiles.map((file) => compressImage(file).catch(() => file))
+                      )
+                    } catch (err) {
+                      console.warn("Client WebP compression fallback:", err)
+                    }
+                    const newItems = compressedFiles.map((file) => ({
+                      file,
+                      preview: URL.createObjectURL(file),
+                    }))
+                    setImageFiles((prev) => [...prev, ...newItems])
+                    e.target.value = ""
                   }
                 }}
                 className="rounded-xl pt-2.5 h-12 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
@@ -213,15 +241,18 @@ export function NewFoodClient() {
                 <div className="mt-4 space-y-2">
                   <Label className="text-xs font-bold text-slate-500">Image Previews</Label>
                   <div className="flex flex-wrap gap-4">
-                    {imageFiles.map((file, idx) => {
-                      const objectUrl = URL.createObjectURL(file)
+                    {imageFiles.map((item, idx) => {
                       return (
                         <div key={idx} className="relative w-32 h-20 rounded-xl overflow-hidden border border-slate-200 group">
-                          <img src={objectUrl} alt="Preview" className="w-full h-full object-cover" />
+                          <img src={item.preview} alt="Preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => {
-                              setImageFiles((prev) => prev.filter((_, i) => i !== idx))
+                              setImageFiles((prev) => {
+                                const target = prev[idx]
+                                if (target?.preview) URL.revokeObjectURL(target.preview)
+                                return prev.filter((_, i) => i !== idx)
+                              })
                             }}
                             className="absolute top-1 right-1 bg-rose-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 hover:scale-105 transition-all text-[10px]"
                           >

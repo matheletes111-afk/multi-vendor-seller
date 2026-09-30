@@ -96,7 +96,7 @@ export function ServiceMasterImageInput({
           ref={fileInputRef}
           type="file"
           name="masterImage"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
           className="hidden"
           onChange={onFileChange}
         />

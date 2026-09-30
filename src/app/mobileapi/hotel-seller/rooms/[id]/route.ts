@@ -8,6 +8,59 @@ import { sanitizeInput } from "@/lib/html-sanitization"
 
 export const dynamic = 'force-dynamic'
 
+const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit for incoming images (auto-compressed down to 1-2MB WebP)
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/x-ms-bmp",
+  "image/tiff",
+]
+const ALLOWED_IMAGE_EXTS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".avif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+]
+
+async function validateAndUploadRoomImage(file: File): Promise<string> {
+  if (file.size > MAX_BYTES) {
+    throw new Error(`File "${file.name}" is too large. Maximum allowed size is 10 MB.`)
+  }
+
+  const type = (file.type || "").toLowerCase().trim()
+  const extFromName = path.extname(file.name || "").toLowerCase().trim()
+  const isAllowedExt = ALLOWED_IMAGE_EXTS.includes(extFromName)
+  const isAllowedMime = type && (ALLOWED_IMAGE_TYPES.includes(type) || (type.startsWith("image/") && type !== "image/svg+xml"))
+
+  if (!isAllowedMime && !isAllowedExt) {
+    throw new Error(`"${file.name}": Invalid file type. Please upload an image file (JPEG, PNG, WebP, HEIC, GIF, AVIF, BMP).`)
+  }
+
+  const ext = extFromName || (type.includes("png") ? ".png" : type.includes("webp") ? ".webp" : ".jpg")
+  return await uploadPublicFile({
+    folder: "rooms/gallery",
+    ext,
+    contentType: file.type || "image/jpeg",
+    buffer: Buffer.from(await file.arrayBuffer()),
+    prefix: "room-img",
+  })
+}
+
 /**
  * GET /mobileapi/hotel-seller/rooms/[id]
  * Get single room details.
@@ -113,13 +166,7 @@ export async function PUT(
 
     for (const file of newImageFiles) {
       if (file && file.size > 0) {
-        const url = await uploadPublicFile({
-          folder: "rooms/gallery",
-          ext: path.extname(file.name) || ".jpg",
-          contentType: file.type || "image/jpeg",
-          buffer: Buffer.from(await file.arrayBuffer()),
-          prefix: "room-img",
-        })
+        const url = await validateAndUploadRoomImage(file)
         imageUrls.push(url)
       }
     }
