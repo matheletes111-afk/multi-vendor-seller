@@ -112,7 +112,7 @@ export function ServiceGalleryImageInput({
           ref={fileInputRef}
           type="file"
           name="serviceGalleryImages"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
           multiple
           className="hidden"
           onChange={onFilesChange}

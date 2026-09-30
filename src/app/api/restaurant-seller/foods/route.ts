@@ -34,6 +34,59 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit for incoming images (auto-compressed down to 1-2MB WebP)
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/bmp",
+  "image/x-ms-bmp",
+  "image/tiff",
+]
+const ALLOWED_IMAGE_EXTS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".avif",
+  ".bmp",
+  ".tiff",
+  ".tif",
+]
+
+async function validateAndUploadFoodImage(file: File): Promise<string> {
+  if (file.size > MAX_BYTES) {
+    throw new Error(`File "${file.name}" is too large. Maximum allowed size is 10 MB.`)
+  }
+
+  const type = (file.type || "").toLowerCase().trim()
+  const extFromName = path.extname(file.name || "").toLowerCase().trim()
+  const isAllowedExt = ALLOWED_IMAGE_EXTS.includes(extFromName)
+  const isAllowedMime = type && (ALLOWED_IMAGE_TYPES.includes(type) || (type.startsWith("image/") && type !== "image/svg+xml"))
+
+  if (!isAllowedMime && !isAllowedExt) {
+    throw new Error(`"${file.name}": Invalid file type. Please upload an image file (JPEG, PNG, WebP, HEIC, GIF, AVIF, BMP).`)
+  }
+
+  const ext = extFromName || (type.includes("png") ? ".png" : type.includes("webp") ? ".webp" : ".jpg")
+  return await uploadPublicFile({
+    folder: "foods",
+    ext,
+    contentType: file.type || "image/jpeg",
+    buffer: Buffer.from(await file.arrayBuffer()),
+    prefix: "food-img",
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -72,24 +125,12 @@ export async function POST(request: NextRequest) {
     if (imageFiles && imageFiles.length > 0) {
       for (const file of imageFiles) {
         if (file && file.size > 0) {
-          const url = await uploadPublicFile({
-            folder: "foods",
-            ext: path.extname(file.name) || ".jpg",
-            contentType: file.type || "image/jpeg",
-            buffer: Buffer.from(await file.arrayBuffer()),
-            prefix: "food-img"
-          })
+          const url = await validateAndUploadFoodImage(file)
           imageUrls.push(url)
         }
       }
     } else if (singleImageFile && singleImageFile.size > 0) {
-      const url = await uploadPublicFile({
-        folder: "foods",
-        ext: path.extname(singleImageFile.name) || ".jpg",
-        contentType: singleImageFile.type || "image/jpeg",
-        buffer: Buffer.from(await singleImageFile.arrayBuffer()),
-        prefix: "food-img"
-      })
+      const url = await validateAndUploadFoodImage(singleImageFile)
       imageUrls.push(url)
     }
 
@@ -106,8 +147,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ success: true, data: foodItem }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Web create food item error:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, error: error?.message || "Internal server error" }, { status: 500 })
   }
 }

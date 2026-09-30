@@ -132,7 +132,7 @@ export function NewHotelClient() {
       const { compressImage } = await import("@/lib/image-compressor");
       compressedFiles = await Promise.all(
         files.map(async (file) => {
-          if (file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
             return await compressImage(file).catch(() => file);
           }
           return file;
@@ -405,7 +405,7 @@ export function NewHotelClient() {
       const { compressImage } = await import("@/lib/image-compressor");
       compressedFiles = await Promise.all(
         files.map(async (file) => {
-          if (file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)) {
             return await compressImage(file).catch(() => file);
           }
           return file;
@@ -436,7 +436,7 @@ export function NewHotelClient() {
     const rawFile = e.target.files?.[0]
     if (rawFile) {
       let file: File = rawFile
-      if (rawFile.type.startsWith("image/")) {
+      if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
         try {
           const { compressImage } = await import("@/lib/image-compressor");
           file = await compressImage(rawFile).catch(() => rawFile);
@@ -454,7 +454,7 @@ export function NewHotelClient() {
     const rawFile = e.target.files?.[0]
     if (rawFile) {
       let file: File = rawFile
-      if (rawFile.type.startsWith("image/")) {
+      if (rawFile.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(rawFile.name)) {
         try {
           const { compressImage } = await import("@/lib/image-compressor");
           file = await compressImage(rawFile).catch(() => rawFile);
@@ -773,7 +773,7 @@ export function NewHotelClient() {
                     ref={imageInputRef}
                     onChange={handleImageChange}
                     multiple
-                    accept="image/*"
+                    accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
                     className="hidden"
                   />
                 </div>
@@ -820,7 +820,7 @@ export function NewHotelClient() {
                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Upload Logo</span>
                       </div>
                     )}
-                    <input type="file" ref={logoInputRef} onChange={handleLogoChange} accept="image/*" className="hidden" />
+                    <input type="file" ref={logoInputRef} onChange={handleLogoChange} accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff" className="hidden" />
                   </div>
                 </div>
 
@@ -843,7 +843,7 @@ export function NewHotelClient() {
                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Upload Banner</span>
                       </div>
                     )}
-                    <input type="file" ref={bannerInputRef} onChange={handleBannerChange} accept="image/*" className="hidden" />
+                    <input type="file" ref={bannerInputRef} onChange={handleBannerChange} accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff" className="hidden" />
                   </div>
                 </div>
               </CardContent>
@@ -980,7 +980,7 @@ export function NewHotelClient() {
                       id={`room-img-input-${index}`}
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/*,.heic,.heif,.avif,.webp,.png,.jpg,.jpeg,.bmp,.tiff"
                       className="hidden"
                       onChange={(e) => handleRoomImageChange(index, e)}
                     />

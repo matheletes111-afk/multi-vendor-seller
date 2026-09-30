@@ -33,8 +33,16 @@ export function NewServiceClient({ categories, initialError }: NewServiceClientP
   const topRef = useRef<HTMLDivElement>(null)
 
   async function uploadFile(file: File): Promise<string> {
+    let fileToUpload = file
+    try {
+      const { compressImage } = await import("@/lib/image-compressor")
+      fileToUpload = await compressImage(file)
+    } catch (compErr) {
+      console.warn("Client WebP compression fallback, using original file:", compErr)
+    }
+
     const fd = new FormData()
-    fd.append("file", file)
+    fd.append("file", fileToUpload)
 
     let res: Response
     try {

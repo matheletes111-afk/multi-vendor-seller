@@ -44,3 +44,8 @@ meeemsl_prod_backup.dump
 # Apple IAP Private Keys
 certs/
 *.p8
+
+# Database backups
+backups/
+*.dump
+*.sql

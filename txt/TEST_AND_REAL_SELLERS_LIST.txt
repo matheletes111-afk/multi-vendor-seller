@@ -980,3 +980,12 @@ PART 2: TEST / FAKE / DEMO SELLERS (150 Sellers)
      Mobile: 8420863609
      Email:  naniy69646@acanok.com
 
+
+
+
+
+STRICTLY DONT DELETE BELOW 4 SELLERS IDS FOR REAL TESTING OF DELEVELOPMEMT
+1. productseller1@example.com
+2. jeetservice@gmail.com
+3. jobexe2893@afterdo.com
+4. naniy69646@acanok.com
