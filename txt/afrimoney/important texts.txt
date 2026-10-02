@@ -1,0 +1,35 @@
+The HTTPS certificate for afrimoney.meeemsl.com is issued, and everything we can set up before AfriMoney replies is done. I tested it all from outside the server:
+
+┌────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
+│                     Check                      │                            Result                            │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ https://afrimoney.meeemsl.com/health           │ 200; plain HTTP redirects to HTTPS                           │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Bridge with no key                             │ 401 (rejected)                                               │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Bridge with the key                            │ 504 — expected, because the VPN tunnel isn't up yet          │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Callback port 8080 from the internet           │ Blocked by the security group                                │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ socket.meeemsl.com and its socket.io handshake │ 200, back online on the new IP                               │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Certificate                                    │ Let's Encrypt, valid until 30 Dec 2026, renews automatically │
+└────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+Your next steps:
+1. Send the VPN form to AfriMoney with:
+   - Partner VPN Peer IP: 54.88.186.137
+   - Encryption domain: 54.88.186.137/32
+   - Device: Ubuntu 24.04, strongSwan 5.9.13 (IKEv2)
+   - Phase 1: IKEv2, AES-256, SHA-512, DH group 21. Phase 2: ESP AES-256/SHA-512, no PFS.
+   - Ports: we call them on TCP 8280; their callbacks come to 54.88.186.137 on TCP 8080.
+2. Add two environment variables in Amplify:
+   - AFRIMONEY_BRIDGE_URL=https://afrimoney.meeemsl.com/afrimoney
+   - AFRIMONEY_BRIDGE_KEY = the contents of .bridge-key in this folder
+
+   The payment code should send that key in an X-Bridge-Key header. The callback route should reject requests that don't carry the same header.
+3. When AfriMoney sends the pre-shared key (and confirms their subnets), send them to me. The tunnel config is already on the server, so I fill those in, switch it on and test the connection to 10.28.99.163:8280. That should take about 5 minutes.
+
+Two things to keep in mind:
+- Limit SSH: port 22 is still open to the whole internet. I can restrict it to your IP whenever you want.
+- Delete the backup later: the snapshot snap-0e6438d4b2e04ec8e costs about $0.80 a month. Delete it once the VPN has been working for a while.

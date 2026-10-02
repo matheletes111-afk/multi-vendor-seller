@@ -261,19 +261,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       )
     }
 
-    // Check seller approval status
-    // Relaxed: Allow login if onboarding is not completed
-    if (!user.seller.isApproved && user.seller.onboardingCompleted) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Your account is pending admin approval.",
-          needsApproval: true,
-          approvalStatus: "PENDING"
-        },
-        { status: 403 }
-      )
-    }
+    // NOTE: Approval check is intentionally NOT done here.
+    // Sellers must be allowed through to 2FA regardless of isApproved status.
+    // After verify-2fa, the sellerInfo.isApproved flag is returned so the
+    // mobile app can show the "pending approval" screen post-login.
 
     // Check if seller is suspended
     if (user.seller.isSuspended) {

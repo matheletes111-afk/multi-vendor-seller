@@ -35,9 +35,12 @@ import {
   X,
   ArrowRight,
   Search,
-  Eye
+  Eye,
+  RefreshCw,
+  FileSpreadsheet,
 } from "lucide-react"
 import { PlanSnapshotModal } from "@/components/subscription/plan-snapshot-modal"
+import { exportSubscriptionsToExcel } from "@/lib/admin-module-export"
 
 const formatPlanDuration = (durationDays?: number) => {
   const days = durationDays || 30
@@ -139,6 +142,35 @@ export function SubscriptionsClient() {
     router.push(pathname)
   }
 
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams(searchParams.toString())
+      q.set("export", "true")
+      const res = await fetch(`/api/admin/subscriptions?${q.toString()}`)
+      const resJson = await res.json()
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch subscriptions for export")
+      const list = resJson.subscriptions || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No subscriptions found matching current filters to export." })
+        return
+      }
+      await exportSubscriptionsToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered subscriptions.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export subscriptions." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -193,8 +225,36 @@ export function SubscriptionsClient() {
           <Badge variant="outline" className="px-3 py-1 text-sm font-medium">
             {totalCount} Total Records
           </Badge>
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || totalCount === 0}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs text-xs sm:text-sm cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            Export Excel
+          </Button>
         </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={cn(
+            "p-3 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          )}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabs Section */}
       <div className="flex border-b border-muted gap-2">

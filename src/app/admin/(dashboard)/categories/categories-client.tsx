@@ -26,9 +26,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog";
-import { Plus, Pencil, Trash2, Package, FolderTree } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, FolderTree, RefreshCw, FileSpreadsheet } from "lucide-react";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { PageLoader } from "@/components/ui/page-loader";
+import { exportProductCategoriesToExcel } from "@/lib/admin-module-export";
 
 interface Subcategory {
   id: string;
@@ -218,6 +219,33 @@ export function CategoriesClient() {
     }
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleExportExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportMessage(null);
+    try {
+      const res = await fetch("/api/admin/categories?export=true");
+      const resJson = await res.json();
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch categories for export");
+      const list = resJson.categories || [];
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No product categories found to export." });
+        return;
+      }
+      await exportProductCategoriesToExcel(list);
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} categories.` });
+      setTimeout(() => setExportMessage(null), 6000);
+    } catch (err: any) {
+      console.error("Export error:", err);
+      setExportMessage({ type: "error", text: err?.message || "Failed to export categories." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -225,15 +253,44 @@ export function CategoriesClient() {
           <h1 className="text-2xl font-medium text-foreground">Product Categories</h1>
           <p className="text-muted-foreground mt-2 text-lg font-medium">Structure and organize your marketplace catalog</p>
         </div>
-        {mounted && (
-          <Link href="/admin/categories/new">
-            <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Category
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || (data?.totalCount ?? 0) === 0}
+            className="rounded-full px-5 font-medium text-xs h-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 hover:scale-105 transition-all cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            Export Excel
+          </Button>
+          {mounted && (
+            <Link href="/admin/categories/new">
+              <Button className="rounded-full px-6 font-medium text-xs h-12 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={`p-3 rounded-2xl border flex items-center justify-between text-xs sm:text-sm font-medium ${
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          }`}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {params.error && (
         <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">

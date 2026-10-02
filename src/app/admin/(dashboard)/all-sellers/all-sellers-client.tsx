@@ -66,6 +66,10 @@ import {
   DollarSign,
   Percent,
   Megaphone,
+  Plus,
+  UserPlus,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
@@ -77,6 +81,8 @@ import type { UnifiedSellerItem } from "@/app/api/admin/all-sellers/route"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import { OnboardingReminderWizardModal } from "@/components/admin/sellers/onboarding-reminder-wizard-modal"
 import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
+import { AddSellerModal } from "@/components/admin/sellers/add-seller-modal"
+import { exportAllSellersToExcel } from "@/lib/admin-seller-export"
 
 export function AllSellersClient() {
   const searchParams = useSearchParams()
@@ -95,6 +101,7 @@ export function AllSellersClient() {
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
   const [isOnboardingReminderOpen, setIsOnboardingReminderOpen] = useState(false)
   const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
+  const [isAddSellerOpen, setIsAddSellerOpen] = useState(false)
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const perPage = Math.min(100, Math.max(1, parseInt(searchParams.get("perPage") ?? "20", 10) || 20))
@@ -149,6 +156,53 @@ export function AllSellersClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const params = new URLSearchParams()
+      if (searchInput) params.set("search", searchInput)
+      if (localType && localType !== "ALL") params.set("sellerType", localType)
+      if (localStatus && localStatus !== "ALL") params.set("status", localStatus)
+      if (localTimeframe && localTimeframe !== "all") params.set("timeframe", localTimeframe)
+      if (localTimeframe === "specific" && localSpecificDate) params.set("specificDate", localSpecificDate)
+      if (localTimeframe === "custom" && startDate) params.set("startDate", startDate)
+      if (localTimeframe === "custom" && endDate) params.set("endDate", endDate)
+      if (localDocStatus && localDocStatus !== "ALL") params.set("docStatus", localDocStatus)
+      if (localSortBy) params.set("sortBy", localSortBy)
+      if (localSortOrder) params.set("sortOrder", localSortOrder)
+      params.set("export", "true")
+
+      const res = await fetch(`/api/admin/all-sellers?${params.toString()}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to fetch sellers for export")
+      }
+
+      const json = await res.json()
+      const sellersToExport: UnifiedSellerItem[] = json.sellers || []
+      if (sellersToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No sellers found matching the current filters to export." })
+        return
+      }
+
+      await exportAllSellersToExcel(sellersToExport)
+      setExportMessage({
+        type: "success",
+        text: `Export successful! Downloaded all ${sellersToExport.length} filtered sellers to an Excel sheet.`,
+      })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to generate Excel sheet." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const getBaseRateForType = useCallback((sellerType?: string) => {
     if (!data?.baseCommissions) return 10
@@ -569,6 +623,16 @@ export function AllSellersClient() {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Button
+            size="sm"
+            onClick={() => setIsAddSellerOpen(true)}
+            className="rounded-2xl h-9.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white gap-2 font-bold text-xs sm:text-sm shadow-md shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            title="Add or register a product, service, restaurant, or hotel seller"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Seller</span>
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setIsOnboardingReminderOpen(true)}
@@ -576,7 +640,7 @@ export function AllSellersClient() {
             title="Bulk remind sellers with incomplete onboarding or missing documents"
           >
             <Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            <span>Send Onboarding Reminders</span>
+            <span>Send Reminders</span>
           </Button>
 
           <Button
@@ -587,7 +651,23 @@ export function AllSellersClient() {
             title="Broadcast a custom email announcement to all or filtered sellers"
           >
             <Megaphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span>Broadcast Email</span>
+            <span>Broadcast</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={loading || isExporting || data?.totalCount === 0}
+            className="rounded-2xl h-9.5 px-3.5 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1.5 font-bold text-xs sm:text-sm shadow-sm"
+            title="Download all filtered sellers matching active search/filters as an Excel (.xlsx) spreadsheet"
+          >
+            {isExporting ? (
+              <RefreshCw className="h-4 w-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
           </Button>
 
           <Button
@@ -603,156 +683,235 @@ export function AllSellersClient() {
         </div>
       </div>
 
-      {/* ── KPI Stats Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
-        {/* Total All */}
-        <Card
-          onClick={() => {
-            setLocalType("ALL")
-            setLocalStatus("ALL")
-            router.push("/admin/all-sellers")
-          }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate">All Sellers</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
-                {data?.stats?.totalAll ?? "—"}
-              </span>
-              <Users className="h-4 w-4 text-blue-500 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── KPI Stats Cards: Clear & Distinct Seller Types ── */}
+      {(() => {
+        const isAllActive = (localType === "ALL" || !localType) && (localStatus === "ALL" || !localStatus)
+        const isProductActive = localType === "PRODUCT" && localStatus === "ALL"
+        const isServiceActive = localType === "SERVICE" && localStatus === "ALL"
+        const isHotelActive = localType === "HOTEL" && localStatus === "ALL"
+        const isRestaurantActive = localType === "RESTAURANT" && localStatus === "ALL"
+        const isPendingActive = localStatus === "PENDING"
+        const isSuspendedActive = localStatus === "SUSPENDED"
 
-        {/* Product Sellers */}
-        <Card
-          onClick={() => {
-            setLocalType("PRODUCT")
-            const params = new URLSearchParams()
-            params.set("sellerType", "PRODUCT")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider truncate">Products</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
-                {data?.stats?.totalProduct ?? "—"}
-              </span>
-              <Package className="h-4 w-4 text-blue-500 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
+            {/* 1. Total All Sellers */}
+            <Card
+              onClick={() => {
+                setLocalType("ALL")
+                setLocalStatus("ALL")
+                router.push("/admin/all-sellers")
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
+                isAllActive
+                  ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/20 dark:bg-blue-950/20"
+                  : "border-slate-200 dark:border-slate-800 hover:border-blue-500/50"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider truncate">All Sellers</p>
+                  {isAllActive && <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {data?.stats?.totalAll ?? "—"}
+                  </span>
+                  <Users className="h-4 w-4 text-blue-500 shrink-0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">All 4 categories</p>
+              </CardContent>
+            </Card>
 
-        {/* Service Sellers */}
-        <Card
-          onClick={() => {
-            setLocalType("SERVICE")
-            const params = new URLSearchParams()
-            params.set("sellerType", "SERVICE")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-purple-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider truncate">Services</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
-                {data?.stats?.totalService ?? "—"}
-              </span>
-              <Wrench className="h-4 w-4 text-purple-500 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+            {/* 2. Product Sellers */}
+            <Card
+              onClick={() => {
+                setLocalType("PRODUCT")
+                setLocalStatus("ALL")
+                const params = new URLSearchParams()
+                params.set("sellerType", "PRODUCT")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
+                isProductActive
+                  ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/30 dark:bg-blue-950/30"
+                  : "border-slate-200 dark:border-slate-800 hover:border-blue-500/50"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider truncate">Product Sellers</p>
+                  {isProductActive && <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {data?.stats?.totalProduct ?? "—"}
+                  </span>
+                  <Package className="h-4 w-4 text-blue-500 shrink-0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">Physical goods vendors</p>
+              </CardContent>
+            </Card>
 
-        {/* Hotel Sellers */}
-        <Card
-          onClick={() => {
-            setLocalType("HOTEL")
-            const params = new URLSearchParams()
-            params.set("sellerType", "HOTEL")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">Hotels</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
-                {data?.stats?.totalHotel ?? "—"}
-              </span>
-              <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+            {/* 3. Service Sellers */}
+            <Card
+              onClick={() => {
+                setLocalType("SERVICE")
+                setLocalStatus("ALL")
+                const params = new URLSearchParams()
+                params.set("sellerType", "SERVICE")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
+                isServiceActive
+                  ? "border-purple-500 ring-2 ring-purple-500/20 shadow-md bg-purple-50/30 dark:bg-purple-950/30"
+                  : "border-slate-200 dark:border-slate-800 hover:border-purple-500/50"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider truncate">Service Sellers</p>
+                  {isServiceActive && <span className="h-2 w-2 rounded-full bg-purple-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {data?.stats?.totalService ?? "—"}
+                  </span>
+                  <Wrench className="h-4 w-4 text-purple-500 shrink-0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">Service providers</p>
+              </CardContent>
+            </Card>
 
-        {/* Restaurant Sellers */}
-        <Card
-          onClick={() => {
-            setLocalType("RESTAURANT")
-            const params = new URLSearchParams()
-            params.set("sellerType", "RESTAURANT")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-slate-200 dark:border-slate-800 hover:border-amber-500/50 transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider truncate">Restaurants</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
-                {data?.stats?.totalRestaurant ?? "—"}
-              </span>
-              <UtensilsCrossed className="h-4 w-4 text-amber-500 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+            {/* 4. Hotel Sellers */}
+            <Card
+              onClick={() => {
+                setLocalType("HOTEL")
+                setLocalStatus("ALL")
+                const params = new URLSearchParams()
+                params.set("sellerType", "HOTEL")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
+                isHotelActive
+                  ? "border-emerald-500 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/30 dark:bg-emerald-950/30"
+                  : "border-slate-200 dark:border-slate-800 hover:border-emerald-500/50"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">Hotel Sellers</p>
+                  {isHotelActive && <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {data?.stats?.totalHotel ?? "—"}
+                  </span>
+                  <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">Hotel & stay accounts</p>
+              </CardContent>
+            </Card>
 
-        {/* Pending Review */}
-        <Card
-          onClick={() => {
-            setLocalStatus("PENDING")
-            const params = new URLSearchParams()
-            params.set("status", "PENDING")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-amber-200 dark:border-amber-900/50 hover:border-amber-500 transition-all hover:shadow-md rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider truncate">Pending Review</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
-                {data?.stats?.totalPending ?? "—"}
-              </span>
-              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
+            {/* 5. Restaurant Sellers */}
+            <Card
+              onClick={() => {
+                setLocalType("RESTAURANT")
+                setLocalStatus("ALL")
+                const params = new URLSearchParams()
+                params.set("sellerType", "RESTAURANT")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
+                isRestaurantActive
+                  ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-50/30 dark:bg-amber-950/30"
+                  : "border-slate-200 dark:border-slate-800 hover:border-amber-500/50"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider truncate">Restaurant Sellers</p>
+                  {isRestaurantActive && <span className="h-2 w-2 rounded-full bg-amber-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {data?.stats?.totalRestaurant ?? "—"}
+                  </span>
+                  <UtensilsCrossed className="h-4 w-4 text-amber-500 shrink-0" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">Food & dining vendors</p>
+              </CardContent>
+            </Card>
 
-        {/* Suspended */}
-        <Card
-          onClick={() => {
-            setLocalStatus("SUSPENDED")
-            const params = new URLSearchParams()
-            params.set("status", "SUSPENDED")
-            router.push(`/admin/all-sellers?${params.toString()}`)
-          }}
-          className="cursor-pointer border-rose-200 dark:border-rose-900/50 hover:border-rose-500 transition-all hover:shadow-md rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 min-w-0"
-        >
-          <CardContent className="p-3 sm:p-4 space-y-0.5">
-            <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider truncate">Suspended</p>
-            <div className="flex items-baseline justify-between gap-1">
-              <span className="text-xl sm:text-2xl font-black text-rose-700 dark:text-rose-400">
-                {data?.stats?.totalSuspended ?? "—"}
-              </span>
-              <Ban className="h-4 w-4 text-rose-600 shrink-0" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            {/* 6. Pending Review */}
+            <Card
+              onClick={() => {
+                setLocalStatus("PENDING")
+                const params = new URLSearchParams()
+                params.set("status", "PENDING")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl min-w-0 border",
+                isPendingActive
+                  ? "border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-amber-100/50 dark:bg-amber-950/40"
+                  : "border-amber-200 dark:border-amber-900/50 hover:border-amber-500 bg-amber-50/40 dark:bg-amber-950/20"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider truncate">Pending Review</p>
+                  {isPendingActive && <span className="h-2 w-2 rounded-full bg-amber-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
+                    {data?.stats?.totalPending ?? "—"}
+                  </span>
+                  <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                </div>
+                <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 truncate">Awaiting approval</p>
+              </CardContent>
+            </Card>
 
-      {/* ── Error Banner ── */}
+            {/* 7. Suspended */}
+            <Card
+              onClick={() => {
+                setLocalStatus("SUSPENDED")
+                const params = new URLSearchParams()
+                params.set("status", "SUSPENDED")
+                router.push(`/admin/all-sellers?${params.toString()}`)
+              }}
+              className={cn(
+                "cursor-pointer transition-all hover:shadow-md rounded-2xl min-w-0 border",
+                isSuspendedActive
+                  ? "border-rose-500 ring-2 ring-rose-500/20 shadow-md bg-rose-100/50 dark:bg-rose-950/40"
+                  : "border-rose-200 dark:border-rose-900/50 hover:border-rose-500 bg-rose-50/40 dark:bg-rose-950/20"
+              )}
+            >
+              <CardContent className="p-3 sm:p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider truncate">Suspended</p>
+                  {isSuspendedActive && <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />}
+                </div>
+                <div className="flex items-baseline justify-between gap-1">
+                  <span className="text-xl sm:text-2xl font-black text-rose-700 dark:text-rose-400">
+                    {data?.stats?.totalSuspended ?? "—"}
+                  </span>
+                  <Ban className="h-4 w-4 text-rose-600 shrink-0" />
+                </div>
+                <p className="text-[10px] text-rose-600/80 dark:text-rose-400/80 truncate">Restricted accounts</p>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      })()}
+
+      {/* ── Error & Export Banners ── */}
       {error && (
         <Alert variant="destructive" className="rounded-2xl border-none shadow-md bg-destructive/10 text-destructive flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -760,6 +919,31 @@ export function AllSellersClient() {
             <AlertDescription className="font-medium">{error}</AlertDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-8 w-8 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </Alert>
+      )}
+
+      {exportMessage && (
+        <Alert
+          className={cn(
+            "rounded-2xl border-none shadow-md flex items-center justify-between",
+            exportMessage.type === "success"
+              ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+              : "bg-destructive/10 text-destructive"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {exportMessage.type === "success" ? (
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+            )}
+            <AlertDescription className="font-medium text-xs sm:text-sm">
+              {exportMessage.text}
+            </AlertDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setExportMessage(null)} className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>
         </Alert>
@@ -812,11 +996,11 @@ export function AllSellersClient() {
           updateUrlParams({ page: "1", sellerType: t })
         }}
         sellerTypeOptions={[
-          { value: "ALL", label: "All 4 Types", icon: <Users className="h-3.5 w-3.5" /> },
-          { value: "PRODUCT", label: "Products", icon: <Package className="h-3.5 w-3.5" /> },
-          { value: "SERVICE", label: "Services", icon: <Wrench className="h-3.5 w-3.5" /> },
-          { value: "HOTEL", label: "Hotels", icon: <Building2 className="h-3.5 w-3.5" /> },
-          { value: "RESTAURANT", label: "Restaurants", icon: <UtensilsCrossed className="h-3.5 w-3.5" /> },
+          { value: "ALL", label: "All 4 Sellers", icon: <Users className="h-3.5 w-3.5" /> },
+          { value: "PRODUCT", label: "Product Sellers", icon: <Package className="h-3.5 w-3.5" /> },
+          { value: "SERVICE", label: "Service Sellers", icon: <Wrench className="h-3.5 w-3.5" /> },
+          { value: "HOTEL", label: "Hotel Sellers", icon: <Building2 className="h-3.5 w-3.5" /> },
+          { value: "RESTAURANT", label: "Restaurant Sellers", icon: <UtensilsCrossed className="h-3.5 w-3.5" /> },
         ]}
         sortBy={localSortBy}
         sortOrder={localSortOrder}
@@ -836,6 +1020,8 @@ export function AllSellersClient() {
         onReset={handleResetFilters}
         totalCount={data?.totalCount}
         loading={loading}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
       />
 
       {/* ── Bulk Actions Floating Toolbar ── */}
@@ -1834,6 +2020,12 @@ export function AllSellersClient() {
         open={isBulkCustomEmailOpen}
         onOpenChange={setIsBulkCustomEmailOpen}
         initialSellerType="ALL"
+      />
+
+      {/* ── Add / Register Seller Modal ── */}
+      <AddSellerModal
+        open={isAddSellerOpen}
+        onOpenChange={setIsAddSellerOpen}
       />
     </div>
   )

@@ -32,6 +32,7 @@ import {
   ChevronUp,
   Wallet,
   Building2,
+  FileSpreadsheet,
 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
@@ -68,6 +69,7 @@ import { VehicleTypeSelector } from "@/app/riderapp/components/vehicle-type-sele
 import { DocUploadPreview } from "@/app/riderapp/components/doc-upload-preview"
 import { cn } from "@/lib/utils"
 import { CountryCodeSelect } from "@/ui/country-code-select"
+import { exportRidersToExcel } from "@/lib/admin-module-export"
 
 interface RiderItem {
   id: string
@@ -286,6 +288,38 @@ export function RidersClient() {
       ...prev,
       [riderId]: !prev[riderId],
     }))
+  }
+
+  // Export Excel State and Handler
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams(searchParams.toString())
+      q.set("export", "true")
+      const res = await fetch(`/api/admin/riders?${q.toString()}`)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch riders for export")
+      }
+      const list = data.riders || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No riders found matching the current filters to export." })
+        return
+      }
+      await exportRidersToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered riders to Excel.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export riders." })
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const fetchRiders = useCallback(async () => {
@@ -641,6 +675,19 @@ export function RidersClient() {
           </Button>
 
           <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || total === 0}
+            className="rounded-xl h-9 sm:h-10 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs text-xs sm:text-sm cursor-pointer"
+          >
+            {isExporting ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+            )}
+            Export Excel
+          </Button>
+
+          <Button
             onClick={() => {
               setCreateError(null)
               setCreateSuccess(null)
@@ -653,6 +700,26 @@ export function RidersClient() {
           </Button>
         </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={cn(
+            "p-3 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          )}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* KPI METRICS RIBBON (ONBOARDING & STATUS BREAKDOWN) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">

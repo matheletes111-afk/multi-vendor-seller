@@ -44,11 +44,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     const [orders, totalCount] = await Promise.all([
       prisma.foodOrder.findMany({
         where,
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         include: {
           customer: {
             select: {
@@ -115,10 +116,29 @@ export async function GET(request: NextRequest) {
         orderNumber: o.orderNumber,
         status: o.status,
         totalAmount: o.totalAmount,
+        subtotal: (o as any).subtotal ?? 0,
+        deliveryFee: (o as any).deliveryFee ?? 0,
+        paymentMethod: (o as any).paymentMethod ?? "COD",
+        paymentStatus: (o as any).paymentStatus ?? "PENDING",
+        specialInstructions: (o as any).specialInstructions ?? null,
         createdAt: o.createdAt.toISOString(),
-        customerName: o.customer.name || "Customer",
+        customerName: o.customer.name || (o as any).deliveryFullName || "Customer",
         customerEmail: o.customer.email,
+        customerPhone: (o as any).deliveryPhone || o.customer.phone || null,
+        deliveryFullName: (o as any).deliveryFullName || o.customer.name || null,
+        deliveryPhone: (o as any).deliveryPhone || o.customer.phone || null,
+        deliveryAddress: [
+          (o as any).deliveryAddressLine1,
+          (o as any).deliveryAddressLine2,
+          (o as any).deliveryCity,
+          (o as any).deliveryState,
+          (o as any).deliveryPostalCode
+        ].filter(Boolean).join(", "),
+        deliveryLandmark: (o as any).deliveryAddressLine2 || null,
+        couponCode: (o as any).couponCode || null,
+        couponDiscount: (o as any).couponDiscount || null,
         restaurantName: o.restaurantSeller.businessInfo?.businessName || o.restaurantSeller.user.name || "Restaurant",
+        restaurantSeller: o.restaurantSeller,
         itemsCount: o.items.length,
         items
       }

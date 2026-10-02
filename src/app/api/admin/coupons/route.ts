@@ -19,10 +19,21 @@ export async function GET(request: NextRequest) {
       perPage: searchParams.get("perPage") ?? undefined,
     })
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+    const search = searchParams.get("search")?.trim() || searchParams.get("q")?.trim()
+
+    const where: any = {}
+    if (search) {
+      where.OR = [
+        { code: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
     const [coupons, totalCount] = await Promise.all([
       prisma.coupon.findMany({
-        skip,
-        take,
+        where,
+        ...(isExport ? {} : { skip, take }),
         include: {
           usages: {
             select: { id: true }
@@ -30,10 +41,10 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.coupon.count(),
+      prisma.coupon.count({ where }),
     ])
 
-    const totalPages = Math.ceil(totalCount / perPage)
+    const totalPages = isExport ? 1 : Math.ceil(totalCount / perPage)
     return NextResponse.json({
       coupons,
       totalCount,

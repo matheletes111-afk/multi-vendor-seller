@@ -38,11 +38,12 @@ export async function GET(request: NextRequest) {
       ] : undefined
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     const [bookings, totalCount] = await Promise.all([
       prisma.hotelBooking.findMany({
         where: whereCondition,
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         include: {
           room: true,
           hotel: true,

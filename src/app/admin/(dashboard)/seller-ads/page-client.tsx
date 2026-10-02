@@ -20,13 +20,14 @@ import {
 } from "@/ui/table"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeThumbnailUrl } from "@/lib/youtube"
-import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare, Trash2, Search } from "lucide-react"
+import { Megaphone, Check, X, ImageIcon, Video, Eye, MessageSquare, Trash2, Search, RefreshCw, FileSpreadsheet } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
 import { Input } from "@/ui/input"
 import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
+import { exportAdsToExcel } from "@/lib/admin-module-export"
 
 type Ad = {
   id: string
@@ -96,6 +97,38 @@ export function AdminSellerAdsPageClient() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [adToDelete, setAdToDelete] = useState<string | null>(null)
   const [adToDeleteTitle, setAdToDeleteTitle] = useState<string>("")
+
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams()
+      if (tab !== "all") q.set("tab", tab)
+      if (searchTerm.trim()) q.set("search", searchTerm.trim())
+      q.set("export", "true")
+
+      const res = await fetch(`/api/admin/seller-ads?${q.toString()}`)
+      const resJson = await res.json()
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch ads for export")
+      const list = resJson.ads || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No ads found matching current filters to export." })
+        return
+      }
+      await exportAdsToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered ads.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export ads." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const fetchAds = useCallback(async () => {
     setLoading(true)
@@ -292,43 +325,74 @@ export function AdminSellerAdsPageClient() {
               ))}
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const url = buildAdminPageUrl("/admin/seller-ads", 1, {
-                  ...params,
-                  search: searchTerm.trim() || undefined,
-                })
-                router.push(url)
-              }}
-              className="relative w-full sm:w-80"
-            >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search ads, sellers, products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-8 h-9 text-sm"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchTerm("")
-                    const url = buildAdminPageUrl("/admin/seller-ads", 1, {
-                      ...params,
-                      search: undefined,
-                    })
-                    router.push(url)
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </form>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const url = buildAdminPageUrl("/admin/seller-ads", 1, {
+                    ...params,
+                    search: searchTerm.trim() || undefined,
+                  })
+                  router.push(url)
+                }}
+                className="relative w-full sm:w-72"
+              >
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search ads, sellers, products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-8 h-9 text-sm"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm("")
+                      const url = buildAdminPageUrl("/admin/seller-ads", 1, {
+                        ...params,
+                        search: undefined,
+                      })
+                      router.push(url)
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </form>
+
+              <Button
+                onClick={handleExportExcel}
+                disabled={isExporting || (data?.totalCount ?? 0) === 0}
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs text-xs h-9 px-3 rounded-lg cursor-pointer"
+              >
+                {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                Export Excel
+              </Button>
+            </div>
           </div>
+
+          {exportMessage && (
+            <div
+              className={cn(
+                "p-3 mb-4 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+                exportMessage.type === "success"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                  : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+              )}
+            >
+              <span>{exportMessage.text}</span>
+              <button
+                type="button"
+                onClick={() => setExportMessage(null)}
+                className="text-muted-foreground hover:text-foreground text-xs p-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div className="rounded-xl border border-muted/50 overflow-hidden">
           <Table>
             <TableHeader className="bg-muted/30">

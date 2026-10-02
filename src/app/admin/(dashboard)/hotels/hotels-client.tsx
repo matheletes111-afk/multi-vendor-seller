@@ -14,8 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/ui/dialog"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Search, X, Filter, Eye, Star, Building2, Trash2 } from "lucide-react"
+import { Search, X, Filter, Eye, Star, Building2, Trash2, RefreshCw, FileSpreadsheet } from "lucide-react"
 import Link from "next/link"
+import { exportHotelsToExcel } from "@/lib/admin-module-export"
 
 export function HotelsClient() {
   const searchParams = useSearchParams()
@@ -34,6 +35,45 @@ export function HotelsClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true)
+      setExportMessage(null)
+      const searchQs = searchQ ? `&search=${encodeURIComponent(searchQ)}` : ""
+      const statusQs = statusParam !== "all" ? `&status=${encodeURIComponent(statusParam)}` : ""
+      const sellerQs = hotelSellerIdParam !== "all" ? `&hotelSellerId=${encodeURIComponent(hotelSellerIdParam)}` : ""
+
+      const res = await fetch(`/api/admin/hotels?export=true${searchQs}${statusQs}${sellerQs}`)
+      const json = await res.json()
+
+      if (!res.ok || json.error) {
+        throw new Error(json.error || "Failed to fetch hotels for export")
+      }
+
+      const hotelsToExport = Array.isArray(json.hotels) ? json.hotels : []
+      if (hotelsToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No hotels found matching the current filters to export." })
+        return
+      }
+
+      await exportHotelsToExcel(hotelsToExport)
+      setExportMessage({
+        type: "success",
+        text: `Successfully exported ${hotelsToExport.length} hotel(s) matching your active filter.`
+      })
+    } catch (err: any) {
+      setExportMessage({
+        type: "error",
+        text: err.message || "Failed to export hotels."
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const loadHotels = useCallback(() => {
     setLoading(true)
@@ -96,17 +136,43 @@ export function HotelsClient() {
 
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-700">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight">Hotel Management</h1>
           <p className="text-muted-foreground mt-2 font-medium">Monitor all hotel properties in the system.</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="rounded-2xl px-5 h-11 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2"
+          >
+            {isExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+          </Button>
           <Badge variant="outline" className="px-4 py-1.5 rounded-full border-primary/20 bg-primary/5 text-primary font-bold shadow-sm">
             {data?.totalCount || 0} Total Hotels
           </Badge>
         </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between text-sm font-medium ${
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="text-xs uppercase font-bold hover:underline opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
         <CardHeader className="pb-6">

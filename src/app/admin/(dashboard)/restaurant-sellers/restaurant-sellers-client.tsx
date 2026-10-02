@@ -40,6 +40,9 @@ import {
   Smartphone,
   MapPin,
   Megaphone,
+  FileSpreadsheet,
+  Download,
+  RefreshCw,
 } from "lucide-react"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
 import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
@@ -47,6 +50,7 @@ import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import { OnboardingReminderWizardModal } from "@/components/admin/sellers/onboarding-reminder-wizard-modal"
 import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
+import { exportRestaurantSellersToExcel } from "@/lib/admin-seller-export"
 import Link from "next/link"
 
 export function RestaurantSellersClient() {
@@ -112,6 +116,52 @@ export function RestaurantSellersClient() {
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
   const [isOnboardingReminderOpen, setIsOnboardingReminderOpen] = useState(false)
   const [isBulkCustomEmailOpen, setIsBulkCustomEmailOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const params = new URLSearchParams()
+      if (searchInput) params.set("search", searchInput)
+      if (localStatus && localStatus !== "ALL") params.set("status", localStatus)
+      if (localTimeframe && localTimeframe !== "all") params.set("timeframe", localTimeframe)
+      if (localTimeframe === "specific" && localSpecificDate) params.set("specificDate", localSpecificDate)
+      if (localTimeframe === "custom" && startDate) params.set("startDate", startDate)
+      if (localTimeframe === "custom" && endDate) params.set("endDate", endDate)
+      if (localDocStatus && localDocStatus !== "ALL") params.set("docStatus", localDocStatus)
+      if (localSortBy) params.set("sortBy", localSortBy)
+      if (localSortOrder) params.set("sortOrder", localSortOrder)
+      params.set("export", "true")
+
+      const res = await fetch(`/api/admin/restaurant-sellers?${params.toString()}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to fetch restaurant sellers for export")
+      }
+
+      const json = await res.json()
+      const sellersToExport = json.sellers || []
+      if (sellersToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No restaurant partners found matching current filters to export." })
+        return
+      }
+
+      await exportRestaurantSellersToExcel(sellersToExport)
+      setExportMessage({
+        type: "success",
+        text: `Export successful! Downloaded all ${sellersToExport.length} filtered restaurant partners to an Excel sheet.`,
+      })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to generate Excel sheet." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // URL updating helper
   const updateUrlParams = useCallback((newParams: Record<string, string | undefined>) => {
@@ -282,6 +332,21 @@ export function RestaurantSellersClient() {
             <Megaphone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             <span>Broadcast Email</span>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={loading || isExporting || data?.totalCount === 0}
+            className="rounded-2xl h-9 px-3.5 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Download all filtered restaurant partners in Excel (.xlsx) format"
+          >
+            {isExporting ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+          </Button>
           <Badge variant="outline" className="px-3.5 py-1.5 rounded-full border-primary/20 bg-primary/5 text-primary font-bold shadow-sm text-xs">
             {data?.totalCount || 0} Total Partners
           </Badge>
@@ -292,6 +357,31 @@ export function RestaurantSellersClient() {
         <Alert variant="destructive" className="rounded-2xl border-none shadow-md bg-destructive/10 text-destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="font-medium">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {exportMessage && (
+        <Alert
+          className={cn(
+            "rounded-2xl border-none shadow-md flex items-center justify-between",
+            exportMessage.type === "success"
+              ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+              : "bg-destructive/10 text-destructive"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {exportMessage.type === "success" ? (
+              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+            )}
+            <AlertDescription className="font-medium text-xs">
+              {exportMessage.text}
+            </AlertDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setExportMessage(null)} className="h-7 w-7 p-0">
+            <X className="h-3.5 w-3.5" />
+          </Button>
         </Alert>
       )}
 
@@ -354,6 +444,8 @@ export function RestaurantSellersClient() {
         onReset={handleClear}
         totalCount={data?.totalCount}
         loading={loading}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
       />
 
       <Card className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">

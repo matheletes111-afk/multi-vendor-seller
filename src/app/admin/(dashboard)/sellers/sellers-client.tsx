@@ -68,8 +68,12 @@ import {
   ExternalLink,
   Percent,
   Megaphone,
+  FileSpreadsheet,
+  Download,
+  RefreshCw,
 } from "lucide-react"
 import { BulkCustomEmailModal } from "@/components/admin/sellers/bulk-custom-email-modal"
+import { exportProductServiceSellersToExcel } from "@/lib/admin-seller-export"
 
 export function SellersClient() {
   const searchParams = useSearchParams()
@@ -152,6 +156,53 @@ export function SellersClient() {
 
   const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
   const [commissionValue, setCommissionValue] = useState<number | "">("")
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const params = new URLSearchParams()
+      if (searchInput) params.set("search", searchInput)
+      if (localType && localType !== "ALL") params.set("type", localType)
+      if (localStatus && localStatus !== "ALL") params.set("status", localStatus)
+      if (localTimeframe && localTimeframe !== "all") params.set("timeframe", localTimeframe)
+      if (localTimeframe === "specific" && localSpecificDate) params.set("specificDate", localSpecificDate)
+      if (localTimeframe === "custom" && startDate) params.set("startDate", startDate)
+      if (localTimeframe === "custom" && endDate) params.set("endDate", endDate)
+      if (localDocStatus && localDocStatus !== "ALL") params.set("docStatus", localDocStatus)
+      if (localSortBy) params.set("sortBy", localSortBy)
+      if (localSortOrder) params.set("sortOrder", localSortOrder)
+      params.set("export", "true")
+
+      const res = await fetch(`/api/admin/sellers?${params.toString()}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to fetch sellers for export")
+      }
+
+      const json = await res.json()
+      const sellersToExport = json.sellers || []
+      if (sellersToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No product or service sellers found matching current filters to export." })
+        return
+      }
+
+      await exportProductServiceSellersToExcel(sellersToExport)
+      setExportMessage({
+        type: "success",
+        text: `Export successful! Downloaded all ${sellersToExport.length} filtered sellers to an Excel sheet.`,
+      })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to generate Excel sheet." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // URL updating helper
   const updateUrlParams = useCallback((newParams: Record<string, string | undefined>) => {
@@ -384,6 +435,21 @@ export function SellersClient() {
             <Megaphone className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             <span>Broadcast Email</span>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={loading || isExporting || data?.totalCount === 0}
+            className="rounded-2xl h-8.5 px-3 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 gap-1.5 font-bold text-xs shadow-sm"
+            title="Download all filtered product & service sellers in Excel (.xlsx) format"
+          >
+            {isExporting ? (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+          </Button>
           {data && (
             <Badge variant="outline" className="px-3 py-1 text-xs font-semibold rounded-full shadow-sm bg-background border-primary/20 text-primary">
               {data.totalCount} Total Sellers
@@ -402,6 +468,30 @@ export function SellersClient() {
         <Alert className="rounded-2xl border-none shadow-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
           <CheckCircle className="h-4 w-4 text-emerald-600" />
           <AlertDescription className="font-medium text-xs">Action completed: {successParam}</AlertDescription>
+        </Alert>
+      )}
+      {exportMessage && (
+        <Alert
+          className={cn(
+            "rounded-2xl border-none shadow-md flex items-center justify-between",
+            exportMessage.type === "success"
+              ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+              : "bg-destructive/10 text-destructive"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            {exportMessage.type === "success" ? (
+              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+            )}
+            <AlertDescription className="font-medium text-xs">
+              {exportMessage.text}
+            </AlertDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setExportMessage(null)} className="h-7 w-7 p-0">
+            <X className="h-3.5 w-3.5" />
+          </Button>
         </Alert>
       )}
 
@@ -452,9 +542,9 @@ export function SellersClient() {
           updateUrlParams({ page: "1", type: t })
         }}
         sellerTypeOptions={[
-          { value: "ALL", label: "All Categories", icon: <Users className="h-3.5 w-3.5" /> },
-          { value: "PRODUCT", label: "Products", icon: <Package className="h-3.5 w-3.5" /> },
-          { value: "SERVICE", label: "Services", icon: <Wrench className="h-3.5 w-3.5" /> },
+          { value: "ALL", label: "All Sellers", icon: <Users className="h-3.5 w-3.5" /> },
+          { value: "PRODUCT", label: "Product Sellers", icon: <Package className="h-3.5 w-3.5" /> },
+          { value: "SERVICE", label: "Service Sellers", icon: <Wrench className="h-3.5 w-3.5" /> },
         ]}
         sortBy={localSortBy}
         sortOrder={localSortOrder}
@@ -474,6 +564,8 @@ export function SellersClient() {
         onReset={handleClear}
         totalCount={data?.totalCount}
         loading={loading}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
       />
 
       {/* Main Table Card */}

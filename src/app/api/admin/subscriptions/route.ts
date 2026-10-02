@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     if (sellerType === "HOTEL") {
       const [
         hotelSubs,
@@ -133,8 +135,7 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         prisma.hotelSubscription.findMany({
           where: searchWhere,
-          skip,
-          take,
+          ...(isExport ? {} : { skip, take }),
           include: {
             hotelSeller: {
               include: {
@@ -191,8 +192,7 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         prisma.restaurantSubscription.findMany({
           where: searchWhere,
-          skip,
-          take,
+          ...(isExport ? {} : { skip, take }),
           include: {
             restaurantSeller: {
               include: {
@@ -249,8 +249,7 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         prisma.subscription.findMany({
           where: searchWhere,
-          skip,
-          take,
+          ...(isExport ? {} : { skip, take }),
           include: {
             seller: {
               include: {

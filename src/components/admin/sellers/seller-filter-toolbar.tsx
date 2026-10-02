@@ -14,6 +14,8 @@ import {
   UtensilsCrossed,
   Wrench,
   Users,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
@@ -59,6 +61,8 @@ export interface SellerFilterToolbarProps {
   onReset: () => void
   totalCount?: number
   loading?: boolean
+  onExport?: () => void
+  isExporting?: boolean
 }
 
 export function SellerFilterToolbar({
@@ -88,6 +92,8 @@ export function SellerFilterToolbar({
   onReset,
   totalCount,
   loading,
+  onExport,
+  isExporting,
 }: SellerFilterToolbarProps) {
   const [localSearch, setLocalSearch] = useState(search)
 
@@ -366,12 +372,31 @@ export function SellerFilterToolbar({
           </div>
         </div>
 
-        {/* Counter and Reset */}
+        {/* Counter, Export and Reset */}
         <div className="flex items-center gap-2.5 ml-auto">
           {typeof totalCount === "number" && (
             <Badge variant="secondary" className="font-bold text-xs px-3 py-1 rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200/50">
               {loading ? "Loading..." : `${totalCount} ${totalCount === 1 ? "seller" : "sellers"}`}
             </Badge>
+          )}
+
+          {onExport && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              disabled={loading || isExporting || totalCount === 0}
+              className="h-8.5 px-3 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border-emerald-200/60 dark:border-emerald-800 rounded-xl transition-all gap-1.5 font-bold shadow-sm"
+              title="Download all filtered sellers in Excel spreadsheet format (.xlsx)"
+            >
+              {isExporting ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+              ) : (
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+            </Button>
           )}
 
           {hasActiveFilters && (

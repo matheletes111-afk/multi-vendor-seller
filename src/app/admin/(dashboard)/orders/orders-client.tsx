@@ -14,12 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/ui/select"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, cn } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import type { AdminOrderListItemApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
-import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight, Package } from "lucide-react"
+import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight, Package, RefreshCw, FileSpreadsheet } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { exportOrdersToExcel } from "@/lib/admin-module-export"
 import {
   Tabs,
   TabsContent,
@@ -135,6 +136,40 @@ export function AdminOrdersClient() {
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams()
+      q.set("type", activeTab)
+      if (sellerSearch.trim()) q.set("seller", sellerSearch.trim())
+      if (customerSearch.trim()) q.set("customer", customerSearch.trim())
+      if (statusSearch && statusSearch !== "all") q.set("status", statusSearch)
+      q.set("export", "true")
+
+      const res = await fetch(`/api/admin/orders?${q.toString()}`)
+      const resJson = await res.json()
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch orders for export")
+      const list = resJson.orders || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No orders found matching current filters to export." })
+        return
+      }
+      await exportOrdersToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered orders.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export orders." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (loading && !data) return <PageLoader variant="listing" message="Loading orders…" />
 
   const orders = data?.orders ?? []
@@ -162,11 +197,39 @@ export function AdminOrdersClient() {
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <Badge variant="outline" className="px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm bg-background border-primary/20 text-primary uppercase tracking-wider">
             {totalCount} {activeTab === "PRODUCT" ? "Product" : "Service"} Orders
           </Badge>
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || totalCount === 0}
+            className="rounded-xl px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-md gap-1.5 cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            Export Excel
+          </Button>
         </div>
+
+        {exportMessage && (
+          <div
+            className={cn(
+              "p-3 rounded-2xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+              exportMessage.type === "success"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+            )}
+          >
+            <span>{exportMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => setExportMessage(null)}
+              className="text-muted-foreground hover:text-foreground text-xs p-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
       <Card className="border-none shadow-xl bg-background">
         <CardHeader className="pb-4 border-b border-muted/20 bg-muted/5">

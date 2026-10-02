@@ -9,5 +9,9 @@ export interface SessionUser {
   name?: string | null
   role: UserRole
   image?: string | null
+  isBackofficeUser?: boolean
+  backofficeRoleId?: string | null
+  permissions?: string[]
+  roleName?: string | null
 }
 
