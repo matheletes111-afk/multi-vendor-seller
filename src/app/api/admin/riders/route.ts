@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
     const hasCustomZoneOrLoc = Boolean(zoneFilter || locationFilter)
 
     let total = 0
@@ -146,14 +147,13 @@ export async function GET(request: NextRequest) {
       }
 
       total = filtered.length
-      paginatedRiders = filtered.slice(skip, skip + take)
+      paginatedRiders = isExport ? filtered : filtered.slice(skip, skip + take)
     } else {
       const [countResult, dbUsers] = await Promise.all([
         prisma.user.count({ where }),
         prisma.user.findMany({
           where,
-          skip,
-          take,
+          ...(isExport ? {} : { skip, take }),
           orderBy: { createdAt: "desc" },
           select: {
             id: true,

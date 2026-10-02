@@ -53,11 +53,12 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     const [ads, totalCount, stats, activeCount, pendingCount, rejectedCount] = await Promise.all([
       prisma.sellerAd.findMany({
         where,
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         include: {
           seller: {
             include: {

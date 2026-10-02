@@ -16,8 +16,9 @@ import {
 } from "@/ui/select"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight, Utensils } from "lucide-react"
+import { ShoppingBag, User, Store, Search, Filter, X, ChevronRight, Utensils, FileSpreadsheet, RefreshCw } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { exportRestaurantOrdersToExcel } from "@/lib/admin-module-export"
 import {
   Table,
   TableBody,
@@ -88,6 +89,44 @@ export function AdminRestaurantOrdersClient() {
     }
   } | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true)
+      setExportMessage(null)
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("export", "true")
+
+      const res = await fetch(`/api/admin/restaurant-orders?${params.toString()}`)
+      const json = await res.json()
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to fetch restaurant orders for export")
+      }
+
+      const ordersToExport = Array.isArray(json.data?.orders) ? json.data.orders : []
+      if (ordersToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No restaurant orders found matching current filters to export." })
+        return
+      }
+
+      await exportRestaurantOrdersToExcel(ordersToExport)
+      setExportMessage({
+        type: "success",
+        text: `Successfully exported ${ordersToExport.length} restaurant order(s) matching your active filter.`
+      })
+    } catch (err: any) {
+      setExportMessage({
+        type: "error",
+        text: err.message || "Failed to export restaurant orders."
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // Fetch restaurant sellers
   useEffect(() => {
@@ -160,16 +199,43 @@ export function AdminRestaurantOrdersClient() {
 
   return (
     <div className="container mx-auto p-6 space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900">Restaurant Orders</h1>
-        <p className="text-muted-foreground mt-2">Audit and track customer food orders across restaurants</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">Restaurant Orders</h1>
+          <p className="text-muted-foreground mt-2">Audit and track customer food orders across restaurants</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="rounded-2xl px-5 h-11 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2"
+          >
+            {isExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
+          </Button>
+          <Badge variant="outline" className="px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm bg-background border-emerald-200 text-emerald-700 uppercase tracking-wider">
+            {totalCount} Food Orders
+          </Badge>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="px-4 py-1.5 text-xs font-semibold rounded-full shadow-sm bg-background border-emerald-200 text-emerald-700 uppercase tracking-wider">
-          {totalCount} Food Orders
-        </Badge>
-      </div>
+      {exportMessage && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between text-sm font-medium ${
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="text-xs uppercase font-bold hover:underline opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <Card className="border-none shadow-xl bg-background rounded-3xl">
         <CardHeader className="pb-4 border-b border-muted/20 bg-muted/5">

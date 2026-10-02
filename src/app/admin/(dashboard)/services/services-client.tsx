@@ -14,10 +14,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/ui/dialog"
 import { cn, formatCurrency } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Pencil, Trash2, Search, X, Calendar, Filter, Eye, Briefcase, AlertCircle, Clock } from "lucide-react"
+import { Pencil, Trash2, Search, X, Calendar, Filter, Eye, Briefcase, AlertCircle, Clock, RefreshCw, FileSpreadsheet } from "lucide-react"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import Checkbox from "@/ui/checkbox-v2"
+import { exportServicesToExcel } from "@/lib/admin-module-export"
 
 type Service = {
   id: string
@@ -227,6 +228,42 @@ export function ServicesClient() {
     endDate: endParam || undefined,
   }
 
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams()
+      if (searchQ) q.set("search", searchQ)
+      if (sellerIdParam && sellerIdParam !== "all") q.set("sellerId", sellerIdParam)
+      if (categoryIdParam && categoryIdParam !== "all") q.set("serviceCategoryId", categoryIdParam)
+      if (statusParam && statusParam !== "all") q.set("status", statusParam)
+      if (startParam) q.set("startDate", startParam)
+      if (endParam) q.set("endDate", endParam)
+      q.set("export", "true")
+
+      const res = await fetch(`/api/admin/services?${q.toString()}`)
+      const resJson = await res.json()
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch services for export")
+      const list = resJson.services || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No services found matching current filters to export." })
+        return
+      }
+      await exportServicesToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered services.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export services." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (loading && !data) return <PageLoader message="Loading services..." />
 
   return (
@@ -242,8 +279,36 @@ export function ServicesClient() {
               {data.totalCount} Total Services
             </Badge>
           )}
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || (data?.totalCount ?? 0) === 0}
+            className="rounded-full px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-md gap-1.5 cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            Export Excel
+          </Button>
         </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={cn(
+            "p-3 rounded-2xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          )}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {error && (
         <Alert variant="destructive" className="border-none shadow-xl bg-destructive/10 text-destructive animate-in slide-in-from-top-4 duration-500">

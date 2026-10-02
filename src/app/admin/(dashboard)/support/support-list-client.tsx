@@ -24,12 +24,14 @@ import {
   Smartphone,
   Layers,
   Bell,
+  FileSpreadsheet,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Badge } from "@/ui/badge"
 import { cn } from "@/lib/utils"
+import { exportSupportTicketsToExcel } from "@/lib/admin-module-export"
 
 interface SupportTicketSummary {
   id: string
@@ -153,6 +155,41 @@ export function AdminSupportListClient() {
     }))
   }
 
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const params = new URLSearchParams()
+      if (sourceTab !== "ALL") params.set("source", sourceTab)
+      if (statusFilter !== "ALL") params.set("status", statusFilter)
+      if (userTypeFilter !== "ALL") params.set("userType", userTypeFilter)
+      if (unreadOnly) params.set("unreadOnly", "true")
+      if (searchQuery.trim()) params.set("query", searchQuery.trim())
+      params.set("export", "true")
+
+      const res = await fetch(`/api/admin/support?${params.toString()}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to fetch support tickets for export")
+      const list = data.tickets || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No support tickets found matching current filters to export." })
+        return
+      }
+      await exportSupportTicketsToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered support tickets.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export tickets." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="container mx-auto py-8 max-w-7xl space-y-6 px-4 sm:px-6">
       
@@ -174,16 +211,48 @@ export function AdminSupportListClient() {
           </div>
         </div>
 
-        <Button
-          type="button"
-          onClick={() => fetchTickets(false)}
-          variant="outline"
-          className="rounded-2xl border-white/20 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md self-start md:self-center"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5 mr-2", isLoading && "animate-spin")} />
-          <span>Refresh Tickets</span>
-        </Button>
+        <div className="flex items-center gap-2.5 self-start md:self-center">
+          <Button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExporting || tickets.length === 0}
+            className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs gap-1.5 cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+            <span>Export Excel</span>
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => fetchTickets(false)}
+            variant="outline"
+            className="rounded-2xl border-white/20 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5 mr-2", isLoading && "animate-spin")} />
+            <span>Refresh Tickets</span>
+          </Button>
+        </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={cn(
+            "p-3 rounded-2xl border flex items-center justify-between text-xs sm:text-sm font-medium animate-in fade-in duration-200",
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          )}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 2 MAIN SOURCE TABS: In-App Support Tickets vs Public Website Inquiries */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Search, Calendar, MapPin, Eye, RefreshCw, X, ShoppingCart, User, Phone, CheckCircle2, Users, Filter } from "lucide-react"
+import { Search, Calendar, MapPin, Eye, RefreshCw, X, ShoppingCart, User, Phone, CheckCircle2, Users, Filter, FileSpreadsheet } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { AdminPagination } from "@/components/admin/admin-pagination"
+import { exportBookingsToExcel } from "@/lib/admin-module-export"
 
 type Booking = {
   id: string
@@ -72,6 +73,48 @@ export function AdminBookingsClient() {
   const [checkInDate, setCheckInDate] = useState(checkInParam)
   const [checkOutDate, setCheckOutDate] = useState(checkOutParam)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true)
+      setExportMessage(null)
+      let url = `/api/admin/bookings?export=true&`
+      if (qParam) url += `q=${encodeURIComponent(qParam)}&`
+      if (hotelIdParam) url += `hotelId=${hotelIdParam}&`
+      if (hotelSellerIdParam) url += `hotelSellerId=${hotelSellerIdParam}&`
+      if (statusParam) url += `status=${statusParam}&`
+      if (checkInParam) url += `checkIn=${checkInParam}&`
+      if (checkOutParam) url += `checkOut=${checkOutParam}&`
+
+      const res = await fetch(url)
+      const json = await res.json()
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to fetch bookings for export")
+      }
+
+      const bookingsToExport = Array.isArray(json.data) ? json.data : []
+      if (bookingsToExport.length === 0) {
+        setExportMessage({ type: "error", text: "No bookings found matching current filters to export." })
+        return
+      }
+
+      await exportBookingsToExcel(bookingsToExport)
+      setExportMessage({
+        type: "success",
+        text: `Successfully exported ${bookingsToExport.length} booking(s) matching your active filter.`
+      })
+    } catch (err: any) {
+      setExportMessage({
+        type: "error",
+        text: err.message || "Failed to export bookings."
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // Sync state with url params when url updates
   useEffect(() => {
@@ -174,19 +217,47 @@ export function AdminBookingsClient() {
 
   return (
     <div className="container mx-auto p-6 space-y-6 max-w-7xl animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <ShoppingCart className="h-6 w-6 text-blue-600" /> Admin Hotel Bookings
           </h1>
           <p className="text-slate-500 text-sm font-medium mt-1">Monitor, filter, and inspect all hotel room bookings across the entire platform.</p>
         </div>
-        {(qParam || hotelIdParam || hotelSellerIdParam || statusParam || checkInParam || checkOutParam) && (
-          <Button variant="outline" size="sm" onClick={clearFilters} className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4">
-            Reset Filters
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-2"
+          >
+            {isExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
           </Button>
-        )}
+          {(qParam || hotelIdParam || hotelSellerIdParam || statusParam || checkInParam || checkOutParam) && (
+            <Button variant="outline" size="sm" onClick={clearFilters} className="rounded-xl font-bold text-xs uppercase tracking-wider h-10 px-4">
+              Reset Filters
+            </Button>
+          )}
+        </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between text-sm font-medium ${
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            onClick={() => setExportMessage(null)}
+            className="text-xs uppercase font-bold hover:underline opacity-80"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">

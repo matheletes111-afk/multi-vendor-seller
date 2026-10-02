@@ -112,12 +112,13 @@ export async function GET(req: NextRequest) {
       unread: 0,
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     try {
       tickets = await (prisma as any).supportTicket.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
+        ...(isExport ? {} : { skip, take: limit }),
         include: {
           replies: {
             orderBy: { createdAt: "asc" },
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest) {
       try {
         tickets = await (prisma as any).supportTicket.findMany({
           orderBy: { createdAt: "desc" },
-          take: limit,
+          ...(isExport ? {} : { take: limit }),
           include: {
             replies: {
               orderBy: { createdAt: "asc" },

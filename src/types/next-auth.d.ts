@@ -19,6 +19,10 @@ declare module "next-auth" {
       isFirstLogin?: boolean
       status?: RiderStatus | string
       passwordHash?: string | null
+      isBackofficeUser?: boolean
+      backofficeRoleId?: string | null
+      permissions?: string[]
+      roleName?: string | null
     }
   }
 
@@ -36,6 +40,10 @@ declare module "next-auth" {
     isFirstLogin?: boolean
     status?: RiderStatus | string
     passwordHash?: string | null
+    isBackofficeUser?: boolean
+    backofficeRoleId?: string | null
+    permissions?: string[]
+    roleName?: string | null
   }
 }
 
@@ -52,6 +60,10 @@ declare module "next-auth/jwt" {
     isFirstLogin?: boolean
     status?: RiderStatus | string
     passwordHash?: string | null
+    isBackofficeUser?: boolean
+    backofficeRoleId?: string | null
+    permissions?: string[]
+    roleName?: string | null
     error?: string
   }
 }

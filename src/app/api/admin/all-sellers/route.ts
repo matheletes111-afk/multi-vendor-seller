@@ -547,55 +547,58 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
     const totalCount = filteredList.length
-    const totalPages = Math.ceil(totalCount / perPage)
+    const totalPages = isExport ? 1 : Math.ceil(totalCount / perPage)
 
-    // Slice to current page
-    const pagedItems = filteredList.slice(skip, skip + take)
+    // Slice to current page unless export requested
+    const pagedItems = isExport ? filteredList : filteredList.slice(skip, skip + take)
 
-    // Presign document URLs for items on this page
-    await Promise.all(
-      pagedItems.map(async (item) => {
-        if (item.logo) item.logo = await getPresignedUrlOrOriginal(item.logo)
-        if (item.banner) item.banner = await getPresignedUrlOrOriginal(item.banner)
+    // Presign document URLs for items on this page (skip during export for maximum speed)
+    if (!isExport) {
+      await Promise.all(
+        pagedItems.map(async (item) => {
+          if (item.logo) item.logo = await getPresignedUrlOrOriginal(item.logo)
+          if (item.banner) item.banner = await getPresignedUrlOrOriginal(item.banner)
 
-        if (item.raw?.businessInfo) {
-          const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
-            getPresignedUrlOrOriginal(item.raw.businessInfo.busRegCertUrl),
-            getPresignedUrlOrOriginal(item.raw.businessInfo.cityCouncilCertUrl),
-            getPresignedUrlOrOriginal(item.raw.businessInfo.gstTinCertUrl),
-            getPresignedUrlOrOriginal(item.raw.businessInfo.addressProofUrl),
-          ])
-          item.raw.businessInfo.busRegCertUrl = busReg
-          item.raw.businessInfo.cityCouncilCertUrl = cityCouncil
-          item.raw.businessInfo.gstTinCertUrl = gstTin
-          item.raw.businessInfo.addressProofUrl = addrProof
-        }
-
-        if (item.raw?.kyc) {
-          const [front, back, selfie] = await Promise.all([
-            getPresignedUrlOrOriginal(item.raw.kyc.idFrontUrl),
-            getPresignedUrlOrOriginal(item.raw.kyc.idBackUrl),
-            getPresignedUrlOrOriginal(item.raw.kyc.selfieUrl),
-          ])
-          item.raw.kyc.idFrontUrl = front
-          item.raw.kyc.idBackUrl = back
-          item.raw.kyc.selfieUrl = selfie
-          if (item.raw.kyc.foodLicenseUrl) {
-            item.raw.kyc.foodLicenseUrl = await getPresignedUrlOrOriginal(item.raw.kyc.foodLicenseUrl)
+          if (item.raw?.businessInfo) {
+            const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
+              getPresignedUrlOrOriginal(item.raw.businessInfo.busRegCertUrl),
+              getPresignedUrlOrOriginal(item.raw.businessInfo.cityCouncilCertUrl),
+              getPresignedUrlOrOriginal(item.raw.businessInfo.gstTinCertUrl),
+              getPresignedUrlOrOriginal(item.raw.businessInfo.addressProofUrl),
+            ])
+            item.raw.businessInfo.busRegCertUrl = busReg
+            item.raw.businessInfo.cityCouncilCertUrl = cityCouncil
+            item.raw.businessInfo.gstTinCertUrl = gstTin
+            item.raw.businessInfo.addressProofUrl = addrProof
           }
-        }
 
-        if (item.raw?.bankDetails) {
-          const [passbook, letter] = await Promise.all([
-            getPresignedUrlOrOriginal(item.raw.bankDetails.passbookUrl),
-            getPresignedUrlOrOriginal(item.raw.bankDetails.bankLetterUrl),
-          ])
-          item.raw.bankDetails.passbookUrl = passbook
-          item.raw.bankDetails.bankLetterUrl = letter
-        }
-      })
-    )
+          if (item.raw?.kyc) {
+            const [front, back, selfie] = await Promise.all([
+              getPresignedUrlOrOriginal(item.raw.kyc.idFrontUrl),
+              getPresignedUrlOrOriginal(item.raw.kyc.idBackUrl),
+              getPresignedUrlOrOriginal(item.raw.kyc.selfieUrl),
+            ])
+            item.raw.kyc.idFrontUrl = front
+            item.raw.kyc.idBackUrl = back
+            item.raw.kyc.selfieUrl = selfie
+            if (item.raw.kyc.foodLicenseUrl) {
+              item.raw.kyc.foodLicenseUrl = await getPresignedUrlOrOriginal(item.raw.kyc.foodLicenseUrl)
+            }
+          }
+
+          if (item.raw?.bankDetails) {
+            const [passbook, letter] = await Promise.all([
+              getPresignedUrlOrOriginal(item.raw.bankDetails.passbookUrl),
+              getPresignedUrlOrOriginal(item.raw.bankDetails.bankLetterUrl),
+            ])
+            item.raw.bankDetails.passbookUrl = passbook
+            item.raw.bankDetails.bankLetterUrl = letter
+          }
+        })
+      )
+    }
 
     const stats = {
       totalAll: totalProductCount + totalServiceCount + totalHotelCount + totalRestaurantCount,

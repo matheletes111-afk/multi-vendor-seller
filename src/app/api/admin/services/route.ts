@@ -63,11 +63,12 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     const [services, totalCount, serviceSellers, serviceCategories] = await Promise.all([
       prisma.service.findMany({
         where,
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         include: {
           serviceCategory: true,
           seller: {

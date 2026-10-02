@@ -20,10 +20,11 @@ export async function GET(request: NextRequest) {
       perPage: searchParams.get("perPage") ?? undefined,
     });
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true";
+
     const [categories, totalCount] = await Promise.all([
       prisma.serviceCategory.findMany({
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         include: {
           _count: { select: { services: true } },
         },

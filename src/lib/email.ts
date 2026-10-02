@@ -1893,6 +1893,116 @@ https://meeemsl.com
   return { success: false, error: new Error("No contact channel for admin custom seller message.") }
 }
 
+/**
+ * Dispatches Backoffice Staff login credentials upon user creation.
+ */
+export async function sendBackofficeStaffCredentialsEmail({
+  to,
+  name,
+  email,
+  password,
+  loginUrl,
+  roleName,
+}: {
+  to: string
+  name: string
+  email: string
+  password: string
+  loginUrl: string
+  roleName: string
+}) {
+  const subject = "Welcome to Meeem Backoffice - Your Staff Account Credentials"
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7fb; margin: 0; padding: 30px 15px; color: #1e293b; }
+          .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+          .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 36px 30px; text-align: center; color: white; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+          .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
+          .content { padding: 36px 30px; }
+          .welcome-text { font-size: 16px; line-height: 1.6; margin-bottom: 24px; color: #334155; }
+          .credentials-box { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 14px; padding: 22px; margin: 24px 0; }
+          .cred-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+          .cred-row:last-child { margin-bottom: 0; }
+          .cred-label { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
+          .cred-value { font-size: 15px; font-weight: 800; color: #0f172a; font-family: 'Courier New', Courier, monospace; background: #e2e8f0; padding: 4px 10px; border-radius: 6px; }
+          .btn-container { text-align: center; margin: 32px 0 20px; }
+          .btn { display: inline-block; background: #2563eb; color: #ffffff !important; text-decoration: none; padding: 14px 34px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(37,99,235,0.35); }
+          .security-note { font-size: 12px; color: #64748b; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; text-align: center; }
+          .footer { background: #f1f5f9; padding: 20px 30px; text-align: center; font-size: 12px; color: #94a3b8; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Meeem Backoffice</h1>
+            <p>Staff Portal Access Granted</p>
+          </div>
+          <div class="content">
+            <p class="welcome-text">
+              Hello <strong>${name}</strong>,<br><br>
+              An administrative staff account has been provisioned for you on the <strong>Meeem Multi-Vendor Platform</strong> under the role of <strong>${roleName}</strong>.
+            </p>
+
+            <div class="credentials-box">
+              <div class="cred-row">
+                <span class="cred-label">Login URL:</span>
+                <span class="cred-value" style="font-family: inherit; font-size: 13px;">${loginUrl}</span>
+              </div>
+              <div class="cred-row">
+                <span class="cred-label">Email Address:</span>
+                <span class="cred-value">${email}</span>
+              </div>
+              <div class="cred-row">
+                <span class="cred-label">Temporary Password:</span>
+                <span class="cred-value" style="color: #2563eb;">${password}</span>
+              </div>
+            </div>
+
+            <div class="btn-container">
+              <a href="${loginUrl}" class="btn" target="_blank">Sign in to Backoffice</a>
+            </div>
+
+            <div class="security-note">
+              🔒 <strong>Security Advice:</strong> This is an auto-generated temporary credential. Please log in and update your password immediately from your account profile.
+            </div>
+          </div>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} Meeem Platform Inc. Confidential Administrative System.
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+
+  const text = `
+Welcome to Meeem Backoffice!
+
+Hello ${name},
+An administrative staff account has been provisioned for you under the role of "${roleName}".
+
+Your Login Credentials:
+- Login Portal: ${loginUrl}
+- Email: ${email}
+- Password: ${password}
+
+Please sign in and change your password.
+  `.trim()
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  })
+}
+
+
 
 
 

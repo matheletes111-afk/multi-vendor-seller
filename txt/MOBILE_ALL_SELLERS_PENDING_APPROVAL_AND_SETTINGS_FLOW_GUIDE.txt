@@ -1,0 +1,355 @@
+====================================================================================================
+MOBILE APP INTEGRATION GUIDE: ALL SELLERS 2FA LOGIN, PENDING APPROVAL & SETTINGS FLOW
+(Product Seller | Service Seller | Hotel Seller | Restaurant Seller)
+====================================================================================================
+Applies to: All 4 Seller Mobile Apps
+Sync Status: 100% Synced with Web Platform Architecture
+Date: October 2026
+====================================================================================================
+
+1. OVERVIEW & WHAT WAS FIXED ON BACKEND
+----------------------------------------------------------------------------------------------------
+PROBLEM REPORTED:
+Previously, sellers who completed their onboarding but were pending admin approval received an HTTP 403
+error during login ("Your account is pending admin approval."). This blocked them from reaching the
+2FA OTP screen, receiving an access token, or accessing the Settings screen to edit their submitted
+details while awaiting approval.
+
+BACKEND RESOLUTION:
+- The premature 403 approval check in the login endpoint has been REMOVED across all 4 seller panels:
+    * POST /mobileapi/product-seller/auth/login
+    * POST /mobileapi/service-seller/auth/login
+    * POST /mobileapi/hotel-seller/auth/login
+    * POST /mobileapi/restaurant-seller/auth/login
+- Now, when any registered seller logs in with valid credentials, the server always generates and
+  dispatches the 2FA OTP code and returns HTTP 200 with requiresOtp: true.
+- After verifying the 2FA OTP, the server issues valid JWT tokens and returns sellerInfo containing
+  isApproved, onboardingCompleted, and isSuspended flags.
+
+
+====================================================================================================
+2. WEB VS MOBILE BEHAVIOR: 100% PARITY SPECIFICATION
+====================================================================================================
+In the Web portal (Next.js middleware & dashboards), the workflow is as follows:
+1. Seller logs in with Email/Phone + Password -> 2FA OTP is sent -> Seller enters OTP -> Logged in.
+2. Web middleware evaluates the seller's state:
+   a) isSuspended === true:
+      -> Access denied. Redirects to /login with error "AccountSuspended".
+   b) onboardingCompleted === false:
+      -> Redirects to /<role>/onboarding.
+   c) onboardingCompleted === true && isApproved === false (PENDING APPROVAL):
+      -> Directs seller to /<role>/settings?error=AccountPendingApproval.
+      -> The seller CAN view and update their profile, store, KYC documents, and bank details.
+      -> Operational tabs (Products, Services, Rooms, Food Items, Orders) are restricted.
+      -> Shows a clear notice: "Your account is currently pending approval by our administration team.
+         You will be notified once your account has been verified and active."
+   d) onboardingCompleted === true && isApproved === true (ACTIVE):
+      -> Full access to Dashboard Overview, Analytics, and all operational features.
+
+THE MOBILE APP MUST IMPLEMENT THIS EXACT SAME POST-LOGIN ROUTING LOGIC.
+
+
+====================================================================================================
+3. COMPLETE 2-STEP AUTHENTICATION FLOW
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+STEP 1: PASSWORD LOGIN (DISPATCHES 2FA OTP)
+----------------------------------------------------------------------------------------------------
+Endpoints:
+  POST /mobileapi/product-seller/auth/login
+  POST /mobileapi/service-seller/auth/login
+  POST /mobileapi/hotel-seller/auth/login
+  POST /mobileapi/restaurant-seller/auth/login
+
+Request Payload:
+{
+  "email": "seller@example.com",        // OR "phone": "76123456" / "identifier": "..."
+  "password": "sellerpassword123",
+  "phoneCountryCode": "+232"            // Optional if phone number includes country code
+}
+
+Success Response (HTTP 200 OK):
+{
+  "success": true,
+  "requiresOtp": true,
+  "message": "Verification code sent to your registered mobile number and email.",
+  "data": {
+    "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "maskedPhone": "+232 *******456",
+    "maskedEmail": "s***@example.com",
+    "channels": ["SMS", "EMAIL"],
+    "expiresIn": 300,
+    "resendCooldown": 60
+  }
+}
+
+Mobile Developer Action:
+1. Save `preAuthToken` in memory/screen state.
+2. Display info to user: "Verification code sent to <maskedPhone> / <maskedEmail>".
+3. Navigate immediately to the 6-Digit OTP Verification Screen.
+4. Start a 60-second cooldown timer for the Resend button.
+
+Error Responses:
+- Invalid credentials (HTTP 401):
+  { "success": false, "error": "Invalid email or mobile number, or password" }
+- Account suspended (HTTP 403):
+  { "success": false, "error": "Your account has been suspended. Please contact support.", "isSuspended": true }
+- Unverified Email/Phone (HTTP 403):
+  { "success": false, "error": "Please verify your account first.", "needsVerification": true, "verifyUrl": "..." }
+
+
+----------------------------------------------------------------------------------------------------
+STEP 2: VERIFY 2FA OTP (RECEIVES TOKENS & SELLER STATUS)
+----------------------------------------------------------------------------------------------------
+Endpoints:
+  POST /mobileapi/product-seller/auth/verify-2fa
+  POST /mobileapi/service-seller/auth/verify-2fa
+  POST /mobileapi/hotel-seller/auth/verify-2fa
+  POST /mobileapi/restaurant-seller/auth/verify-2fa
+
+Request Payload:
+{
+  "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "otp": "123456"
+}
+
+Success Response (HTTP 200 OK):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "usr_abc123",
+      "name": "Jane Doe",
+      "email": "jane@example.com",
+      "phone": "76123456",
+      "phoneCountryCode": "+232",
+      "role": "SELLER_SERVICE",     // SELLER_PRODUCT | SELLER_SERVICE | SELLER_HOTEL | SELLER_RESTAURANT
+      "sellerType": "service",      // product | service | hotel | restaurant
+      "sellerInfo": {
+        "id": "sel_xyz789",
+        "isApproved": false,        // <-- KEY STATUS FLAG: false = Pending, true = Approved
+        "isSuspended": false,       // <-- KEY STATUS FLAG: true = Suspended
+        "onboardingCompleted": true,// <-- KEY STATUS FLAG: true = Finished onboarding
+        "onboardingStep": 5,
+        "mobileStep": 4
+      }
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "expiresIn": 604800
+    },
+    "sessionInfo": {
+      "expiresIn": 604800,
+      "tokenType": "Bearer"
+    }
+  }
+}
+
+
+====================================================================================================
+4. MOBILE APP POST-LOGIN ROUTING MATRIX (CRITICAL FOR MOBILE DEV)
+====================================================================================================
+After receiving the successful verify-2fa response, the mobile app MUST store the tokens and inspect
+`data.user.sellerInfo`:
+
++-------------------------------------------------------------+------------------------------------+
+| Condition                                                   | Mobile App Action / Destination    |
++-------------------------------------------------------------+------------------------------------+
+| sellerInfo.isSuspended === true                             | Show alert dialog & logout to Login|
++-------------------------------------------------------------+------------------------------------+
+| sellerInfo.onboardingCompleted === false                    | Navigate to Onboarding Screen      |
+|                                                             | (Resume at sellerInfo.mobileStep)  |
++-------------------------------------------------------------+------------------------------------+
+| sellerInfo.onboardingCompleted === true &&                  | NAVIGATE DIRECTLY TO SETTINGS      |
+| sellerInfo.isApproved === false                             | (Show "Pending Approval" banner)   |
+| (PENDING APPROVAL)                                          | Lock operational features          |
++-------------------------------------------------------------+------------------------------------+
+| sellerInfo.onboardingCompleted === true &&                  | NAVIGATE TO MAIN DASHBOARD         |
+| sellerInfo.isApproved === true                              | (Full operational access)          |
+| (APPROVED & ACTIVE)                                         |                                    |
++-------------------------------------------------------------+------------------------------------+
+
+
+====================================================================================================
+5. UI / UX SPECIFICATIONS FOR PENDING APPROVAL STATE IN MOBILE APP
+====================================================================================================
+
+1. Screen Destination:
+   - When `sellerInfo.isApproved === false` and `sellerInfo.onboardingCompleted === true`, land the user
+     directly on the **Seller Settings** screen (Tab).
+
+2. Status Banner / Badge on Settings Screen:
+   - Display a prominent Badge at the top:
+     `[Pending Approval]` (Yellow / Amber background, e.g. #FEF3C7 with text #92400E).
+   - Display an Alert Box at the top of the Settings screen:
+     ----------------------------------------------------------------------------------
+     | [i] Account Pending Admin Approval                                             |
+     | Your seller account is currently under review by our administration team.       |
+     | You can review and update your profile, store, KYC, and payment details below.  |
+     | Operational features (adding items, receiving orders) will unlock once approved.|
+     ----------------------------------------------------------------------------------
+
+3. What the Seller CAN Do in Pending State:
+   - View their submitted details via `GET /mobileapi/{seller-type}/settings`.
+   - Update any field (name, phone, store description, bank account, address, etc.).
+   - Re-upload or replace documents (ID front/back, selfie, business registration, bank passbook).
+   - Submit changes via `PUT /mobileapi/{seller-type}/settings`.
+
+4. Bottom Navigation & Feature Locking:
+   - In the bottom navigation bar or drawer menu:
+     * If the user taps operational tabs (e.g. Products / Services / Foods / Rooms / Orders):
+       Show a modal or toast:
+       "Account Pending Approval: This feature will be available once your account is approved."
+     * Or disable / grey out those tabs until `isApproved === true`.
+     * Keep Settings, Support, and Terms tabs clickable and fully accessible.
+
+5. Dynamic Approval Refresh:
+   - When the user pulls to refresh on Settings or re-opens the app, call `GET /mobileapi/{seller-type}/settings`.
+   - If `data.isApproved` has become `true`:
+     * Automatically update the local state.
+     * Remove the "Pending Approval" banner.
+     * Unlock all operational tabs and enable the Main Dashboard overview.
+
+
+====================================================================================================
+6. SETTINGS API REFERENCE (FETCH & UPDATE DATA)
+====================================================================================================
+Header required on all requests:
+Authorization: Bearer <accessToken>
+
+Endpoints:
+- Product Seller:    GET & PUT /mobileapi/product-seller/settings
+- Service Seller:    GET & PUT /mobileapi/service-seller/settings
+- Hotel Seller:      GET & PUT /mobileapi/hotel-seller/settings
+- Restaurant Seller: GET & PUT /mobileapi/restaurant-seller/settings
+
+----------------------------------------------------------------------------------------------------
+A. GET SETTINGS (FETCH DATA)
+----------------------------------------------------------------------------------------------------
+Returns the full seller object with pre-signed document URLs (S3 URLs with expiration for images/PDFs).
+
+Response fields available:
+- `isApproved` (boolean)
+- `user`: { name, email, phone, phoneCountryCode, image }
+- `store` (or property for hotels/restaurants): { name, description, phone, address, city, state, logo, banner, lat, lng }
+- `businessInfo`: { businessName, businessType, businessRegNumber, taxIdNumber, haveGst, gstInvNo, gstCustomerName, street, city, district, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl }
+- `kyc`: { idType, idNumber, idFrontUrl, idBackUrl, selfieUrl, foodLicenseUrl }
+- `bankDetails`: { paymentOption, preferredPayoutMethod, mobileNumber, agentNumber, mobileMoneyOption, bankName, bankAddress, accountHolderName, accountNumber, bbanNumber, branchName, passbookUrl, bankLetterUrl }
+
+----------------------------------------------------------------------------------------------------
+B. PUT SETTINGS (UPDATE DATA)
+----------------------------------------------------------------------------------------------------
+Supports `multipart/form-data` (when uploading new images/documents) or `application/json` (for text-only updates).
+
+Multipart Form-Data Key Names:
+1. User:
+   - `name`: string
+   - `email`: string
+   - `phone`: string
+   - `phoneCountryCode`: string (e.g. "+232")
+   - `profileImage`: File (binary image)
+   - `password`: string (optional, new password)
+   - `currentPassword`: string (required if updating password)
+
+2. Store / Visuals:
+   - `name` or `storeName`: string
+   - `description` or `storeDescription`: string
+   - `storePhone`: string
+   - `storeAddress`: string
+   - `storeCity`: string
+   - `storeState`: string
+   - `storeCountry`: string
+   - `storeLogo`: File (image)
+   - `storeBanner`: File (image)
+   - `storeLat`: string / number
+   - `storeLng`: string / number
+
+3. Business Info:
+   - `businessName`: string
+   - `businessType`: string ("Individual", "Sole Proprietorship", "Partnership", "Company")
+   - `businessRegNumber`: string
+   - `taxIdNumber`: string
+   - `haveGst`: "true" | "false"
+   - `gstCustomerName`: string (if haveGst is true)
+   - `gstInvNo`: string (if haveGst is true)
+   - `street`, `city`, `district`, `state`, `postalCode`: string
+   - `busRegCert`: File (PDF or image)
+   - `cityCouncilCert`: File (PDF or image)
+   - `gstTinCert`: File (PDF or image)
+   - `addressProof`: File (PDF or image)
+
+4. KYC:
+   - `idType`: string ("National ID Card", "Passport", "Driver's License")
+   - `idNumber`: string
+   - `idFront`: File (image)
+   - `idBack`: File (image)
+   - `selfie`: File (image)
+   - `foodLicense`: File (image/PDF - restaurant only)
+
+5. Payment / Bank Details:
+   - `paymentOption`: "MOBILE_MONEY" | "BANK_TRANSFER"
+   - `preferredPayoutMethod`: "ORANGE_MONEY" | "AFRIMONEY" | "BANK_TRANSFER"
+   - `mobileNumber`: string (for mobile money)
+   - `agentNumber`: string (for mobile money agent)
+   - `mobileMoneyOption`: "ORANGE_MONEY" | "AFRIMONEY"
+   - `bankName`: string
+   - `bankAddress`: string
+   - `accountHolderName`: string
+   - `accountNumber`: string
+   - `bbanNumber`: string
+   - `branchName`: string
+   - `bankPassbook`: File (image)
+   - `bankLetter`: File (PDF/image)
+
+PUT Success Response (HTTP 200 OK):
+{
+  "success": true,
+  "message": "Settings updated successfully"
+}
+
+
+====================================================================================================
+7. RESEND 2FA OTP SPECIFICATION
+====================================================================================================
+If the seller did not receive the OTP code or it expired:
+
+Endpoints:
+  POST /mobileapi/product-seller/auth/resend-2fa
+  POST /mobileapi/service-seller/auth/resend-2fa
+  POST /mobileapi/hotel-seller/auth/resend-2fa
+  POST /mobileapi/restaurant-seller/auth/resend-2fa
+
+Request Payload:
+{
+  "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+
+Success Response (HTTP 200 OK):
+{
+  "success": true,
+  "message": "Verification code resent successfully.",
+  "data": {
+    "preAuthToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "resendCooldown": 60,
+    "expiresIn": 300
+  }
+}
+
+Error (HTTP 429 Cooldown):
+{
+  "success": false,
+  "error": "Please wait 45 second(s) before requesting another code.",
+  "cooldownRemaining": 45
+}
+
+
+====================================================================================================
+8. TEST CREDENTIALS & TEST MODE OTP
+====================================================================================================
+- In Test Mode, the 2FA verification code for seller login is fixed to `123456` (while also sending
+  the live code via SMS/Email).
+- Mobile developers can use `123456` in staging/testing environments to verify the 2FA OTP flow quickly.
+====================================================================================================

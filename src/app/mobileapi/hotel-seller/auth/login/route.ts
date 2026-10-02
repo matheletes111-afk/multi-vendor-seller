@@ -252,18 +252,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       )
     }
 
-    if (!user.hotelSeller.isApproved && user.hotelSeller.onboardingCompleted) {
-      return NextResponse.json<ErrorResponse>(
-        { 
-          success: false,
-          error: "Your account is pending admin approval.",
-          needsApproval: true,
-          approvalStatus: "PENDING",
-          verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp"
-        },
-        { status: 403 }
-      )
-    }
+    // NOTE: Approval check is intentionally NOT done here.
+    // Sellers must be allowed through to 2FA regardless of isApproved status.
+    // After verify-2fa, the sellerInfo.isApproved flag is returned so the
+    // mobile app can show the "pending approval" screen post-login.
 
     if (user.hotelSeller.isSuspended) {
       return NextResponse.json<ErrorResponse>(

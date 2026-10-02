@@ -159,6 +159,41 @@ const providers: any[] = [
         }
       }
 
+      if (user.isBackofficeUser) {
+        let permissions: string[] = []
+        let roleName: string | null = null
+        if (user.backofficeRoleId) {
+          const role = await prisma.backofficeRole.findUnique({
+            where: { id: user.backofficeRoleId },
+            select: { name: true, permissions: true, isActive: true },
+          })
+          if (!role || !role.isActive) {
+            return null
+          }
+          roleName = role.name
+          try {
+            permissions = Array.isArray(role.permissions)
+              ? (role.permissions as string[])
+              : JSON.parse((role.permissions as string) || "[]")
+          } catch {
+            permissions = []
+          }
+        }
+        return {
+          id: user.id,
+          email: user.email,
+          phone: user.phone,
+          name: user.name,
+          role: user.role,
+          image: user.image,
+          passwordHash: user.password,
+          isBackofficeUser: true,
+          backofficeRoleId: user.backofficeRoleId,
+          permissions,
+          roleName,
+        }
+      }
+
       return {
         id: user.id,
         email: user.email,
@@ -239,6 +274,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as any).role
         token.passwordHash = (user as any).passwordHash
 
+        if ((user as any).isBackofficeUser !== undefined) {
+          token.isBackofficeUser = (user as any).isBackofficeUser
+          token.backofficeRoleId = (user as any).backofficeRoleId
+          token.permissions = (user as any).permissions
+          token.roleName = (user as any).roleName
+        }
+
         let sellerInfo = user as any
 
         // For Social logins (PrismaAdapter), the 'user' object from the adapter 
@@ -308,6 +350,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.id = ""
                 token.error = "SessionInvalidated"
                 return token
+              }
+            }
+
+            // Real-time backoffice staff permissions synchronization:
+            if (token.isBackofficeUser && token.backofficeRoleId) {
+              const role = await prisma.backofficeRole.findUnique({
+                where: { id: token.backofficeRoleId as string },
+                select: { name: true, permissions: true, isActive: true },
+              })
+              if (!role || !role.isActive) {
+                token.id = ""
+                token.error = "SessionInvalidated"
+                return token
+              }
+              token.roleName = role.name
+              try {
+                token.permissions = Array.isArray(role.permissions)
+                  ? (role.permissions as string[])
+                  : JSON.parse((role.permissions as string) || "[]")
+              } catch {
+                token.permissions = []
               }
             }
 
@@ -402,6 +465,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.isFirstLogin = token.isFirstLogin as boolean
         if (token.status !== undefined)
           session.user.status = token.status as string
+        if (token.isBackofficeUser !== undefined)
+          session.user.isBackofficeUser = token.isBackofficeUser as boolean
+        if (token.backofficeRoleId !== undefined)
+          session.user.backofficeRoleId = token.backofficeRoleId as string
+        if (token.permissions !== undefined)
+          session.user.permissions = token.permissions as string[]
+        if (token.roleName !== undefined)
+          session.user.roleName = token.roleName as string
       }
       return session
     },

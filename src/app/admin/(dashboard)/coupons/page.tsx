@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent } from "lucide-react"
+import { Plus, Edit, Trash2, Calendar, Search, CheckCircle, XCircle, Tag, Ticket, Percent, RefreshCw, FileSpreadsheet } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Separator } from "@/ui/separator"
+import { exportCouponsToExcel } from "@/lib/admin-module-export"
 
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<any[]>([])
@@ -67,6 +68,37 @@ export default function AdminCouponsPage() {
     fetchCoupons()
     fetchCategories()
   }, [])
+
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const handleExportExcel = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    setExportMessage(null)
+    try {
+      const q = new URLSearchParams()
+      if (searchQuery.trim()) q.set("search", searchQuery.trim())
+      q.set("export", "true")
+
+      const res = await fetch(`/api/admin/coupons?${q.toString()}`)
+      const resJson = await res.json()
+      if (!res.ok) throw new Error(resJson.error || "Failed to fetch coupons for export")
+      const list = resJson.coupons || []
+      if (list.length === 0) {
+        setExportMessage({ type: "error", text: "No coupons found matching current search to export." })
+        return
+      }
+      await exportCouponsToExcel(list)
+      setExportMessage({ type: "success", text: `Export successful! Downloaded all ${list.length} filtered coupons.` })
+      setTimeout(() => setExportMessage(null), 6000)
+    } catch (err: any) {
+      console.error("Export error:", err)
+      setExportMessage({ type: "error", text: err?.message || "Failed to export coupons." })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const resetForm = () => {
     setEditingId(null)
@@ -184,11 +216,40 @@ export default function AdminCouponsPage() {
             Create, update, and manage discount coupons for products, services, hotels, and foods.
           </p>
         </div>
-        <Button onClick={handleOpenCreateModal} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 rounded-xl py-2.5 px-4 shadow-sm">
-          <Plus className="h-4 w-4" />
-          Create Coupon
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExportExcel}
+            disabled={isExporting || coupons.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 rounded-xl py-2.5 px-4 shadow-sm text-xs sm:text-sm cursor-pointer"
+          >
+            {isExporting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            Export Excel
+          </Button>
+          <Button onClick={handleOpenCreateModal} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 rounded-xl py-2.5 px-4 shadow-sm">
+            <Plus className="h-4 w-4" />
+            Create Coupon
+          </Button>
+        </div>
       </div>
+
+      {exportMessage && (
+        <div
+          className={`p-3 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-medium ${
+            exportMessage.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              : "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+          }`}
+        >
+          <span>{exportMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setExportMessage(null)}
+            className="text-muted-foreground hover:text-foreground text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
         <Search className="h-5 w-5 text-slate-400 shrink-0" />

@@ -26,11 +26,12 @@ export async function GET(request: NextRequest) {
       where.restaurantSellerId = restaurantSellerId
     }
 
+    const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true"
+
     const [foods, totalCount] = await Promise.all([
       prisma.foodItem.findMany({
         where,
-        skip,
-        take,
+        ...(isExport ? {} : { skip, take }),
         orderBy: { createdAt: "desc" },
         include: {
           restaurantSeller: {
@@ -76,8 +77,12 @@ export async function GET(request: NextRequest) {
         category: f.category,
         isVeg: f.isVeg,
         isActive: f.isActive,
+        isAvailable: f.isActive,
+        createdAt: f.createdAt ? f.createdAt.toISOString() : null,
+        updatedAt: f.updatedAt ? f.updatedAt.toISOString() : null,
         restaurantSellerId: f.restaurantSellerId,
-        restaurantName: f.restaurantSeller.businessInfo?.businessName || f.restaurantSeller.user.name || "Restaurant"
+        restaurantName: f.restaurantSeller.businessInfo?.businessName || f.restaurantSeller.user.name || "Restaurant",
+        restaurantSeller: f.restaurantSeller
       }
     })
 

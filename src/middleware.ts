@@ -23,6 +23,14 @@ export async function middleware(request: NextRequest) {
     "/admin/verify-otp",
     "/admin/forgot-password",
     "/admin/reset-password",
+    // Backoffice staff portal login & recovery - must be public (no session required)
+    "/backoffice/login",
+    "/backoffice/login/email-otp",
+    "/backoffice/login/email-otp/verify",
+    "/backoffice/login/phone-otp",
+    "/backoffice/login/phone-otp/verify",
+    "/backoffice/forgot-password",
+    "/backoffice/reset-password",
     "/product-seller/login",
     "/product-seller/registration",
     "/product-seller/verify-otp",
@@ -152,10 +160,37 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next()
     }
     if (!session?.user) {
+      // Backoffice staff should be sent to the staff portal login, not the super admin login
+      // We check via cookie hint or just default to admin login for unauthenticated visitors
       return NextResponse.redirect(new URL("/admin/login", request.url))
     }
     if (session.user.role !== UserRole.ADMIN) {
       return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+    // If authenticated as backoffice staff (isBackofficeUser), they are allowed on /admin routes
+    // but permission enforcement is done in layout-client.tsx (isUnauthorized check)
+  }
+
+  // Backoffice Staff Portal routes (/backoffice/...)
+  if (path.startsWith("/backoffice")) {
+    const isPublicBackoffice =
+      path === "/backoffice/login" ||
+      path.startsWith("/backoffice/login/") ||
+      path.startsWith("/backoffice/login?") ||
+      path === "/backoffice/forgot-password" ||
+      path.startsWith("/backoffice/forgot-password?") ||
+      path === "/backoffice/reset-password" ||
+      path.startsWith("/backoffice/reset-password?")
+
+    if (isPublicBackoffice) {
+      return NextResponse.next()
+    }
+
+    if (!session?.user) {
+      return NextResponse.redirect(new URL("/backoffice/login", request.url))
+    }
+    if (session.user.role !== UserRole.ADMIN) {
+      return NextResponse.redirect(new URL("/backoffice/login", request.url))
     }
   }
 
@@ -290,6 +325,8 @@ export const config = {
     "/dashboard/:path*",
     "/customer/:path*",
     "/admin/:path*",
+    // Backoffice staff portal (login page must be accessible, handled by allowedAuthPaths)
+    "/backoffice/:path*",
     "/product-seller",
     "/product-seller/:path*",
     "/service-seller",

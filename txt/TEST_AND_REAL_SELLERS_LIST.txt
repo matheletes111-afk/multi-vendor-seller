@@ -1,14 +1,14 @@
 ================================================================================
                 MEEEM MULTI-VENDOR: REAL & TEST SELLERS LIST
 ================================================================================
-Generated On: 2026-09-24
-Total Sellers: 241
- - Real Sellers Count: 91
- - Test Sellers Count: 150
+Generated On: 2026-09-24 (Updated: 2026-10-01)
+Total Sellers: 261
+ - Real Sellers Count: 98
+ - Test Sellers Count: 163
 ================================================================================
 
 ================================================================================
-PART 1: REAL SELLERS (91 Sellers)
+PART 1: REAL SELLERS (98 Sellers)
 ================================================================================
 
   1. Name:   bloom
@@ -375,9 +375,37 @@ PART 1: REAL SELLERS (91 Sellers)
      Mobile: 30821111
      Email:  bintumanivip@gmail.com
 
+ 92. Name:   Freetown Unique Selection [Store: FREETOWN UNIQUE SELECTION]
+     Mobile: 75555582
+     Email:  N/A
+
+ 93. Name:   WINIS DESIGNS [Store: WINI'S DESIGNS]
+     Mobile: 99007162
+     Email:  wiemily23a@gmail.com
+
+ 94. Name:   Massata Bah [Store: BAHMATA STITCHES & DESIGN]
+     Mobile: 088362623
+     Email:  abbah37ktr@gmail.com
+
+ 95. Name:   MARY FRESH BAR AND RESTAURANT [Store: MARY FRESH BAR AND RESTAURANT]
+     Mobile: 79538209
+     Email:  N/A
+
+ 96. Name:   Nasra Mystel Aura
+     Mobile: 76677041
+     Email:  mariamanasratug@gmail.com
+
+ 97. Name:   SUNLIGHT TECHNOLOGY
+     Mobile: 77941266
+     Email:  abdulaitarawalie911@gmail.com
+
+ 98. Name:   JMJ BABY DEPOT [Store: JMJ BABY DEPOT]
+     Mobile: 72685555
+     Email:  akallay903@gmail.com
+
 
 ================================================================================
-PART 2: TEST / FAKE / DEMO SELLERS (150 Sellers)
+PART 2: TEST / FAKE / DEMO SELLERS (163 Sellers)
 ================================================================================
 
   1. Name:   saloon [Store: thgy]
@@ -980,12 +1008,144 @@ PART 2: TEST / FAKE / DEMO SELLERS (150 Sellers)
      Mobile: 8420863609
      Email:  naniy69646@acanok.com
 
+151. Name:   zorko
+     Mobile: 8318428738
+     Email:  N/A
+
+152. Name:   zorko
+     Mobile: 4386196227
+     Email:  N/A
+
+153. Name:   zorko
+     Mobile: 4387975571
+     Email:  N/A
+
+154. Name:   zorko
+     Mobile: 6464313060
+     Email:  N/A
+
+155. Name:   zorko
+     Mobile: 2152409264
+     Email:  N/A
+
+156. Name:   myrestro
+     Mobile: 4387975613
+     Email:  N/A
+
+157. Name:   myrestro
+     Mobile: 8343893663
+     Email:  N/A
+
+158. Name:   Myrestro
+     Mobile: 919733719645
+     Email:  N/A
+
+159. Name:   Myrestro
+     Mobile: 9733719645
+     Email:  N/A
+
+160. Name:   myrestro
+     Mobile: 0000000
+     Email:  N/A
+
+161. Name:   Dummy busness
+     Mobile: 90648983
+     Email:  balomo8385@deertees.com
+
+162. Name:   Grand Hotel
+     Mobile: 4387975673
+     Email:  N/A
+
+163. Name:   James [Store: Grand Hotel]
+     Mobile: 9749617626
+     Email:  N/A
+
 
 
 
 
 STRICTLY DONT DELETE BELOW 4 SELLERS IDS FOR REAL TESTING OF DELEVELOPMEMT
-1. productseller1@example.com
-2. jeetservice@gmail.com
-3. jobexe2893@afterdo.com
-4. naniy69646@acanok.com
+1. productseller1@example.com (Product Seller | Live ID: cmtibpa6d0002o82jp9hfbx49)
+2. jeetservice@gmail.com      (Service Seller | Live ID: cmkb71v7r00027v40winvszd3)
+3. jobexe2893@afterdo.com     (Restaurant Seller | Live ID: cmqqievtx0002nbv1hf8wwxon)
+4. naniy69646@acanok.com      (Hotel Seller | Live ID: cmp6iiyn400027q0hs8b4uf9m)
+
+
+================================================================================
+PART 3: LIVE PURGE & PERMANENT LOCAL BACKUP AUDIT NOTE (01 OCTOBER 2026)
+================================================================================
+
+1. SUMMARY OF ACTIONS COMPLETED:
+--------------------------------------------------------------------------------
+- Date of Execution: 01 October 2026
+- Action: Purged all 159 Test/Fake/Demo Sellers and their associated data from
+  LIVE Neon DB, while keeping the LOCAL database ("meeem_local") 100% UNTOUCHED
+  as a permanent, full offline backup.
+- Safety Mechanism: The purge was executed using an atomic database transaction
+  (BEGIN ... COMMIT) with an automated allowlist protecting the 98 Real Sellers
+  and the 4 Protected Development Accounts.
+
+2. FINAL SELLER & DATA TALLY (VERIFIED BY INTEGRITY AUDIT):
+--------------------------------------------------------------------------------
+Database           | Real Sellers | Dev Accounts | Test Sellers | Total Sellers
+-------------------+--------------+--------------+--------------+--------------
+LIVE Neon DB       |      98      |      4       |      0       |     102
+LOCAL meeem_local  |      98      |      4       |     159      |     261 (Full Backup)
+
+Detailed Live Neon DB Counts After Cleanup:
+- Product / Service Sellers : 95  (93 Real + 2 Dev Accounts)
+- Hotel Sellers             :  3  (2 Real [Bintumani & The Swiss Hotel] + 1 Dev Account)
+- Restaurant Sellers        :  4  (3 Real + 1 Dev Account)
+- Total Live Sellers        : 102 (Exactly 98 Real Sellers + 4 Dev Accounts)
+- Total Live Products       : 721 (All authentic merchant products preserved)
+- Total Live Stores         :  44 (All authentic merchant stores preserved)
+- Total Live Orders         :  96 (All authentic customer orders preserved)
+- Total Live Users          : 222 (All authentic users preserved)
+
+3. PURGED FROM LIVE NEON DB (159 TEST SELLERS):
+--------------------------------------------------------------------------------
+- 116 Test Product/Service Sellers
+-  17 Test Hotel Sellers
+-  26 Test Restaurant Sellers
+- 159 Associated Test User accounts
+-  60 Test Product Stores
+- 131 Test Products & Variants (61 products + 73 variants)
+-  46 Test Food Items
+-   1 Test Hotel & 1 Test Room
+-  11 Test Orders (Sayan Ghosh QA test orders)
+-  14 Test Food Orders (Demo restaurant orders)
+-   1 Test Hotel Booking (Testing booking)
+- All associated test KYC, bank details, business info, ads, and agreements.
+
+4. PERMANENT OFFLINE BACKUP FILES STORED LOCALLY:
+--------------------------------------------------------------------------------
+- Local PostgreSQL 18 DB : "meeem_local" on localhost:5432 (pgAdmin 4)
+  Status: 100% UNTOUCHED (contains all 261 sellers and all 7,415 original rows).
+- Backup Dump 1: backups/neon_backup_initial.dump
+- Backup Dump 2: backups/neon_backup_2026-09-30T07-29-30-026Z.dump
+- Backup Dump 3: backups/neon_backup_2026-10-01T07-03-08-540Z.dump (Latest, 1.13 MB)
+
+5. FUTURE RECOVERY REFERENCE & SUGGESTIONS:
+--------------------------------------------------------------------------------
+If any real seller, store, product, or order is ever needed or accidentally
+deleted from the live database:
+
+METHOD A (Fastest via pgAdmin 4):
+1. Open pgAdmin 4 on your PC.
+2. Expand Servers -> PostgreSQL 18 -> Databases -> "meeem_local".
+3. Right-click "meeem_local" -> click "Query Tool".
+4. Query the lost data:
+   SELECT * FROM sellers WHERE id = 'LOST_SELLER_ID';
+   SELECT * FROM products WHERE id = 'LOST_PRODUCT_ID';
+5. In the Data Output grid, select the row(s) -> Right-click -> "Copy" -> "Copy as INSERT".
+6. In pgAdmin 4, open Query Tool on Live Neon ("neondb") -> Paste the INSERT statement -> Press F5.
+
+METHOD B (Restoring an entire single table from backup dump):
+Run in PowerShell:
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "<LIVE_DATABASE_URL>" --data-only --table=<table_name> "backups/neon_backup_2026-10-01T07-03-08-540Z.dump"
+
+METHOD C (Emergency full restore if live DB needs a complete rollback):
+Run in PowerShell:
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "<LIVE_DATABASE_URL>" --clean --if-exists --no-owner --no-privileges "backups/neon_backup_2026-10-01T07-03-08-540Z.dump"
+================================================================================
+
