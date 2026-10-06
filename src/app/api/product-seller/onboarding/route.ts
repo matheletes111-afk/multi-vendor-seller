@@ -341,10 +341,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const idType = (data?.idType || seller.kyc?.idType || "").toLowerCase()
+      const isPassport = idType === "passport"
+
       if (!idFrontUrl) {
         return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
       }
-      if (!idBackUrl) {
+      if (!isPassport && !idBackUrl) {
         return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
       }
       if (!selfieUrl) {
@@ -646,7 +649,7 @@ export async function POST(request: NextRequest) {
       // Completion!
       await (prisma as any).seller.update({
         where: { id: seller.id },
-        data: { onboardingCompleted: true, onboardingStep: 7 } as any,
+        data: { onboardingCompleted: true, onboardingStep: 7, status: "PENDING", adminFeedback: null } as any,
       })
 
       try {

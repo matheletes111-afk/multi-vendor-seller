@@ -10,6 +10,7 @@ import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -206,6 +207,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (profileImageFile && profileImageFile.size > 0) {
+      const val = validateOnboardingFile(profileImageFile, { imagesOnly: true, maxSizeMb: 4.5 })
+      if (!val.isValid) {
+        return NextResponse.json({ error: `Profile Picture: ${val.error}` }, { status: 400 })
+      }
       const ext = path.extname(profileImageFile.name) || getImageExtFromContentType(profileImageFile.type)
       userData.image = await uploadPublicFile({
         folder: "profile",
@@ -215,7 +220,9 @@ export async function PUT(request: NextRequest) {
         prefix: "profile",
       })
     } else if (!fd && userObj.image !== undefined) {
-      userData.image = userObj.image
+      if (typeof userObj.image === "string" && userObj.image.trim()) {
+        userData.image = userObj.image.trim()
+      }
     }
 
     if (Object.keys(userData).length > 0) {
@@ -274,6 +281,21 @@ export async function PUT(request: NextRequest) {
       const cityCouncilCert = fd.get("cityCouncilCert") as File | null
       const gstTinCert = fd.get("gstTinCert") as File | null
       const addressProof = fd.get("addressProof") as File | null
+
+      const busDocs = [
+        { file: busRegCert, label: "Business Registration" },
+        { file: cityCouncilCert, label: "City Council Certificate" },
+        { file: gstTinCert, label: "GST TIN Certificate" },
+        { file: addressProof, label: "Address Proof" },
+      ]
+      for (const item of busDocs) {
+        if (item.file && item.file.size > 0) {
+          const val = validateOnboardingFile(item.file, { maxSizeMb: 4.5 })
+          if (!val.isValid) {
+            return NextResponse.json({ error: `${item.label}: ${val.error}` }, { status: 400 })
+          }
+        }
+      }
 
       if (busRegCert && busRegCert.size > 0) {
         busData.busRegCertUrl = await uploadPublicFile({
@@ -347,6 +369,21 @@ export async function PUT(request: NextRequest) {
       const idBack = fd.get("idBack") as File | null
       const selfie = fd.get("selfie") as File | null
       const foodLicense = fd.get("foodLicense") as File | null
+
+      for (const [f, label] of [[idFront, "ID Front"], [idBack, "ID Back"], [selfie, "Selfie Check"]] as const) {
+        if (f && f.size > 0) {
+          const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+          if (!val.isValid) {
+            return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+          }
+        }
+      }
+      if (foodLicense && foodLicense.size > 0) {
+        const val = validateOnboardingFile(foodLicense, { maxSizeMb: 4.5 })
+        if (!val.isValid) {
+          return NextResponse.json({ error: `Food License: ${val.error}` }, { status: 400 })
+        }
+      }
 
       if (idFront && idFront.size > 0) kycData.idFrontUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(idFront.name), contentType: idFront.type, buffer: Buffer.from(await idFront.arrayBuffer()), prefix: "restaurant-id-front" })
       if (idBack && idBack.size > 0) kycData.idBackUrl = await uploadPublicFile({ folder: "restaurant-onboarding/kyc", ext: path.extname(idBack.name), contentType: idBack.type, buffer: Buffer.from(await idBack.arrayBuffer()), prefix: "restaurant-id-back" })
@@ -473,6 +510,15 @@ export async function PUT(request: NextRequest) {
       const logo = fd.get("logo") as File | null
       const banner = fd.get("banner") as File | null
       const mainPhoto = fd.get("mainPhoto") as File | null
+
+      for (const [f, label] of [[logo, "Restaurant Logo"], [banner, "Restaurant Banner"], [mainPhoto, "Main Photo"]] as const) {
+        if (f && f.size > 0) {
+          const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 })
+          if (!val.isValid) {
+            return NextResponse.json({ error: `${label}: ${val.error}` }, { status: 400 })
+          }
+        }
+      }
 
       if (logo && logo.size > 0) propData.logo = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(logo.name), contentType: logo.type, buffer: Buffer.from(await logo.arrayBuffer()), prefix: "restaurant-logo" })
       if (banner && banner.size > 0) propData.banner = await uploadPublicFile({ folder: "restaurant-onboarding/property", ext: path.extname(banner.name), contentType: banner.type, buffer: Buffer.from(await banner.arrayBuffer()), prefix: "restaurant-banner" })
