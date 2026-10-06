@@ -475,7 +475,7 @@ export function RestaurantSellersClient() {
                   data?.sellers?.map((seller: any) => {
                     const isExpanded = expandedRow === seller.id
                     const displayName = seller.businessInfo?.businessName || seller.user?.name || "Unnamed Restaurant"
-                    const logo = seller.businessInfo?.logo || seller.foods?.[0]?.image
+                    const logo = seller.logo || seller.businessInfo?.logo || seller.foods?.[0]?.images?.[0]
                     const initials = displayName.slice(0, 2).toUpperCase()
                     const location = [seller.businessInfo?.city, seller.businessInfo?.state].filter(Boolean).join(", ")
                     const sellerPhone = seller.user?.phone || seller.businessInfo?.pocContact

@@ -53,7 +53,6 @@ export async function POST(
             updateData.isSuspended = false
         } else if (action === "reject") {
             updateData.isApproved = false
-            updateData.isSuspended = true
             updateData.status = "REJECTED"
         } else if (action === "correction") {
             updateData.isApproved = false

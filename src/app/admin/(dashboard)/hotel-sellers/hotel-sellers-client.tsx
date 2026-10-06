@@ -472,7 +472,7 @@ export function HotelSellersClient() {
                   data?.sellers?.map((seller: any) => {
                     const isExpanded = expandedSellerId === seller.id
                     const displayName = seller.hotels?.[0]?.name || seller.businessInfo?.businessName || seller.user?.name || "Unnamed Property"
-                    const logo = seller.hotels?.[0]?.image || seller.businessInfo?.logo
+                    const logo = seller.logo || seller.hotels?.[0]?.images?.[0] || seller.businessInfo?.logo
                     const initials = displayName.slice(0, 2).toUpperCase()
                     const location = [seller.businessInfo?.city || seller.hotels?.[0]?.city, seller.businessInfo?.state || seller.hotels?.[0]?.state].filter(Boolean).join(", ")
                     const sellerPhone = seller.user?.phone || seller.businessInfo?.pocContact

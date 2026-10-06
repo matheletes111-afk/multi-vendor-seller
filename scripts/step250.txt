@@ -1,0 +1,97 @@
+I re-checked web, mobile and admin APIs for all four seller types, and I'm correcting one of my earlier bugs. I haven't changed any code yet. A temporary probe script hit the database and S3, and I've deleted it.
+
+## Correction to my earlier list
+The old Bug 4, that product and service seller files return 403 because their folders aren't whitelisted in `s3-presigned.ts`, is wrong. I tested real files:
+
+| Folder | HTTP status |
+|---|---|
+| Product `uploads/onboarding/*` | 200 (public) |
+| `uploads/profile/*` (DP) | 200 (public) |
+| Restaurant/Hotel `uploads/*-onboarding/*` | 403 (private) |
+
+Only restaurant and hotel files need presigning, and the whitelist already covers them. The old Bug 4 is dropped.
+
+## Data check (live DB)
+- 2 restaurants have no DP.
+- 1 restaurant is stuck at step 6 (Icee Marion).
+- 0 hotels are affected so far.
+
+## Final bug list
+
+### A. DP and onboarding
+
+**B1. Web and mobile disagree on the DP rule**
+- **Web:** the restaurant, hotel, product and service routes all reject step 2 with "Profile Picture is mandatory". The web onboarding client blocks it too.
+- **Mobile:** the restaurant and hotel step 2 never checks for a DP.
+- **Result:** a mobile seller passes steps 2–5, then fails at step 6 with "Missing required documents: User Profile Picture". Icee Marion is stuck exactly this way.
+- **Files:** [restaurant web](file:///f:/react/meeem/multi-vendor-seller/src/app/api/restaurant-seller/onboarding/route.ts#L171-L173), [restaurant mobile](file:///f:/react/meeem/multi-vendor-seller/src/app/mobileapi/restaurant-seller/onboarding/route.ts#L180-L195), `hotel-seller` web and mobile onboarding routes.
+
+**B2. The evaluator requires a DP for every seller type**
+- [seller-approval-validation.ts](file:///f:/react/meeem/multi-vendor-seller/src/lib/seller-approval-validation.ts#L388-L395) marks "User Profile Picture" mandatory for all types.
+- It feeds onboarding completion (web and mobile), the admin approve routes, the bulk approve in [all-sellers/route.ts](file:///f:/react/meeem/multi-vendor-seller/src/app/api/admin/all-sellers/route.ts), the list badges and the reminder emails.
+- Making the DP optional for restaurant and hotel there fixes all of those at once.
+
+**B3. Web restaurant and hotel step 2 should drop the DP check**
+- The restaurant and hotel onboarding routes, plus their `onboarding-client.tsx` files, need the check removed.
+- If it stays in the clients, restaurant and hotel sellers can still be blocked on web.
+
+### B. Approval validation
+
+**B4. Approval is blocked on a missing "Identity Document Type", which onboarding never enforces**
+- Admin approval for restaurant and hotel requires `kyc.idType`. Web and mobile step 3 never require it.
+- A seller can finish onboarding and then fail admin approval with "Identity Document Type is missing".
+
+**B5. Food licence is checked two different ways**
+- The evaluator treats the licence as uploaded if the number or the file exists.
+- `validateRestaurantSellerApproval` requires the file itself.
+- The list can therefore show "docs complete" while approval fails.
+- Mobile also requires the licence number, and web doesn't.
+
+**B6. Dead field in the product/service validator**
+- It checks `seller.nationIdentityNumber`, which doesn't exist in the Prisma schema, so the check never does anything.
+
+**B7. Off-by-one in the onboarding check**
+- The validators use `onboardingStep < 6`. Completion sets the step to 7.
+- A seller sitting at step 6 who hasn't completed onboarding passes that check.
+
+**B8. Details-page header shows an Approve button for incomplete sellers**
+- [restaurant-seller-detail-client.tsx](file:///f:/react/meeem/multi-vendor-seller/src/app/admin/(dashboard)/restaurant-sellers/[id]/restaurant-seller-detail-client.tsx#L139-L156) only checks `!isApproved`.
+- Clicking it returns a 400 alert. The hotel and product detail pages should be checked for the same pattern.
+
+**B9. Admin status routes behave differently per seller type**
+- `reject`: product/service also sets `isSuspended = true`, so rejected sellers show as "Suspended" and count in that stat. Restaurant and hotel don't.
+- `correction`: product/service resets `onboardingCompleted = false`. Restaurant and hotel don't.
+
+### C. Mobile and settings
+
+**B10. Mobile onboarding skips file validation**
+- None of the four mobile routes call `validateOnboardingFile`. Web does, with a 4.5 MB limit and a block on Word/Excel/SVG files.
+- Mobile sellers can upload arbitrary file types and sizes.
+
+**B11. Restaurant web settings have no file validation for the DP and business documents**
+- The settings PUT uploads them without the checks.
+- It also accepts `user.image` as plain JSON, so a DP can be cleared after approval.
+
+### D. Images and display
+
+**B12. List avatar reads the wrong field**
+- Restaurant list: `seller.businessInfo?.logo || seller.foods?.[0]?.image`. Neither `businessInfo.logo` nor `foods[].image` exists. The food column is `images`.
+- Hotel list: `seller.hotels?.[0]?.image || seller.businessInfo?.logo`. It should use `seller.logo`.
+
+**B13. `/api/admin/all-sellers` doesn't presign nested restaurant/hotel media**
+- It only signs the top-level logo and banner.
+- It skips `raw.logo`, `raw.banner` and `raw.mainPhoto`, which the expanded preview uses.
+- These files are private (403), so they break there but work on the details page.
+
+**B14. No Approve action on list rows**
+- Rows only offer Email/SMS, Details, Analytics and expand.
+- The expanded Approve button is disabled when documents are missing, and it shows no reason beyond the tooltip.
+
+## Proposed fix order
+1. **B2 and B3:** make the DP optional for restaurant and hotel in the evaluator and in web onboarding, then add Icee Marion to the backfill by letting `onboardingCompleted` be set. This fixes web, mobile and admin together.
+2. **B1, B4, B5 and B7:** align the mobile and web rules with the validators.
+3. **B12 and B13:** fix the images.
+4. **B8 and B9:** make the UI and the admin routes consistent.
+5. **B10 and B11:** add the file validation.
+
+Do you want me to fix all of them, or only some? I'd also want to confirm the DP should be optional for restaurant and hotel only, and stay mandatory for product and service.

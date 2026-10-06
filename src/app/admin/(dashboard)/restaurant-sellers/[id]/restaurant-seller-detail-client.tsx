@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import Link from "next/link"
+import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 
 
 interface RestaurantSellerDetailClientProps {
@@ -46,6 +47,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const docEval = evaluateSellerDocuments(seller, "RESTAURANT")
 
   const handleStatusUpdate = async (id: string, action: string, feedbackText?: string) => {
     try {
@@ -147,9 +149,15 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
                 Request Correction
               </Button>
               <Button 
-                className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 h-12 shadow-lg shadow-emerald-200 uppercase tracking-widest text-[10px]"
+                className={cn(
+                  "rounded-full font-bold px-8 h-12 uppercase tracking-widest text-[10px] transition-all",
+                  !docEval.isComplete
+                    ? "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed shadow-none"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200"
+                )}
                 onClick={() => handleStatusUpdate(seller.id, "approve")}
-                disabled={!!actionLoading}
+                disabled={!!actionLoading || !docEval.isComplete}
+                title={!docEval.isComplete ? `Cannot approve: ${docEval.missingCount} required document(s) missing (${docEval.missingDocuments.join(", ")})` : "Approve Partner"}
               >
                 Approve Partner
               </Button>

@@ -194,10 +194,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      if (!userImage) {
-        return NextResponse.json({ error: "Profile Picture is mandatory." }, { status: 400 })
-      }
-
       // Handle Business Reg Certificate
       let busRegCertUrl = seller.businessInfo?.busRegCertUrl
       let cityCouncilCertUrl = seller.businessInfo?.cityCouncilCertUrl
@@ -342,7 +338,8 @@ export async function POST(request: NextRequest) {
       if (!idFrontUrl) {
         return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
       }
-      if (!idBackUrl) {
+      const isPassport = kycData.idType?.toLowerCase() === "passport"
+      if (!isPassport && !idBackUrl) {
         return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
       }
       if (!selfieUrl) {

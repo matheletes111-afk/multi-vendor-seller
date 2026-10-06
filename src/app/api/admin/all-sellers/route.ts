@@ -561,6 +561,14 @@ export async function GET(request: NextRequest) {
           if (item.logo) item.logo = await getPresignedUrlOrOriginal(item.logo)
           if (item.banner) item.banner = await getPresignedUrlOrOriginal(item.banner)
 
+          if (item.raw) {
+            if (item.raw.logo) item.raw.logo = await getPresignedUrlOrOriginal(item.raw.logo)
+            if (item.raw.banner) item.raw.banner = await getPresignedUrlOrOriginal(item.raw.banner)
+            if (item.raw.mainPhoto) item.raw.mainPhoto = await getPresignedUrlOrOriginal(item.raw.mainPhoto)
+            if (item.raw.store?.logo) item.raw.store.logo = await getPresignedUrlOrOriginal(item.raw.store.logo)
+            if (item.raw.store?.banner) item.raw.store.banner = await getPresignedUrlOrOriginal(item.raw.store.banner)
+          }
+
           if (item.raw?.businessInfo) {
             const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
               getPresignedUrlOrOriginal(item.raw.businessInfo.busRegCertUrl),
@@ -595,6 +603,16 @@ export async function GET(request: NextRequest) {
             ])
             item.raw.bankDetails.passbookUrl = passbook
             item.raw.bankDetails.bankLetterUrl = letter
+          }
+
+          if (item.documentEvaluation?.documentsList) {
+            await Promise.all(
+              item.documentEvaluation.documentsList.map(async (doc: any) => {
+                if (doc.url) {
+                  doc.url = await getPresignedUrlOrOriginal(doc.url)
+                }
+              })
+            )
           }
         })
       )

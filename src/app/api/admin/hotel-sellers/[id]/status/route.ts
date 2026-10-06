@@ -68,6 +68,7 @@ export async function POST(
     } else if (action === "correction") {
       updateData.isApproved = false
       updateData.status = "CORRECTION_NEEDED"
+      updateData.onboardingCompleted = false
       updateData.adminFeedback = feedback
     }
 

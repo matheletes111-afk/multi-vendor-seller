@@ -168,10 +168,6 @@ export async function POST(request: NextRequest) {
         await prisma.user.update({ where: { id: session.user.id }, data: { image: userImage } })
       }
 
-      if (!userImage) {
-        return NextResponse.json({ error: "Profile Picture is mandatory." }, { status: 400 })
-      }
-
       let busRegCertUrl = seller.businessInfo?.busRegCertUrl
       let cityCouncilCertUrl = seller.businessInfo?.cityCouncilCertUrl
       let gstTinCertUrl = seller.businessInfo?.gstTinCertUrl
@@ -268,11 +264,12 @@ export async function POST(request: NextRequest) {
       if (!idFrontUrl) {
         return NextResponse.json({ error: "National ID / Passport Front document is mandatory." }, { status: 400 })
       }
-      if (!idBackUrl) {
+      const isPassport = kycData.idType?.toLowerCase() === "passport"
+      if (!isPassport && !idBackUrl) {
         return NextResponse.json({ error: "National ID / Passport Back document is mandatory." }, { status: 400 })
       }
-      if (!foodLicenseUrl) {
-        return NextResponse.json({ error: "Food Hygiene / Food License document is mandatory." }, { status: 400 })
+      if (!foodLicenseUrl && !kycData.foodLicenseNumber) {
+        return NextResponse.json({ error: "Food Hygiene / Food License document or license number is mandatory." }, { status: 400 })
       }
       if (!selfieUrl) {
         return NextResponse.json({ error: "Selfie / Face Verification is mandatory." }, { status: 400 })

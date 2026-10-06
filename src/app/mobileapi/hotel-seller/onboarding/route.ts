@@ -9,6 +9,7 @@ import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-const
 import { sendSellerWelcomeEmail, sendAdminNewSellerAlertEmail } from "@/lib/email";
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper";
+import { validateOnboardingFile } from "@/lib/onboarding-file-validation";
 
 /**
  * GET /mobileapi/hotel-seller/onboarding
@@ -179,6 +180,10 @@ export async function POST(request: NextRequest) {
             if (formData) {
                 const profileImageFile = formData.get("profileImage") as File | null;
                 if (profileImageFile && profileImageFile.size > 0) {
+                    const val = validateOnboardingFile(profileImageFile, { imagesOnly: true, maxSizeMb: 4.5 });
+                    if (!val.isValid) {
+                        return NextResponse.json({ success: false, error: `Profile Picture: ${val.error}` }, { status: 400 });
+                    }
                     const imageUrl = await uploadPublicFile({
                         folder: "profile",
                         ext: path.extname(profileImageFile.name) || ".jpg",
@@ -199,6 +204,20 @@ export async function POST(request: NextRequest) {
             let addressProofUrl = seller.businessInfo?.addressProofUrl;
 
             if (formData) {
+                const docFiles = [
+                    { file: formData.get("busRegCert") as File | null, label: "Business Registration" },
+                    { file: formData.get("cityCouncilCert") as File | null, label: "City Council Certificate" },
+                    { file: formData.get("gstTinCert") as File | null, label: "GST TIN Certificate" },
+                    { file: formData.get("addressProof") as File | null, label: "Address Proof" },
+                ];
+                for (const item of docFiles) {
+                    if (item.file && item.file.size > 0) {
+                        const val = validateOnboardingFile(item.file, { maxSizeMb: 4.5 });
+                        if (!val.isValid) {
+                            return NextResponse.json({ success: false, error: `${item.label}: ${val.error}` }, { status: 400 });
+                        }
+                    }
+                }
                 const file = formData.get("busRegCert") as File | null;
                 if (file && file.size > 0) {
                     busRegCertUrl = await uploadPublicFile({
@@ -281,6 +300,15 @@ export async function POST(request: NextRequest) {
                 const back = formData.get("idBack") as File | null;
                 const selfie = formData.get("selfie") as File | null;
 
+                for (const [f, label] of [[front, "ID Front"], [back, "ID Back"], [selfie, "Selfie Check"]] as const) {
+                    if (f && f.size > 0) {
+                        const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 });
+                        if (!val.isValid) {
+                            return NextResponse.json({ success: false, error: `${label}: ${val.error}` }, { status: 400 });
+                        }
+                    }
+                }
+
                 if (front && front.size > 0) {
                     idFrontUrl = await uploadPublicFile({
                         folder: "hotel-onboarding/kyc",
@@ -317,7 +345,8 @@ export async function POST(request: NextRequest) {
             if (!idFrontUrl) {
                 return NextResponse.json({ success: false, error: "National ID / Passport Front document is mandatory." }, { status: 400 });
             }
-            if (!idBackUrl) {
+            const isPassport = kycData.idType?.toLowerCase() === "passport";
+            if (!isPassport && !idBackUrl) {
                 return NextResponse.json({ success: false, error: "National ID / Passport Back document is mandatory." }, { status: 400 });
             }
             if (!selfieUrl) {
@@ -354,6 +383,15 @@ export async function POST(request: NextRequest) {
                 const logo = formData.get("logo") as File | null;
                 const banner = formData.get("banner") as File | null;
                 const photo = formData.get("mainPhoto") as File | null;
+
+                for (const [f, label] of [[logo, "Hotel Logo"], [banner, "Hotel Banner"], [photo, "Main Property Photo"]] as const) {
+                    if (f && f.size > 0) {
+                        const val = validateOnboardingFile(f, { imagesOnly: true, maxSizeMb: 4.5 });
+                        if (!val.isValid) {
+                            return NextResponse.json({ success: false, error: `${label}: ${val.error}` }, { status: 400 });
+                        }
+                    }
+                }
 
                 if (logo && logo.size > 0) {
                     logoUrl = await uploadPublicFile({
@@ -417,7 +455,13 @@ export async function POST(request: NextRequest) {
 
             if (formData) {
                 const file = (formData.get("passbook") || formData.get("bankPassbook")) as File | null;
+                const fileBL = formData.get("bankLetter") as File | null;
+
                 if (file && file.size > 0) {
+                    const val = validateOnboardingFile(file, { maxSizeMb: 4.5 });
+                    if (!val.isValid) {
+                        return NextResponse.json({ success: false, error: `Bank Passbook: ${val.error}` }, { status: 400 });
+                    }
                     passbookUrl = await uploadPublicFile({
                         folder: "hotel-onboarding/bank",
                         ext: path.extname(file.name) || ".jpg",
@@ -426,8 +470,11 @@ export async function POST(request: NextRequest) {
                         prefix: "hotel-bank-passbook",
                     });
                 }
-                const fileBL = formData.get("bankLetter") as File | null;
                 if (fileBL && fileBL.size > 0) {
+                    const val = validateOnboardingFile(fileBL, { maxSizeMb: 4.5 });
+                    if (!val.isValid) {
+                        return NextResponse.json({ success: false, error: `Bank Letter: ${val.error}` }, { status: 400 });
+                    }
                     bankLetterUrl = await uploadPublicFile({
                         folder: "hotel-onboarding/bank",
                         ext: path.extname(fileBL.name) || ".pdf",

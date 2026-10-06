@@ -41,13 +41,14 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
   if (!seller.kyc) {
     missingItems.push("Identity / KYC details are missing");
   } else {
-    if (!seller.kyc.idType?.trim() && !seller.nationIdentityNumber?.trim()) {
-      missingItems.push("Identity Type / NIN is missing");
+    if (!seller.kyc.idType?.trim() && !seller.kyc.idNumber?.trim() && !seller.kyc.idFrontUrl?.trim()) {
+      missingItems.push("Identity Type / ID Number is missing");
     }
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    if (!seller.kyc.idBackUrl?.trim()) {
+    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
     if (!seller.kyc.selfieUrl?.trim()) {
@@ -145,13 +146,14 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
   if (!seller.kyc) {
     missingItems.push("Identity / KYC details are missing");
   } else {
-    if (!seller.kyc.idType?.trim()) {
+    if (!seller.kyc.idType?.trim() && !seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("Identity Document Type is missing");
     }
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    if (!seller.kyc.idBackUrl?.trim()) {
+    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
     if (!seller.kyc.selfieUrl?.trim()) {
@@ -246,20 +248,23 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
   if (!seller.kyc) {
     missingItems.push("Identity / KYC details are missing");
   } else {
-    if (!seller.kyc.idType?.trim()) {
+    if (!seller.kyc.idType?.trim() && !seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("Identity Document Type is missing");
     }
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    if (!seller.kyc.idBackUrl?.trim()) {
+    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
     if (!seller.kyc.selfieUrl?.trim()) {
       missingItems.push("Selfie with ID photo is missing");
     }
-    if (!seller.kyc.foodLicenseUrl?.trim()) {
-      missingItems.push("Food Hygiene / Sanitation License upload is missing");
+    const foodLicenseUrl = seller.kyc.foodLicenseUrl || seller.businessInfo?.foodLicenseUrl;
+    const foodLicenseNumber = seller.kyc.foodLicenseNumber || seller.businessInfo?.foodLicenseNumber;
+    if (!foodLicenseUrl?.trim() && !foodLicenseNumber?.trim()) {
+      missingItems.push("Food Hygiene / Sanitation License is missing");
     }
   }
 
@@ -387,10 +392,12 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
   // 2. Identity / KYC
   const user = seller.user || seller.raw?.user;
   const profileImageUrl = user?.image || seller.image || seller.profilePicture || seller.raw?.image || null;
+  const isDpOptional = normalizedType === "RESTAURANT" || normalizedType === "HOTEL";
   docs.push({
     name: "User Profile Picture",
     category: "identity",
     isUploaded: !!profileImageUrl?.trim(),
+    isOptional: isDpOptional,
     url: profileImageUrl,
   });
 
@@ -401,10 +408,12 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     isUploaded: !!kyc?.idFrontUrl?.trim(),
     url: kyc?.idFrontUrl,
   });
+  const isPassport = kyc?.idType?.trim().toLowerCase() === "passport";
   docs.push({
     name: "ID / Passport Back",
     category: "identity",
-    isUploaded: !!kyc?.idBackUrl?.trim(),
+    isUploaded: isPassport ? true : !!kyc?.idBackUrl?.trim(),
+    isOptional: isPassport,
     url: kyc?.idBackUrl,
   });
   docs.push({
@@ -453,11 +462,13 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       url: seller.mainPhoto || seller.raw?.mainPhoto,
     });
   } else if (normalizedType === "RESTAURANT") {
+    const foodLicenseUrl = kyc?.foodLicenseUrl || busInfo?.foodLicenseUrl;
+    const foodLicenseNumber = kyc?.foodLicenseNumber || busInfo?.foodLicenseNumber;
     docs.push({
       name: "Food Hygiene / Sanitation License",
       category: "business",
-      isUploaded: !!kyc?.foodLicenseUrl?.trim() || !!kyc?.foodLicenseNumber?.trim(),
-      url: kyc?.foodLicenseUrl,
+      isUploaded: !!foodLicenseUrl?.trim() || !!foodLicenseNumber?.trim(),
+      url: foodLicenseUrl,
     });
     docs.push({
       name: "Restaurant Logo",
