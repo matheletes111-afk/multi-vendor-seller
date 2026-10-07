@@ -76,11 +76,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         } catch {}
       }
 
+      const sellingPrice = Math.max(0, f.price - (f.discount || 0))
       return {
         id: f.id,
         name: f.name,
         description: f.description,
         price: f.price,
+        discount: f.discount || 0,
+        sellingPrice,
+        selling_price: sellingPrice,
         image: firstImage,
         category: f.category,
         isVeg: f.isVeg,

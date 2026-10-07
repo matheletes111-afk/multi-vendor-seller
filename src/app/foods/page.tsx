@@ -50,6 +50,8 @@ type PreviewFood = {
   id: string
   name: string
   price: number
+  discount?: number
+  sellingPrice?: number
   image: string | null
   isVeg: boolean
   category: string
@@ -241,7 +243,7 @@ function FoodScrollStrip({
                       foodItemId={food.id}
                       name={food.name}
                       image={img}
-                      price={food.price}
+                      price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                       isVeg={food.isVeg}
                       category={food.category}
                     />
@@ -253,7 +255,20 @@ function FoodScrollStrip({
                   <p className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-1 group-hover/food:text-emerald-600 transition-colors">
                     {food.name}
                   </p>
-                  <p className="text-[11px] font-black text-emerald-600">{formatCurrency(food.price)}</p>
+                  <div className="flex items-baseline gap-1">
+                    {food.discount && food.discount > 0 ? (
+                      <>
+                        <p className="text-[11px] font-black text-emerald-600">
+                          {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                        </p>
+                        <p className="text-[9px] font-bold text-slate-400 line-through">
+                          {formatCurrency(food.price)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] font-black text-emerald-600">{formatCurrency(food.price)}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -713,7 +728,7 @@ function RestaurantsDirectoryPageContent() {
                                   foodItemId={food.id}
                                   name={food.name}
                                   image={imgUrl}
-                                  price={food.price}
+                                  price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                                   isVeg={food.isVeg}
                                   category={food.category}
                                   restaurantName={food.restaurantName}
@@ -725,7 +740,18 @@ function RestaurantsDirectoryPageContent() {
                             {food.name}
                           </span>
                           <div className="flex items-center justify-between text-[10px] text-slate-500 mt-0.5">
-                            <span className="font-bold text-emerald-600">{formatCurrency(food.price)}</span>
+                            {food.discount && food.discount > 0 ? (
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-bold text-emerald-600">
+                                  {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                                </span>
+                                <span className="text-[9px] text-slate-400 line-through">
+                                  {formatCurrency(food.price)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="font-bold text-emerald-600">{formatCurrency(food.price)}</span>
+                            )}
                           </div>
                         </div>
                       )
@@ -791,7 +817,7 @@ function RestaurantsDirectoryPageContent() {
                                   foodItemId={food.id}
                                   name={food.name}
                                   image={imgUrl}
-                                  price={food.price}
+                                  price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                                   isVeg={food.isVeg}
                                   category={food.category}
                                   restaurantName={food.restaurantName}
@@ -803,7 +829,18 @@ function RestaurantsDirectoryPageContent() {
                             {food.name}
                           </span>
                           <div className="flex items-center justify-between text-[10px] text-slate-500 mt-0.5">
-                            <span className="font-bold text-rose-600">{formatCurrency(food.price)}</span>
+                            {food.discount && food.discount > 0 ? (
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-bold text-rose-600">
+                                  {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                                </span>
+                                <span className="text-[9px] text-slate-400 line-through">
+                                  {formatCurrency(food.price)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="font-bold text-rose-600">{formatCurrency(food.price)}</span>
+                            )}
                           </div>
                         </div>
                       )

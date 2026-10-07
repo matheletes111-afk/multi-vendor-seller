@@ -58,8 +58,12 @@ export async function GET(
     if (Array.isArray(food.images) && food.images.length > 0) {
       firstImage = food.images[0] as string
     }
+    const sellingPrice = Math.max(0, food.price - (food.discount || 0))
     const foodData = {
       ...restFood,
+      discount: food.discount || 0,
+      sellingPrice,
+      selling_price: sellingPrice,
       image: firstImage,
       averageRating,
       totalReviews: reviewCount,

@@ -89,9 +89,12 @@ export async function GET(
     const { reviews, ...restFood } = food
     const extractedImages = extractFoodImages(food.images)
     const firstImage = extractedImages[0] || null
+    const sellingPrice = Math.max(0, food.price - (food.discount || 0))
 
     const foodData = {
       ...restFood,
+      discount: food.discount || 0,
+      sellingPrice,
       images: extractedImages,
       image: firstImage,
       averageRating,

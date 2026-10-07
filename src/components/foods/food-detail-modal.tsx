@@ -24,6 +24,8 @@ type FoodDetailData = {
   name: string
   description: string | null
   price: number
+  discount?: number
+  sellingPrice?: number
   images: string[]
   image: string | null
   category: string
@@ -291,7 +293,7 @@ export function FoodDetailModal({
                 foodItemId={food.id}
                 name={food.name}
                 image={images[0]}
-                price={food.price}
+                price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                 isVeg={food.isVeg}
                 category={food.category}
                 restaurantName={food.restaurantName}
@@ -326,7 +328,23 @@ export function FoodDetailModal({
                     <h2 className="text-2xl font-black text-slate-900 leading-tight mt-0.5">{food.name}</h2>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-2xl font-black text-amber-600 leading-none">{formatCurrency(food.price)}</p>
+                    {food.discount && food.discount > 0 ? (
+                      <div>
+                        <div className="flex items-baseline justify-end gap-2">
+                          <p className="text-2xl font-black text-amber-600 leading-none">
+                            {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                          </p>
+                          <p className="text-sm font-bold text-slate-400 line-through">
+                            {formatCurrency(food.price)}
+                          </p>
+                        </div>
+                        <span className="inline-block mt-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Save {formatCurrency(food.discount)}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-black text-amber-600 leading-none">{formatCurrency(food.price)}</p>
+                    )}
                     <p className="text-[10px] font-bold text-slate-400 mt-1">Inclusive of taxes</p>
                   </div>
                 </div>
@@ -563,18 +581,23 @@ export function FoodDetailModal({
             </div>
 
             {/* Add / Update Cart CTA */}
-            <Button
-              onClick={() => {
-                if (onAddToCart && food) {
-                  onAddToCart(food, quantity)
-                  onClose()
-                }
-              }}
-              className="flex-1 h-12 rounded-2xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-xs uppercase tracking-widest shadow-md shadow-amber-500/20 flex items-center justify-center gap-2"
-            >
-              <ShoppingBag className="h-4 w-4" />
-              {currentQtyInCart > 0 ? "Update Cart" : "Add to Order"} • {formatCurrency(food.price * quantity)}
-            </Button>
+            {(() => {
+              const effectivePrice = food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)
+              return (
+                <Button
+                  onClick={() => {
+                    if (onAddToCart && food) {
+                      onAddToCart(food, quantity)
+                      onClose()
+                    }
+                  }}
+                  className="flex-1 h-12 rounded-2xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-xs uppercase tracking-widest shadow-md shadow-amber-500/20 flex items-center justify-center gap-2"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  {currentQtyInCart > 0 ? "Update Cart" : "Add to Order"} • {formatCurrency(effectivePrice * quantity)}
+                </Button>
+              )
+            })()}
           </div>
         )}
       </DialogContent>

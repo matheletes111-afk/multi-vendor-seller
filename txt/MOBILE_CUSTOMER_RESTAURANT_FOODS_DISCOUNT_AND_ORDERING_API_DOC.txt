@@ -1,0 +1,929 @@
+================================================================================
+MOBILE CUSTOMER API DOCUMENTATION:
+RESTAURANT FOOD DIRECTORY, DISCOUNT SYSTEM, WISHLIST & ORDERING APIS
+================================================================================
+Document Version: 1.2.0
+Base URL: https://<your-domain>
+Authentication:
+  - Public / Guest Endpoints: None required (Browse dishes, search menus, restaurants)
+  - Customer Protected Endpoints: Bearer <CUSTOMER_ACCESS_TOKEN> (Orders, Checkout, Wishlist)
+Target Audience: Mobile Application Developers (iOS, Android, Flutter, React Native)
+Created: October 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. OVERVIEW & FOOD DISCOUNT SYSTEM IN CUSTOMER APP
+2. PRICE FIELDS SPECIFICATION & UI DISPLAY RULES
+3. FOOD DISCOVERY & SEARCH APIS
+   3.1 Search & Explore Foods (GET /mobileapi/customer/foods)
+   3.2 Single Food Item Details & Reviews (GET /mobileapi/customer/foods/:id)
+   3.3 Paginated V1 Food Feed (GET /mobileapi/v1/foods)
+   3.4 Food Recommendations Feed (GET /mobileapi/v1/recommendations/food)
+   3.5 V1 Categorized Foods Feed (GET /mobileapi/v1/restaurants)
+4. RESTAURANT DIRECTORY & MENU LISTING APIS
+   4.1 Restaurant Directory & Search (GET /mobileapi/restaurants)
+   4.2 Restaurant Details & Full Menu (GET /mobileapi/restaurants/:id)
+5. CUSTOMER WISHLIST APIS (FOOD ITEMS)
+   5.1 Get Customer Wishlist (GET /mobileapi/customer/wishlist)
+   5.2 Toggle Food Wishlist Item (POST /mobileapi/customer/wishlist)
+   5.3 Remove Food Wishlist Item (DELETE /mobileapi/customer/wishlist)
+6. FOOD CART, CHECKOUT & ORDER PLACEMENT FLOW
+   6.1 Cart Data Structure & Subtotal Calculation Rules
+   6.2 Place Food Order (POST /mobileapi/customer/foods/orders)
+   6.3 Customer Food Order History (GET /mobileapi/customer/foods/orders)
+   6.4 Food Order Details & Item Tracking (GET /mobileapi/customer/foods/orders/:id)
+7. ERROR HANDLING & HTTP STATUS CODES
+8. FLUTTER & REACT NATIVE PRODUCTION CODE SNIPPETS
+
+================================================================================
+1. OVERVIEW & FOOD DISCOUNT SYSTEM IN CUSTOMER APP
+================================================================================
+Every food item in the customer mobile app includes native support for restaurant
+discounts. Restaurant owners specify a regular price (MRP) and an offer selling price.
+The system automatically calculates and returns:
+- "price": The original listed MRP.
+- "discount": The discount amount in currency units (price - sellingPrice).
+- "sellingPrice" (and "selling_price"): The discounted price that the customer pays.
+
+Key Customer App Guarantee:
+When a customer adds dishes to their cart and completes checkout:
+- The backend always recomputes and charges the server-validated selling price:
+  chargedPrice = Math.max(0, food.price - (food.discount || 0))
+- The customer is never overcharged, even if prices in a local cache or cart are old.
+- The mobile app should refresh cart prices when entering checkout to avoid UI discrepancy.
+
+================================================================================
+2. PRICE FIELDS SPECIFICATION & UI DISPLAY RULES
+================================================================================
+Every food item payload returned by the customer endpoints contains the following fields:
+
+┌─────────────────┬────────┬────────────────────────────────────────────────────────┐
+│ Field Name      │ Type   │ Description & Meaning                                  │
+├─────────────────┼────────┼────────────────────────────────────────────────────────┤
+│ price           │ Float  │ Regular listed MRP / Menu price (e.g. 160.00)          │
+│ discount        │ Float  │ Discount amount saved by customer (e.g. 30.00)         │
+│ sellingPrice    │ Float  │ Effective selling price = price - discount (130.00)    │
+│ selling_price   │ Float  │ Snake_case alias for sellingPrice (130.00)             │
+└─────────────────┴────────┴────────────────────────────────────────────────────────┘
+
+Mobile UI Presentation Guidelines:
+
+Case 1: Dish HAS a Discount (discount > 0):
+  1. Highlight Selling Price:
+     Display sellingPrice prominently in bold, primary brand or green color: "Le 130.00".
+  2. Strike-Through MRP:
+     Display original listed price struck-through in muted gray: "~~Le 160.00~~".
+  3. Savings Badge / Offer Pill:
+     Display a pill beside the price:
+     - Flat amount saved: "Save Le 30"
+     - OR percentage discount: "{Math.round((discount / price) * 100)}% OFF" (e.g. "19% OFF").
+  4. Cart & Checkout Subtotal:
+     Always calculate item total as: (sellingPrice * quantity).
+
+Case 2: Dish Has NO Discount (discount == 0):
+  1. Regular Price Display:
+     Display price normally: "Le 160.00".
+  2. Do not show strike-through text or discount badges.
+
+================================================================================
+3. FOOD DISCOVERY & SEARCH APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 SEARCH & EXPLORE FOODS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods
+Authentication: Public (Guest accessible) or Bearer <CUSTOMER_ACCESS_TOKEN>
+
+Query Parameters (All Optional):
+┌────────────────────┬────────┬─────────────────────────────────────────────────┐
+│ Parameter          │ Type   │ Description                                     │
+├────────────────────┼────────┼─────────────────────────────────────────────────┤
+│ q                  │ String │ Search keyword (dish name, category, or seller) │
+│ category           │ String │ Filter by exact category (case-insensitive)     │
+│ isVeg              │ String │ "true" or "1" for veg; "false" for non-veg      │
+│ minPrice           │ Float  │ Filter by minimum selling price (customer pays) │
+│ maxPrice           │ Float  │ Filter by maximum selling price (customer pays) │
+│ rating             │ Float  │ Filter by minimum average review rating (e.g 4) │
+│ restaurantSellerId │ String │ Limit results to a specific restaurant seller   │
+└────────────────────┴────────┴─────────────────────────────────────────────────┘
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm101food001",
+      "food_id": "cm101food001",
+      "restaurantSellerId": "cm101seller999",
+      "name": "Hyderabadi Chicken Dum Biryani",
+      "description": "Fragrant long-grain basmati rice cooked with marinated chicken.",
+      "category": "Biryani",
+      "price": 160.00,
+      "discount": 30.00,
+      "sellingPrice": 130.00,
+      "selling_price": 130.00,
+      "isVeg": false,
+      "isActive": true,
+      "images": [
+        "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp"
+      ],
+      "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "image_url": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "averageRating": 4.8,
+      "rating": 4.8,
+      "totalReviews": 42,
+      "review_count": 42,
+      "reviewCount": 42,
+      "reviewsCount": 42,
+      "restaurantId": "cm101seller999",
+      "restaurant_id": "cm101seller999",
+      "restaurantName": "Royal Spice Palace",
+      "restaurantCity": "Freetown"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+3.2 SINGLE FOOD ITEM DETAILS & REVIEWS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods/:id
+Alias:    GET /mobileapi/foods/:id
+Authentication: Public (Guest accessible)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm101food001",
+    "name": "Hyderabadi Chicken Dum Biryani",
+    "description": "Fragrant long-grain basmati rice cooked with marinated chicken.",
+    "category": "Biryani",
+    "price": 160.00,
+    "discount": 30.00,
+    "sellingPrice": 130.00,
+    "selling_price": 130.00,
+    "isVeg": false,
+    "isActive": true,
+    "images": [
+      "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "https://res.cloudinary.com/demo/image/upload/v1/biryani2.webp"
+    ],
+    "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+    "averageRating": 4.8,
+    "totalReviews": 42,
+    "reviewCount": 42,
+    "reviewsCount": 42,
+    "breakdown": {
+      "5": 35,
+      "4": 5,
+      "3": 2,
+      "2": 0,
+      "1": 0
+    },
+    "reviews": [
+      {
+        "id": "rev_001",
+        "userId": "usr_999",
+        "userName": "Mariatu K.",
+        "userAvatar": "https://res.cloudinary.com/demo/image/upload/v1/avatar.jpg",
+        "rating": 5,
+        "comment": "Delicious and perfectly spiced! Will definitely order again.",
+        "images": [],
+        "createdAt": "2026-10-06T15:30:00.000Z"
+      }
+    ]
+  }
+}
+
+Error Response (404 Not Found):
+{
+  "success": false,
+  "error": "Food item not found"
+}
+
+--------------------------------------------------------------------------------
+3.3 PAGINATED V1 FOOD FEED
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/v1/foods
+Authentication: Public (Guest accessible)
+
+Query Parameters:
+┌────────────────────┬─────────┬────────────────────────────────────────────────┐
+│ Parameter          │ Type    │ Description                                    │
+├────────────────────┼─────────┼────────────────────────────────────────────────┤
+│ page               │ Integer │ Page number (default: 1)                       │
+│ limit              │ Integer │ Items per page (default: 20, max: 50)          │
+│ category           │ String  │ Filter by category ("ALL" or specific name)    │
+│ restaurantSellerId │ String  │ Filter dishes by restaurant seller ID          │
+│ isVeg              │ String  │ "true" or "1" for veg, "false" for non-veg     │
+└────────────────────┴─────────┴────────────────────────────────────────────────┘
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm101food001",
+      "food_id": "cm101food001",
+      "restaurantSellerId": "cm101seller999",
+      "restaurant_seller_id": "cm101seller999",
+      "title": "Hyderabadi Chicken Dum Biryani",
+      "name": "Hyderabadi Chicken Dum Biryani",
+      "description": "Fragrant long-grain basmati rice...",
+      "category": "Biryani",
+      "price": 160.00,
+      "discount": 30.00,
+      "sellingPrice": 130.00,
+      "selling_price": 130.00,
+      "is_veg": false,
+      "isVeg": false,
+      "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "image_url": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "restaurant_name": "Royal Spice Palace",
+      "restaurantName": "Royal Spice Palace",
+      "restaurant_logo": "https://res.cloudinary.com/demo/image/upload/v1/logo.png",
+      "restaurantCity": "Freetown",
+      "rating": 4.8,
+      "averageRating": 4.8,
+      "review_count": 42,
+      "reviewCount": 42,
+      "totalReviews": 42,
+      "reviewsCount": 42,
+      "delivery_time": "25-35 mins"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "total_pages": 5,
+    "total_items": 95,
+    "has_more": true
+  }
+}
+
+--------------------------------------------------------------------------------
+3.4 FOOD RECOMMENDATIONS FEED
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/v1/recommendations/food
+Authentication: Public (Guest accessible)
+
+Query Parameters:
+- page: Integer (default: 1)
+- limit: Integer (default: 10, max: 50)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "cm101food001",
+        "food_id": "cm101food001",
+        "title": "Hyderabadi Chicken Dum Biryani",
+        "name": "Hyderabadi Chicken Dum Biryani",
+        "description": "Fragrant long-grain basmati rice...",
+        "category": "Biryani",
+        "restaurant_name": "Royal Spice Palace",
+        "is_veg": false,
+        "isVeg": false,
+        "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+        "price": 160.00,
+        "discount": 30.00,
+        "sellingPrice": 130.00,
+        "selling_price": 130.00,
+        "rating": 4.8,
+        "averageRating": 4.8,
+        "review_count": 42,
+        "delivery_time": "20-30 mins",
+        "badge": "BESTSELLER"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 4,
+      "total_items": 38,
+      "has_more": true
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+3.5 V1 CATEGORIZED FOODS FEED
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/v1/restaurants
+Note: Despite the path name, this endpoint returns food items filtered by category.
+Query Parameters:
+- category: String (food category filter)
+- page: Integer (default: 1)
+- limit: Integer (default: 10, max: 50)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "food_items": [
+      {
+        "id": "cm101food001",
+        "food_id": "cm101food001",
+        "title": "Hyderabadi Chicken Dum Biryani",
+        "name": "Hyderabadi Chicken Dum Biryani",
+        "description": "Fragrant long-grain basmati rice...",
+        "category": "Biryani",
+        "price": 160.00,
+        "discount": 30.00,
+        "sellingPrice": 130.00,
+        "selling_price": 130.00,
+        "is_veg": false,
+        "isVeg": false,
+        "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+        "restaurant_name": "Royal Spice Palace",
+        "restaurant_logo": "https://res.cloudinary.com/demo/image/upload/v1/logo.png",
+        "rating": 4.8,
+        "averageRating": 4.8,
+        "review_count": 42,
+        "delivery_time": "25-35 mins"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 3,
+      "total_items": 26,
+      "has_more": true
+    }
+  }
+}
+
+================================================================================
+4. RESTAURANT DIRECTORY & MENU LISTING APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 RESTAURANT DIRECTORY & SEARCH
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurants
+Authentication: Public (Guest accessible)
+
+Query Parameters (All Optional):
+- q: Keyword to search by restaurant business name or owner name
+- cuisine: Filter by cuisine (e.g. "Indian", "Italian", "Continental")
+- category: Filter by food category present in menu
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm101seller999",
+      "restaurant_id": "cm101seller999",
+      "name": "Royal Spice Palace",
+      "businessName": "Royal Spice Palace",
+      "cuisines": ["Indian", "Mughlai", "Biryani"],
+      "cuisine_type": "Indian, Mughlai, Biryani",
+      "logo": "https://res.cloudinary.com/demo/image/upload/v1/logo.png",
+      "banner": "https://res.cloudinary.com/demo/image/upload/v1/banner.jpg",
+      "mainPhoto": "https://res.cloudinary.com/demo/image/upload/v1/main.jpg",
+      "image_url": "https://res.cloudinary.com/demo/image/upload/v1/main.jpg",
+      "street": "14 Wilkinson Road",
+      "city": "Freetown",
+      "state": "Western Area",
+      "rating": 4.8,
+      "averageRating": 4.8,
+      "review_count": 128,
+      "reviewCount": 128,
+      "totalReviews": 128,
+      "reviewsCount": 128,
+      "hasVeg": true,
+      "hasNonVeg": true
+    }
+  ],
+  "cuisines": ["Indian", "Italian", "Chinese", "Mexican", "Continental"]
+}
+
+--------------------------------------------------------------------------------
+4.2 RESTAURANT DETAILS & FULL MENU
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurants/:id
+Alias:    GET /mobileapi/restaurant/:id
+Authentication: Public (Guest accessible)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm101seller999",
+    "name": "Royal Spice Palace",
+    "businessName": "Royal Spice Palace",
+    "cuisines": ["Indian", "Mughlai"],
+    "logo": "https://res.cloudinary.com/demo/image/upload/v1/logo.png",
+    "banner": "https://res.cloudinary.com/demo/image/upload/v1/banner.jpg",
+    "mainPhoto": "https://res.cloudinary.com/demo/image/upload/v1/main.jpg",
+    "street": "14 Wilkinson Road",
+    "city": "Freetown",
+    "state": "Western Area",
+    "landmark": "Near Clock Tower",
+    "averageRating": 4.8,
+    "totalReviews": 128,
+    "reviewsCount": 128,
+    "foods": [
+      {
+        "id": "cm101food001",
+        "name": "Hyderabadi Chicken Dum Biryani",
+        "description": "Fragrant long-grain basmati rice with chicken.",
+        "price": 160.00,
+        "discount": 30.00,
+        "sellingPrice": 130.00,
+        "selling_price": 130.00,
+        "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+        "category": "Biryani",
+        "isVeg": false,
+        "averageRating": 4.8,
+        "totalReviews": 42,
+        "reviews": [
+          {
+            "id": "rev_001",
+            "userName": "Mariatu K.",
+            "rating": 5,
+            "comment": "Delicious!",
+            "createdAt": "2026-10-06T15:30:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "cm101food002",
+        "name": "Butter Naan",
+        "description": "Clay oven baked flatbread with melted butter.",
+        "price": 15.00,
+        "discount": 0.00,
+        "sellingPrice": 15.00,
+        "selling_price": 15.00,
+        "image": "https://res.cloudinary.com/demo/image/upload/v1/naan.webp",
+        "category": "Breads",
+        "isVeg": true,
+        "averageRating": 4.6,
+        "totalReviews": 19,
+        "reviews": []
+      }
+    ]
+  }
+}
+
+================================================================================
+5. CUSTOMER WISHLIST APIS (FOOD ITEMS)
+================================================================================
+Customers can save favorite dishes to their unified wishlist.
+
+--------------------------------------------------------------------------------
+5.1 GET CUSTOMER WISHLIST
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/wishlist
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Wishlist fetched",
+  "data": {
+    "items": [
+      {
+        "wishlistItemId": "wish_item_888",
+        "productId": null,
+        "serviceId": null,
+        "hotelId": null,
+        "foodItemId": "cm101food001",
+        "createdAt": "2026-10-07T08:00:00.000Z",
+        "product": null,
+        "service": null,
+        "hotel": null,
+        "foodItem": {
+          "id": "cm101food001",
+          "name": "Hyderabadi Chicken Dum Biryani",
+          "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+          "price": 130.00,
+          "originalPrice": 160.00,
+          "discount": 30.00,
+          "isVeg": false,
+          "category": "Biryani",
+          "restaurantName": "Royal Spice Palace"
+        }
+      }
+    ],
+    "count": 1
+  }
+}
+Note on Wishlist Price:
+- "foodItem.price": Effective selling price (130.00) that customer pays.
+- "foodItem.originalPrice": Listed MRP (160.00) to render struck-through.
+- "foodItem.discount": Discount savings (30.00).
+
+--------------------------------------------------------------------------------
+5.2 TOGGLE FOOD WISHLIST ITEM (ADD / REMOVE)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/wishlist
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Body:
+{
+  "foodItemId": "cm101food001"
+}
+
+Success Response (200 OK - Added):
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "added",
+    "item": {
+      "wishlistItemId": "wish_item_888",
+      "foodItemId": "cm101food001",
+      "foodItem": {
+        "id": "cm101food001",
+        "name": "Hyderabadi Chicken Dum Biryani",
+        "price": 130.00,
+        "originalPrice": 160.00,
+        "discount": 30.00
+      }
+    },
+    "count": 1
+  }
+}
+
+Success Response (200 OK - Removed):
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 0
+  }
+}
+
+--------------------------------------------------------------------------------
+5.3 REMOVE FOOD WISHLIST ITEM
+--------------------------------------------------------------------------------
+Endpoint: DELETE /mobileapi/customer/wishlist
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Body:
+{
+  "foodItemId": "cm101food001"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Wishlist updated",
+  "data": {
+    "action": "removed",
+    "item": null,
+    "count": 0
+  }
+}
+
+================================================================================
+6. FOOD CART, CHECKOUT & ORDER PLACEMENT FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1 CART DATA STRUCTURE & SUB-TOTAL CALCULATION RULES
+--------------------------------------------------------------------------------
+Store customer cart locally in SQLite / SharedPreferences / redux-persist:
+
+Cart Storage Schema:
+{
+  "restaurantSellerId": "cm101seller999",
+  "restaurantName": "Royal Spice Palace",
+  "items": [
+    {
+      "foodItemId": "cm101food001",
+      "name": "Hyderabadi Chicken Dum Biryani",
+      "price": 130.00,          // MUST store sellingPrice (customer price)
+      "originalPrice": 160.00,  // Struck-through price
+      "discount": 30.00,
+      "quantity": 2,
+      "image": "https://res.cloudinary.com/demo/image/upload/v1/biryani1.webp",
+      "isVeg": false
+    }
+  ]
+}
+
+Subtotal Math:
+  subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  Example: (130.00 * 2) = 260.00. (Customer savings = 60.00).
+
+Multi-Vendor Restriction:
+A food delivery order can only contain dishes from a SINGLE restaurant.
+If a customer attempts to add a dish from Restaurant B while cart has dishes
+from Restaurant A, present a dialog:
+"Your basket contains items from another restaurant. Clear basket and add this item?"
+
+--------------------------------------------------------------------------------
+6.2 PLACE FOOD ORDER
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/foods/orders
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Body:
+{
+  "restaurantSellerId": "cm101seller999",
+  "items": [
+    {
+      "foodItemId": "cm101food001",
+      "quantity": 2
+    },
+    {
+      "foodItemId": "cm101food002",
+      "quantity": 3
+    }
+  ],
+  "deliveryFullName": "John Sesay",
+  "deliveryPhone": "+232 76 123456",
+  "deliveryAddressLine1": "25 Siaka Stevens Street",
+  "deliveryAddressLine2": "Apartment 3B",
+  "deliveryCity": "Freetown",
+  "deliveryState": "Western Area",
+  "deliveryPostalCode": "00232",
+  "deliveryCountry": "Sierra Leone",
+  "couponCode": "OCTFOOD10"
+}
+
+Server Processing & Price Protection:
+1. The server loads each food item from the database within a transaction.
+2. Item charge price = Math.max(0, food.price - (food.discount || 0)).
+3. Total charge amount = Sum(item charge price * quantity) - couponDiscount.
+4. An order number is generated in the format: F-YYYYMMDD-XXXX.
+5. Confirmation emails are sent to Customer, Restaurant Seller, and Admin.
+
+Success Response (201 Created):
+{
+  "success": true,
+  "message": "Order placed successfully",
+  "data": {
+    "id": "fo_987654321",
+    "orderNumber": "F-20261007-4821",
+    "customerId": "usr_999",
+    "restaurantSellerId": "cm101seller999",
+    "totalAmount": 305.00,
+    "deliveryFullName": "John Sesay",
+    "deliveryPhone": "+232 76 123456",
+    "deliveryAddressLine1": "25 Siaka Stevens Street",
+    "deliveryAddressLine2": "Apartment 3B",
+    "deliveryCity": "Freetown",
+    "deliveryState": "Western Area",
+    "deliveryPostalCode": "00232",
+    "deliveryCountry": "Sierra Leone",
+    "couponId": "cpn_123",
+    "couponCode": "OCTFOOD10",
+    "couponDiscount": 20.00,
+    "status": "PENDING",
+    "createdAt": "2026-10-07T13:45:00.000Z",
+    "updatedAt": "2026-10-07T13:45:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+6.3 CUSTOMER FOOD ORDER HISTORY
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods/orders
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "fo_987654321",
+      "orderNumber": "F-20261007-4821",
+      "totalAmount": 305.00,
+      "status": "PENDING",
+      "createdAt": "2026-10-07T13:45:00.000Z",
+      "restaurantName": "Royal Spice Palace"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+6.4 FOOD ORDER DETAILS & ITEM TRACKING
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods/orders/:id
+Headers:
+  Authorization: Bearer <CUSTOMER_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "fo_987654321",
+    "orderNumber": "F-20261007-4821",
+    "totalAmount": 305.00,
+    "status": "PENDING",
+    "createdAt": "2026-10-07T13:45:00.000Z",
+    "deliveryFullName": "John Sesay",
+    "deliveryPhone": "+232 76 123456",
+    "deliveryAddressLine1": "25 Siaka Stevens Street",
+    "deliveryAddressLine2": "Apartment 3B",
+    "deliveryCity": "Freetown",
+    "deliveryState": "Western Area",
+    "deliveryPostalCode": "00232",
+    "deliveryCountry": "Sierra Leone",
+    "restaurantName": "Royal Spice Palace",
+    "items": [
+      {
+        "id": "item_111",
+        "foodItemId": "cm101food001",
+        "foodName": "Hyderabadi Chicken Dum Biryani",
+        "quantity": 2,
+        "price": 130.00,
+        "subtotal": 260.00
+      },
+      {
+        "id": "item_222",
+        "foodItemId": "cm101food002",
+        "foodName": "Butter Naan",
+        "quantity": 3,
+        "price": 15.00,
+        "subtotal": 45.00
+      }
+    ]
+  }
+}
+
+================================================================================
+7. ERROR HANDLING & HTTP STATUS CODES
+================================================================================
+The API returns standard JSON error responses:
+{
+  "success": false,
+  "error": "Descriptive error message"
+}
+
+HTTP Status Codes:
+- 200 OK: Request processed successfully.
+- 201 Created: Order placed or resource created successfully.
+- 400 Bad Request: Missing required delivery fields, empty cart, or invalid payload.
+- 401 Unauthorized: Bearer token is missing, expired, or invalid.
+- 404 Not Found: Food item, restaurant seller, or order not found.
+- 500 Internal Server Error: Database or internal execution failure. Show error string to user.
+
+================================================================================
+8. FLUTTER & REACT NATIVE PRODUCTION CODE SNIPPETS
+================================================================================
+
+--- 8.1 Flutter / Dart Food Price Component ---
+```dart
+import 'package:flutter/material.dart';
+
+class FoodPriceWidget extends StatelessWidget {
+  final Map<String, dynamic> food;
+
+  const FoodPriceWidget({Key? key, required this.food}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final double mrp = (food['price'] as num?)?.toDouble() ?? 0.0;
+    final double discount = (food['discount'] as num?)?.toDouble() ?? 0.0;
+    final double sellingPrice = (food['sellingPrice'] ?? food['selling_price'] as num?)?.toDouble()
+        ?? (discount > 0 ? (mrp - discount) : mrp);
+
+    if (discount > 0) {
+      final int percentOff = mrp > 0 ? ((discount / mrp) * 100).round() : 0;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            '\$${sellingPrice.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF15803D), // emerald-700
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '\$${mrp.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 12,
+              decoration: TextDecoration.lineThrough,
+              color: Color(0xFF94A3B8), // slate-400
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7), // emerald-100
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '$percentOff% OFF',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF166534), // emerald-800
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Text(
+      '\$${mrp.toStringAsFixed(2)}',
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF0F172A), // slate-900
+      ),
+    );
+  }
+}
+```
+
+--- 8.2 React Native / TypeScript Food Price Component ---
+```tsx
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+interface FoodItemProps {
+  food: {
+    price: number;
+    discount?: number;
+    sellingPrice?: number;
+    selling_price?: number;
+  };
+}
+
+export const FoodPriceDisplay: React.FC<FoodItemProps> = ({ food }) => {
+  const mrp = food.price || 0;
+  const discount = food.discount || 0;
+  const sellingPrice =
+    food.sellingPrice ??
+    food.selling_price ??
+    (discount > 0 ? Math.max(0, mrp - discount) : mrp);
+
+  if (discount > 0) {
+    const percentOff = mrp > 0 ? Math.round((discount / mrp) * 100) : 0;
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sellingPrice}>${sellingPrice.toFixed(2)}</Text>
+        <Text style={styles.mrp}>${mrp.toFixed(2)}</Text>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{percentOff}% OFF</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return <Text style={styles.regularPrice}>${mrp.toFixed(2)}</Text>;
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sellingPrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#15803d',
+  },
+  mrp: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textDecorationLine: 'line-through',
+  },
+  badge: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  regularPrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+});
+```
+
+================================================================================
+END OF CUSTOMER MOBILE API DOCUMENTATION
+================================================================================

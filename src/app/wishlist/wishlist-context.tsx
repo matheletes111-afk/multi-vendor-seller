@@ -40,6 +40,8 @@ export type WishlistFoodItem = {
   name: string
   image: string | null
   price: number | null
+  originalPrice?: number | null
+  discount?: number | null
   isVeg?: boolean
   category?: string
   restaurantName?: string

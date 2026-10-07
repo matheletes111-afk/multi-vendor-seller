@@ -34,6 +34,8 @@ type FoodItem = {
   id: string
   name: string
   price: number
+  discount?: number
+  sellingPrice?: number
   restaurantSellerId: string
   restaurantName: string
   images: any
@@ -175,6 +177,39 @@ function CheckoutContent() {
           const parsed = JSON.parse(stored) as LocalFoodCart
           if (parsed && parsed.items && parsed.items.length > 0) {
             setCartData(parsed)
+            const targetRestoId = parsed.restaurantId || (parsed as any).restaurantSellerId
+            if (targetRestoId) {
+              fetch(`/api/customer/restaurants/${targetRestoId}`)
+                .then((r) => r.json())
+                .then((data) => {
+                  if (data.success && Array.isArray(data.data?.foods)) {
+                    const foodMap = new Map<string, any>(data.data.foods.map((f: any) => [f.id, f]))
+                    let changed = false
+                    const refreshedItems = parsed.items.map((item) => {
+                      const latest = foodMap.get(item.foodItemId)
+                      if (latest) {
+                        const effective =
+                          typeof latest.sellingPrice === "number"
+                            ? latest.sellingPrice
+                            : Math.max(0, latest.price - (latest.discount || 0))
+                        if (effective !== item.price) {
+                          changed = true
+                          return { ...item, price: effective }
+                        }
+                      }
+                      return item
+                    })
+                    if (changed) {
+                      const updatedCart = { ...parsed, items: refreshedItems }
+                      setCartData(updatedCart)
+                      localStorage.setItem("meeem-food-cart", JSON.stringify(updatedCart))
+                    }
+                  }
+                })
+                .catch((e) => {
+                  console.error("Could not refresh food cart prices:", e)
+                })
+            }
           }
         } catch (e) {
           console.error("Error reading food cart from localStorage", e)
@@ -309,8 +344,11 @@ function CheckoutContent() {
     setCouponLoading(true)
     setCouponError(null)
     try {
+      const singlePrice = singleFood
+        ? (singleFood.sellingPrice ?? (singleFood.discount ? Math.max(0, singleFood.price - singleFood.discount) : singleFood.price))
+        : 0
       const itemsPayload = isSingleItem && singleFood
-        ? [{ foodItemId: singleFood.id, price: singleFood.price, quantity }]
+        ? [{ foodItemId: singleFood.id, price: singlePrice, quantity }]
         : (cartData ? cartData.items.map(i => ({ foodItemId: i.foodItemId, price: i.price, quantity: i.quantity })) : [])
 
       const res = await fetch("/api/customer/coupons/apply", {
@@ -370,9 +408,12 @@ function CheckoutContent() {
     )
   }
 
+  const singleFoodPrice = singleFood
+    ? (singleFood.sellingPrice ?? (singleFood.discount ? Math.max(0, singleFood.price - singleFood.discount) : singleFood.price))
+    : 0
   const restaurantName = isSingleItem ? singleFood?.restaurantName : cartData?.restaurantName
   const orderSubtotal = isSingleItem 
-    ? (singleFood ? singleFood.price * quantity : 0)
+    ? singleFoodPrice * quantity
     : (cartData ? cartData.items.reduce((acc, i) => acc + i.price * i.quantity, 0) : 0)
   const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
 
@@ -705,6 +746,14 @@ function CheckoutContent() {
                     <div>
                       <p className="font-bold text-slate-800 line-clamp-2">{singleFood.name}</p>
                       <p className="text-slate-400 text-xs font-bold mt-0.5">By {restaurantName}</p>
+                      {singleFood.discount && singleFood.discount > 0 ? (
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-xs font-black text-amber-600">{formatCurrency(singleFoodPrice)}</span>
+                          <span className="text-[10px] text-slate-400 line-through">{formatCurrency(singleFood.price)}</span>
+                        </div>
+                      ) : (
+                        <p className="text-slate-600 text-[10px] font-bold mt-0.5">{formatCurrency(singleFood.price)} each</p>
+                      )}
                     </div>
                   </div>
                   <span className="font-bold text-slate-600 shrink-0">x {quantity}</span>

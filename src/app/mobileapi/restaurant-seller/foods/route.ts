@@ -5,6 +5,7 @@ import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaur
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { computeFoodDiscount, readSellingPriceField, readImageUrlsField } from "@/lib/food-pricing"
 
 export const dynamic = "force-dynamic"
 
@@ -90,9 +91,16 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     })
 
+    const enrichedFoods = foods.map((f) => ({
+      ...f,
+      discount: f.discount || 0,
+      sellingPrice: Math.max(0, f.price - (f.discount || 0)),
+      discountedPrice: Math.max(0, f.price - (f.discount || 0)),
+    }))
+
     return NextResponse.json({
       success: true,
-      data: foods
+      data: enrichedFoods
     })
   } catch (error: any) {
     console.error("Mobile list food items error:", error)
@@ -125,6 +133,7 @@ export async function POST(request: NextRequest) {
     const name = sanitizeInput(formData.get("name") as string)
     const description = sanitizeInput(formData.get("description") as string || "")
     const priceRaw = formData.get("price")
+    const sellingPriceRaw = readSellingPriceField(formData)
     const category = sanitizeInput(formData.get("category") as string)
     const isVegRaw = formData.get("isVeg")
     const imageFiles = formData.getAll("images") as File[]
@@ -135,13 +144,19 @@ export async function POST(request: NextRequest) {
     }
 
     const price = parseFloat(String(priceRaw))
-    if (isNaN(price) || price < 0) {
-      return NextResponse.json({ success: false, error: "Price must be a positive number" }, { status: 400 })
+    if (isNaN(price) || price <= 0) {
+      return NextResponse.json({ success: false, error: "Price must be greater than 0" }, { status: 400 })
     }
+
+    const discountResult = computeFoodDiscount(price, sellingPriceRaw)
+    if (!discountResult.ok) {
+      return NextResponse.json({ success: false, error: discountResult.error }, { status: 400 })
+    }
+    const discount = discountResult.discount ?? 0
 
     const isVeg = isVegRaw === "true" || isVegRaw === "1"
 
-    const imageUrls: string[] = []
+    const imageUrls: string[] = [...readImageUrlsField(formData)]
     if (imageFiles && imageFiles.length > 0) {
       for (const file of imageFiles) {
         if (file && file.size > 0) {
@@ -160,16 +175,32 @@ export async function POST(request: NextRequest) {
         name,
         description,
         price,
+        discount,
         category,
         isVeg,
         images: imageUrls as any
       }
     })
 
+    if (imageUrls.length > 0) {
+      try {
+        await prisma.restaurantMediaImage.updateMany({
+          where: { restaurantSellerId: seller.id, url: { in: imageUrls } },
+          data: { isUsed: true },
+        })
+      } catch (mediaErr) {
+        console.warn("Could not mark media images as used:", mediaErr)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: "Food item created successfully",
-      data: foodItem
+      data: {
+        ...foodItem,
+        sellingPrice: Math.max(0, foodItem.price - (foodItem.discount || 0)),
+        discountedPrice: Math.max(0, foodItem.price - (foodItem.discount || 0)),
+      }
     }, { status: 201 })
   } catch (error: any) {
     console.error("Mobile create food item error:", error)

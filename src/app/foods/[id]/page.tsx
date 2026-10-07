@@ -29,6 +29,8 @@ type FoodItem = {
   name: string
   description: string | null
   price: number
+  discount?: number
+  sellingPrice?: number
   image: string | null
   images: any
   category: string
@@ -278,7 +280,7 @@ export default function FoodDetailsPage() {
                   foodItemId={food.id}
                   name={food.name}
                   image={foodImages[0]}
-                  price={food.price}
+                  price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                   isVeg={food.isVeg}
                   category={food.category}
                   restaurantName={food.restaurantName}
@@ -351,7 +353,21 @@ export default function FoodDetailsPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Price per item</p>
-                  <p className="text-2xl font-black text-rose-600 mt-1">{formatCurrency(food.price)}</p>
+                  {food.discount && food.discount > 0 ? (
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-2xl font-black text-rose-600 leading-none">
+                        {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                      </p>
+                      <p className="text-sm font-bold text-slate-400 line-through">
+                        {formatCurrency(food.price)}
+                      </p>
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Save {formatCurrency(food.discount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-black text-rose-600 mt-1">{formatCurrency(food.price)}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -377,7 +393,9 @@ export default function FoodDetailsPage() {
               <div className="border-t border-slate-100 pt-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Subtotal</p>
-                  <p className="text-xl font-black text-slate-950 mt-0.5">{formatCurrency(food.price * quantity)}</p>
+                  <p className="text-xl font-black text-slate-950 mt-0.5">
+                    {formatCurrency((food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)) * quantity)}
+                  </p>
                 </div>
 
                 {!session || session?.user?.role === "CUSTOMER" ? (

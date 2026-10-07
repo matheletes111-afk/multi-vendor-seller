@@ -15,6 +15,7 @@ export function EditFoodClient({ id }: { id: string }) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [price, setPrice] = useState("")
+  const [sellingPrice, setSellingPrice] = useState("")
   const [category, setCategory] = useState("Mains")
   const [isVeg, setIsVeg] = useState(true)
   const [newImageFiles, setNewImageFiles] = useState<{ file: File; preview: string }[]>([])
@@ -23,6 +24,13 @@ export function EditFoodClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState("")
   const [submitting, setSubmitting] = useState(false)
+
+  const numPrice = parseFloat(price)
+  const numSelling = parseFloat(sellingPrice)
+  const hasDiscount = !isNaN(numPrice) && !isNaN(numSelling) && numSelling > 0 && numSelling < numPrice
+  const discountAmount = hasDiscount ? Math.round((numPrice - numSelling) * 100) / 100 : 0
+  const discountPercent = hasDiscount && numPrice > 0 ? Math.round((discountAmount / numPrice) * 100) : 0
+  const isSellingExceeding = !isNaN(numPrice) && !isNaN(numSelling) && numSelling > numPrice
 
   const newImageFilesRef = useRef(newImageFiles)
   newImageFilesRef.current = newImageFiles
@@ -64,6 +72,10 @@ export function EditFoodClient({ id }: { id: string }) {
           setName(item.name)
           setDescription(item.description || "")
           setPrice(item.price.toString())
+          const calculatedSelling = (item.discount && item.discount > 0)
+            ? Math.max(0, Math.round((item.price - item.discount) * 100) / 100).toString()
+            : (item.sellingPrice !== undefined ? item.sellingPrice.toString() : item.price.toString())
+          setSellingPrice(calculatedSelling)
           setCategory(item.category)
           setIsVeg(item.isVeg)
           
@@ -94,6 +106,12 @@ export function EditFoodClient({ id }: { id: string }) {
       setErrorMsg("Please fill in all required fields.")
       return
     }
+
+    if (isSellingExceeding) {
+      setErrorMsg(`Selling price (${numSelling}) cannot exceed regular price (${numPrice}).`)
+      return
+    }
+
     setSubmitting(true)
     setErrorMsg("")
 
@@ -102,6 +120,9 @@ export function EditFoodClient({ id }: { id: string }) {
       formData.append("name", name)
       formData.append("description", description)
       formData.append("price", price)
+      if (sellingPrice.trim()) {
+        formData.append("sellingPrice", sellingPrice.trim())
+      }
       formData.append("category", category)
       formData.append("isVeg", String(isVeg))
       formData.append("existingImages", JSON.stringify(existingImages))
@@ -167,9 +188,9 @@ export function EditFoodClient({ id }: { id: string }) {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="price" className="text-sm font-bold text-slate-700">Price *</Label>
+                <Label htmlFor="price" className="text-sm font-bold text-slate-700">Actual Price / MRP (₹) *</Label>
                 <Input
                   id="price"
                   type="number"
@@ -179,6 +200,37 @@ export function EditFoodClient({ id }: { id: string }) {
                   onChange={(e) => setPrice(e.target.value)}
                   className="h-12 rounded-xl"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sellingPrice" className="text-sm font-bold text-slate-700">
+                    Selling Price (₹)
+                  </Label>
+                  {hasDiscount && (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      Save ₹{discountAmount} ({discountPercent}% OFF)
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="sellingPrice"
+                  type="number"
+                  step="0.01"
+                  value={sellingPrice}
+                  onChange={(e) => setSellingPrice(e.target.value)}
+                  className={`h-12 rounded-xl ${isSellingExceeding ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  placeholder={price ? price : "Optional offer price"}
+                />
+                {isSellingExceeding ? (
+                  <p className="text-[11px] font-semibold text-destructive">
+                    Selling price cannot exceed regular price (₹{numPrice})
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    What customers pay. Stored as discount.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-bold text-slate-700">Category *</Label>

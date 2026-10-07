@@ -34,19 +34,9 @@ export async function GET(request: NextRequest) {
       where.isVeg = isVegRaw === "true" || isVegRaw === "1"
     }
 
-    if (minPriceRaw) {
-      const minPrice = parseFloat(minPriceRaw)
-      if (!isNaN(minPrice)) {
-        where.price = { ...where.price, gte: minPrice }
-      }
-    }
-
-    if (maxPriceRaw) {
-      const maxPrice = parseFloat(maxPriceRaw)
-      if (!isNaN(maxPrice)) {
-        where.price = { ...where.price, lte: maxPrice }
-      }
-    }
+    // Price range is applied on the selling price (price - discount) after the query
+    const minPrice = minPriceRaw ? parseFloat(minPriceRaw) : NaN
+    const maxPrice = maxPriceRaw ? parseFloat(maxPriceRaw) : NaN
 
     if (restaurantSellerId) {
       where.restaurantSellerId = restaurantSellerId
@@ -90,7 +80,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const formattedFoods = foods.map(f => {
+    const mappedFoods = foods.map(f => {
       const totalReviews = f.reviews.length
       const averageRating = totalReviews > 0 
         ? parseFloat((f.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1))
@@ -101,8 +91,12 @@ export async function GET(request: NextRequest) {
       if (Array.isArray(f.images) && f.images.length > 0) {
         firstImage = f.images[0] as string
       }
+      const sellingPrice = Math.max(0, f.price - (f.discount || 0))
       return {
         ...restFood,
+        discount: f.discount || 0,
+        sellingPrice,
+        selling_price: sellingPrice,
         food_id: f.id,
         image: firstImage,
         image_url: firstImage,
@@ -118,6 +112,12 @@ export async function GET(request: NextRequest) {
         restaurantCity: restaurantSeller.businessInfo?.city || ""
       }
     })
+
+    const formattedFoods = mappedFoods.filter(
+      f =>
+        (isNaN(minPrice) || f.sellingPrice >= minPrice) &&
+        (isNaN(maxPrice) || f.sellingPrice <= maxPrice)
+    )
 
     // Filter by rating post-query if requested
     let result = formattedFoods

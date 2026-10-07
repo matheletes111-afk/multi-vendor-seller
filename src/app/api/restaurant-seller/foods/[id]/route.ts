@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { sanitizeInput } from "@/lib/html-sanitization"
+import { computeFoodDiscount, readSellingPriceField, readImageUrlsField } from "@/lib/food-pricing"
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB limit for incoming images (auto-compressed down to 1-2MB WebP)
 const ALLOWED_IMAGE_TYPES = [
@@ -83,7 +84,14 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Food item not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, data: foodItem })
+    const sellingPrice = Math.max(0, foodItem.price - (foodItem.discount || 0))
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...foodItem,
+        sellingPrice,
+      }
+    })
   } catch (error) {
     console.error("Web get single food item error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
@@ -119,6 +127,7 @@ export async function PUT(
     const name = sanitizeInput(formData.get("name") as string)
     const description = sanitizeInput(formData.get("description") as string || "")
     const priceRaw = formData.get("price")
+    const sellingPriceRaw = readSellingPriceField(formData)
     const category = sanitizeInput(formData.get("category") as string)
     const isVegRaw = formData.get("isVeg")
     const newImageFiles = formData.getAll("newImages") as File[]
@@ -130,12 +139,23 @@ export async function PUT(
     if (description !== undefined) updateData.description = description
     if (category) updateData.category = category
 
+    const effectivePrice = priceRaw ? parseFloat(String(priceRaw)) : foodItem.price
     if (priceRaw) {
-      const price = parseFloat(String(priceRaw))
-      if (isNaN(price) || price < 0) {
-        return NextResponse.json({ success: false, error: "Price must be a positive number" }, { status: 400 })
+      if (isNaN(effectivePrice) || effectivePrice <= 0) {
+        return NextResponse.json({ success: false, error: "Price must be greater than 0" }, { status: 400 })
       }
-      updateData.price = price
+      updateData.price = effectivePrice
+    }
+
+    const discountResult = computeFoodDiscount(effectivePrice, sellingPriceRaw)
+    if (!discountResult.ok) {
+      return NextResponse.json({ success: false, error: discountResult.error }, { status: 400 })
+    }
+    if (discountResult.discount !== undefined) {
+      updateData.discount = discountResult.discount
+    } else if ((foodItem.discount || 0) >= effectivePrice) {
+      // Price lowered below the old discount: drop the discount so the dish never becomes free
+      updateData.discount = 0
     }
 
     if (isVegRaw !== null && isVegRaw !== undefined) {
@@ -153,7 +173,7 @@ export async function PUT(
       existingImages = Array.isArray(foodItem.images) ? (foodItem.images as string[]) : []
     }
 
-    const imageUrls: string[] = [...existingImages]
+    const imageUrls: string[] = Array.from(new Set([...existingImages, ...readImageUrlsField(formData)]))
     if (newImageFiles && newImageFiles.length > 0) {
       for (const file of newImageFiles) {
         if (file && file.size > 0) {
@@ -173,7 +193,24 @@ export async function PUT(
       data: updateData
     })
 
-    return NextResponse.json({ success: true, data: updated })
+    if (imageUrls.length > 0) {
+      try {
+        await prisma.restaurantMediaImage.updateMany({
+          where: { restaurantSellerId: seller.id, url: { in: imageUrls } },
+          data: { isUsed: true },
+        })
+      } catch (mediaErr) {
+        console.warn("Could not mark media images as used:", mediaErr)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...updated,
+        sellingPrice: Math.max(0, updated.price - (updated.discount || 0)),
+      }
+    })
   } catch (error: any) {
     console.error("Web update food item error:", error)
     return NextResponse.json({ success: false, error: error?.message || "Internal server error" }, { status: 500 })
