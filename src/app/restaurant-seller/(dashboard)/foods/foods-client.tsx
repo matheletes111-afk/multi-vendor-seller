@@ -26,14 +26,16 @@ import {
   DialogTitle,
 } from "@/ui/dialog"
 import { PageLoader } from "@/components/ui/page-loader"
-import { Plus, Pencil, Trash2, Check, X, Utensils, AlertTriangle, Megaphone } from "lucide-react"
+import { Plus, Pencil, Trash2, Check, X, Utensils, AlertTriangle, Megaphone, Image as ImageIcon } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { RestaurantBulkUploadDialog } from "./bulk-upload-dialog"
 
 type FoodItem = {
   id: string
   name: string
   description: string | null
   price: number
+  discount?: number
   images: any
   category: string
   isVeg: boolean
@@ -106,16 +108,25 @@ export function RestaurantFoodsClient() {
         </Alert>
       )}
 
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Food Menu</h1>
           <p className="text-muted-foreground mt-2">Manage your restaurant menu, dishes, categories, and prices</p>
         </div>
-        <Button asChild className="rounded-xl shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-          <Link href="/restaurant-seller/foods/new">
-            <Plus className="mr-2 h-4 w-4" /> Add Food Item
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <RestaurantBulkUploadDialog onImported={loadFoods} />
+          <Button variant="outline" asChild className="rounded-xl border-emerald-600/30 text-emerald-700 hover:bg-emerald-50 font-bold shadow-sm">
+            <Link href="/restaurant-seller/foods/bulk-image-upload">
+              <ImageIcon className="mr-2 h-4 w-4 text-emerald-600" />
+              Bulk Image Upload
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            <Link href="/restaurant-seller/foods/new">
+              <Plus className="mr-2 h-4 w-4" /> Add Food Item
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card className="rounded-3xl shadow-2xl border-none overflow-hidden bg-background">
@@ -181,8 +192,24 @@ export function RestaurantFoodsClient() {
                         {food.isVeg ? "Veg" : "Non-Veg"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-black text-slate-900 text-base">
-                      {formatCurrency(food.price)}
+                    <TableCell>
+                      {food.discount && food.discount > 0 ? (
+                        <div className="space-y-0.5">
+                          <div className="font-black text-slate-900 text-base">
+                            {formatCurrency(Math.max(0, food.price - food.discount))}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="line-through">{formatCurrency(food.price)}</span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 rounded-md">
+                              Save {formatCurrency(food.discount)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="font-black text-slate-900 text-base">
+                          {formatCurrency(food.price)}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right pr-6">
                       <div className="flex justify-end gap-2">

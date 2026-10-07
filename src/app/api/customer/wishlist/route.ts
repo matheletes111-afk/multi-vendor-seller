@@ -42,6 +42,8 @@ export type WishlistItemApi = {
     name: string
     image: string | null
     price: number | null
+    originalPrice?: number | null
+    discount?: number | null
     isVeg: boolean
     category?: string
     restaurantName?: string
@@ -106,6 +108,7 @@ export function toItemApi(item: {
     name: string
     images: unknown
     price: number
+    discount?: number | null
     isVeg: boolean
     category: string
     restaurantSeller?: {
@@ -174,7 +177,9 @@ export function toItemApi(item: {
           id: item.foodItem.id,
           name: item.foodItem.name,
           image: foodImage,
-          price: item.foodItem.price,
+          price: Math.max(0, item.foodItem.price - (item.foodItem.discount || 0)),
+          originalPrice: item.foodItem.price,
+          discount: item.foodItem.discount || 0,
           isVeg: item.foodItem.isVeg,
           category: item.foodItem.category,
           restaurantName,
@@ -233,6 +238,7 @@ export const wishlistInclude = {
       name: true,
       images: true,
       price: true,
+      discount: true,
       isVeg: true,
       category: true,
       restaurantSeller: {

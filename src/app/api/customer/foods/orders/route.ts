@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           throw new Error("Quantity must be a positive integer")
         }
 
-        const price = food.price
+        const price = Math.max(0, food.price - (food.discount || 0))
         const subtotal = price * quantity
         subtotalAmount += subtotal
 

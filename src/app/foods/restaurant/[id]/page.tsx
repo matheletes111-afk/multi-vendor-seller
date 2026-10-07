@@ -18,6 +18,8 @@ type FoodItem = {
   name: string
   description: string | null
   price: number
+  discount?: number
+  sellingPrice?: number
   image: string | null
   category: string
   isVeg: boolean
@@ -144,6 +146,9 @@ export default function RestaurantMenuPage() {
 
     const currentItems = cart ? [...cart.items] : []
     const existingIdx = currentItems.findIndex(i => i.foodItemId === item.id)
+    const effectivePrice = typeof item.sellingPrice === "number"
+      ? item.sellingPrice
+      : (item.discount && item.discount > 0 ? Math.max(0, item.price - item.discount) : item.price)
 
     if (existingIdx > -1) {
       currentItems[existingIdx].quantity += qty
@@ -154,7 +159,7 @@ export default function RestaurantMenuPage() {
       currentItems.push({
         foodItemId: item.id,
         name: item.name,
-        price: item.price,
+        price: effectivePrice,
         quantity: qty,
         image: item.image,
         isVeg: item.isVeg,
@@ -175,13 +180,16 @@ export default function RestaurantMenuPage() {
 
   const clearAndAddConflictItem = () => {
     if (!restaurant || !conflictItem) return
+    const effectivePrice = typeof conflictItem.item.sellingPrice === "number"
+      ? conflictItem.item.sellingPrice
+      : (conflictItem.item.discount && conflictItem.item.discount > 0 ? Math.max(0, conflictItem.item.price - conflictItem.item.discount) : conflictItem.item.price)
     const newCart: LocalFoodCart = {
       restaurantId: restaurant.id,
       restaurantName: restaurant.businessName,
       items: [{
         foodItemId: conflictItem.item.id,
         name: conflictItem.item.name,
-        price: conflictItem.item.price,
+        price: effectivePrice,
         quantity: conflictItem.qty,
         image: conflictItem.item.image,
         isVeg: conflictItem.item.isVeg,
@@ -416,7 +424,7 @@ export default function RestaurantMenuPage() {
                             foodItemId={food.id}
                             name={food.name}
                             image={itemImg}
-                            price={food.price}
+                            price={food.sellingPrice ?? (food.discount ? Math.max(0, food.price - food.discount) : food.price)}
                             isVeg={food.isVeg}
                             category={food.category}
                             restaurantName={restaurant?.businessName}
@@ -435,7 +443,20 @@ export default function RestaurantMenuPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-amber-50">
-                      <span className="text-xs sm:text-base font-black text-amber-950">{formatCurrency(food.price)}</span>
+                      <div>
+                        {food.discount && food.discount > 0 ? (
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="text-xs sm:text-base font-black text-amber-950">
+                              {formatCurrency(food.sellingPrice ?? Math.max(0, food.price - food.discount))}
+                            </span>
+                            <span className="text-[10px] sm:text-xs text-amber-900/40 line-through font-bold">
+                              {formatCurrency(food.price)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs sm:text-base font-black text-amber-950">{formatCurrency(food.price)}</span>
+                        )}
+                      </div>
                       
                       {/* Quantity Controls */}
                       {quantityInCart > 0 ? (

@@ -705,6 +705,7 @@ model RestaurantSeller {
   foods               FoodItem[]
   foodOrders          FoodOrder[]
   sellerAds           SellerAd[]
+  mediaImages         RestaurantMediaImage[]
 
   @@map("restaurant_sellers")
 }
@@ -819,6 +820,22 @@ model RestaurantSubscription {
   plan             Plan             @relation(fields: [planId], references: [id])
 
   @@map("restaurant_subscriptions")
+}
+
+model RestaurantMediaImage {
+  id                 String           @id @default(cuid())
+  restaurantSellerId String
+  url                String           @db.Text
+  filename           String?
+  size               Int?
+  mimeType           String?
+  isUsed             Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+
+  restaurantSeller   RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantSellerId])
+  @@map("restaurant_media_images")
 }
 
 model SellerBalanceTransaction {
@@ -1592,6 +1609,7 @@ model FoodItem {
   name               String
   description        String?          @db.Text
   price              Float
+  discount           Float            @default(0)
   images             Json             @default("[]")
   category           String           // e.g. "Starters", "Mains"
   isVeg              Boolean          @default(true)

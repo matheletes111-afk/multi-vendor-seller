@@ -1,0 +1,613 @@
+================================================================================
+MOBILE RESTAURANT SELLER API DOCUMENTATION:
+BULK FOOD UPLOAD, BULK MEDIA GALLERY & FOOD DISCOUNT / SELLING PRICE SYSTEM
+================================================================================
+Document Version: 1.2.0
+Base URL: https://<your-domain>
+Authentication: Authorization: Bearer <MOBILE_ACCESS_TOKEN> (JWT)
+Role Requirement: SELLER_RESTAURANT (UserRole.SELLER_RESTAURANT)
+Target Audience: Mobile App Developers (Flutter / React Native / iOS / Android)
+Created: October 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. OVERVIEW & CAPABILITIES
+2. PRICING & DISCOUNT ARCHITECTURE (MRP vs SELLING PRICE)
+3. SINGLE FOOD ITEM CRUD APIS (WITH SELLING PRICE & DISCOUNT)
+   3.1 List Food Items (GET /mobileapi/restaurant-seller/foods)
+   3.2 Create Food Item (POST /mobileapi/restaurant-seller/foods)
+   3.3 Get Single Food Item (GET /mobileapi/restaurant-seller/foods/:id)
+   3.4 Update Food Item (PUT /mobileapi/restaurant-seller/foods/:id)
+   3.5 Delete Food Item (DELETE /mobileapi/restaurant-seller/foods/:id)
+4. BULK MEDIA IMAGE MANAGEMENT APIS
+   4.1 Upload Media Images (POST /mobileapi/restaurant-seller/upload/bulk-images)
+   4.2 List Media Gallery (GET /mobileapi/restaurant-seller/upload/bulk-images)
+   4.3 Delete Media Images (DELETE /mobileapi/restaurant-seller/upload/bulk-images)
+   4.4 Toggle Image Used Status (PATCH /mobileapi/restaurant-seller/upload/bulk-images)
+5. BULK FOOD IMPORT APIS (EXCEL & CSV)
+   5.1 Download Spreadsheet Template (GET /mobileapi/restaurant-seller/foods/bulk-template)
+   5.2 Upload & Import Spreadsheet (POST /mobileapi/restaurant-seller/foods/bulk-import)
+   5.3 Bulk Import Progress Check (GET /mobileapi/restaurant-seller/foods/bulk-import/progress)
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (8 COLUMNS)
+7. MOBILE APP UI / UX IMPLEMENTATION GUIDELINES
+8. COMPLETE PAYLOAD & RESPONSE REFERENCE FOR MOBILE DEVS
+9. FLUTTER & REACT NATIVE CODE IMPLEMENTATIONS
+
+================================================================================
+1. OVERVIEW & CAPABILITIES
+================================================================================
+This document provides complete implementation specifications for the Restaurant
+Seller Mobile API:
+
+1. Bulk Food Upload:
+   Sellers can upload hundreds of dishes at once using Microsoft Excel (.xlsx)
+   or CSV (.csv) spreadsheets, complete with validation, error reports, and
+   synchronous transaction creation.
+
+2. Bulk Media Image Gallery:
+   Sellers can upload multiple food dish pictures at once, view them in a gallery,
+   filter by used/unused status, and copy single or multiple image URLs
+   (separated with '|') to paste directly into their bulk spreadsheets or attach
+   to single dishes.
+
+3. Selling Price & Food Discount System:
+   Both single food creation/editing and bulk spreadsheet imports accept:
+   - "price" (Actual listed MRP / Menu Price)
+   - "sellingPrice" (The final discounted price that customers pay)
+   The backend automatically calculates:
+     discount = price - sellingPrice (if sellingPrice < price, else 0)
+   Customers and checkout will always be charged the sellingPrice.
+
+================================================================================
+2. PRICING & DISCOUNT ARCHITECTURE (MRP vs SELLING PRICE)
+================================================================================
+Field Definitions in Database & API:
+- "price" (Float, required, > 0):
+  The regular listed MRP (Maximum Retail Price) / Menu price of the food item.
+- "sellingPrice" (Float, optional, > 0 and <= price):
+  The discounted selling price that the restaurant wants to sell the dish for.
+  If omitted or equal to "price", no discount is applied.
+- "discount" (Float, auto-computed and stored in DB):
+  Computed as: Math.max(0, price - sellingPrice).
+  If sellingPrice is not provided, discount defaults to 0.
+
+Effective Customer Price Formula:
+  effectivePrice = Math.max(0, price - discount)
+
+Mobile App Seller Form Validation:
+- Rule 1: price > 0 (required)
+- Rule 2: sellingPrice > 0 (if entered)
+- Rule 3: sellingPrice <= price (selling price cannot be higher than MRP)
+- Rule 4: If seller clears sellingPrice, sending "" on PUT sets discount to 0.
+- Rule 5: If the seller lowers price below existing discount, the discount resets to 0.
+
+Live UI Preview Calculation for Seller:
+  discountAmount = price - sellingPrice
+  discountPercentage = Math.round((discountAmount / price) * 100)
+
+================================================================================
+3. SINGLE FOOD ITEM CRUD APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 LIST FOOD ITEMS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/foods
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Query Parameters (Optional):
+  - q: Search string for dish name or category
+  - category: Filter by category (e.g. "Pizza", "Biryani", "Drinks")
+  - isVeg: "true" | "false"
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cm123food456",
+      "restaurantSellerId": "cm123seller789",
+      "name": "Grilled Chicken Supreme",
+      "description": "Marinated breast with herbs, garlic butter, and steamed veggies.",
+      "category": "Main Course",
+      "price": 120.00,
+      "discount": 20.00,
+      "sellingPrice": 100.00,
+      "discountedPrice": 100.00,
+      "isVeg": false,
+      "images": [
+        "https://res.cloudinary.com/demo/image/upload/v1/chicken1.webp",
+        "https://res.cloudinary.com/demo/image/upload/v1/chicken2.webp"
+      ],
+      "isActive": true,
+      "isDeleted": false,
+      "createdAt": "2026-10-07T10:00:00.000Z",
+      "updatedAt": "2026-10-07T12:00:00.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+3.2 CREATE FOOD ITEM
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/restaurant-seller/foods
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+  Content-Type: multipart/form-data
+
+Form Data Fields:
+┌─────────────────┬───────────────────┬──────────┬─────────────────────────────┐
+│ Field Name      │ Type              │ Required │ Description                 │
+├─────────────────┼───────────────────┼──────────┼─────────────────────────────┤
+│ name            │ Text              │ YES      │ Name of dish (min 2 chars)  │
+│ category        │ Text              │ YES      │ Food category name          │
+│ price           │ Text / Number     │ YES      │ Listed regular MRP (> 0)    │
+│ sellingPrice    │ Text / Number     │ NO       │ Final price customer pays   │
+│ isVeg           │ Text ("true"/"1") │ YES      │ "true" or "1" for veg       │
+│ description     │ Text              │ NO       │ Description / ingredients   │
+│ images          │ File(s)           │ NO       │ New image files to upload   │
+│ image           │ File              │ NO       │ Single image file to upload │
+│ imageUrls       │ Text              │ NO       │ Pipe '|' or newline-sep URLs│
+└─────────────────┴───────────────────┴──────────┴─────────────────────────────┘
+Note: "selling_price" is accepted as an alias for "sellingPrice".
+
+Success Response (201 Created):
+{
+  "success": true,
+  "message": "Food item created successfully",
+  "data": {
+    "id": "cm987newfood123",
+    "restaurantSellerId": "cm123seller789",
+    "name": "Paneer Butter Masala",
+    "description": "Cottage cheese cubes in rich spiced creamy tomato gravy.",
+    "category": "Curry",
+    "price": 85.00,
+    "discount": 10.00,
+    "sellingPrice": 75.00,
+    "discountedPrice": 75.00,
+    "isVeg": true,
+    "images": [
+      "https://res.cloudinary.com/demo/image/upload/v1/paneer1.webp"
+    ],
+    "isActive": true,
+    "createdAt": "2026-10-07T13:00:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+3.3 GET SINGLE FOOD ITEM DETAILS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/foods/:id
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "cm987newfood123",
+    "restaurantSellerId": "cm123seller789",
+    "name": "Paneer Butter Masala",
+    "description": "Cottage cheese cubes in rich spiced creamy tomato gravy.",
+    "category": "Curry",
+    "price": 85.00,
+    "discount": 10.00,
+    "sellingPrice": 75.00,
+    "discountedPrice": 75.00,
+    "isVeg": true,
+    "images": [
+      "https://res.cloudinary.com/demo/image/upload/v1/paneer1.webp"
+    ],
+    "isActive": true
+  }
+}
+
+--------------------------------------------------------------------------------
+3.4 UPDATE FOOD ITEM
+--------------------------------------------------------------------------------
+Endpoint: PUT /mobileapi/restaurant-seller/foods/:id
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+  Content-Type: multipart/form-data
+
+Form Data Fields:
+┌─────────────────┬───────────────────┬──────────┬─────────────────────────────┐
+│ Field Name      │ Type              │ Required │ Description                 │
+├─────────────────┼───────────────────┼──────────┼─────────────────────────────┤
+│ name            │ Text              │ NO       │ Updated dish name           │
+│ category        │ Text              │ NO       │ Updated category            │
+│ price           │ Text / Number     │ NO       │ Updated MRP (> 0)           │
+│ sellingPrice    │ Text / Number     │ NO       │ Updated selling price       │
+│                 │                   │          │ Send "" to CLEAR discount!  │
+│ isVeg           │ Text ("true"/"1") │ NO       │ "true"/"false"              │
+│ description     │ Text              │ NO       │ Updated description         │
+│ newImages       │ File(s)           │ NO       │ New image files to append   │
+│ existingImages  │ JSON String Array │ NO       │ URLs of images to retain    │
+│ imageUrls       │ Text              │ NO       │ URLs from media gallery     │
+└─────────────────┴───────────────────┴──────────┴─────────────────────────────┘
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Food item updated successfully",
+  "data": {
+    "id": "cm987newfood123",
+    "name": "Paneer Butter Masala (Special)",
+    "price": 90.00,
+    "discount": 11.00,
+    "sellingPrice": 79.00,
+    "discountedPrice": 79.00,
+    "updatedAt": "2026-10-07T13:30:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+3.5 DELETE FOOD ITEM
+--------------------------------------------------------------------------------
+Endpoint: DELETE /mobileapi/restaurant-seller/foods/:id
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Food item deleted successfully"
+}
+
+================================================================================
+4. BULK MEDIA IMAGE MANAGEMENT APIS
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 UPLOAD MEDIA IMAGES IN BULK
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/restaurant-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+  Content-Type: multipart/form-data
+
+Form Data:
+  - files: File[] (one or multiple image files, max 10MB each)
+  OR
+  - file: File (single image file)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "2 image(s) uploaded successfully",
+  "images": [
+    {
+      "id": "cm_img_101",
+      "restaurantSellerId": "cm123seller789",
+      "filename": "burger.webp",
+      "url": "https://res.cloudinary.com/demo/image/upload/v1/burger.webp",
+      "size": 104850,
+      "mimeType": "image/webp",
+      "isUsed": false,
+      "createdAt": "2026-10-07T13:10:00.000Z"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+4.2 LIST STORED MEDIA GALLERY IMAGES
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Query Parameters (Optional):
+  - page: Integer (default: 1)
+  - perPage / limit: Integer (default: 50, max: 100)
+  - status: "ALL" | "USED" | "UNUSED" (default: "ALL")
+  - q: Search string (matches filename)
+  - all: "true" (fetches all images without pagination)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "images": [
+    {
+      "id": "cm_img_101",
+      "filename": "burger.webp",
+      "url": "https://res.cloudinary.com/demo/image/upload/v1/burger.webp",
+      "size": 104850,
+      "mimeType": "image/webp",
+      "isUsed": true,
+      "createdAt": "2026-10-07T13:10:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "perPage": 50,
+    "total": 48,
+    "totalPages": 1
+  }
+}
+
+--------------------------------------------------------------------------------
+4.3 DELETE MEDIA IMAGES
+--------------------------------------------------------------------------------
+Endpoint: DELETE /mobileapi/restaurant-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Query Parameter OR JSON Body:
+  ?id=cm_img_101
+  OR JSON body: { "id": "cm_img_101" }
+
+Success Response (200 OK):
+{
+  "success": true,
+  "deletedId": "cm_img_101"
+}
+
+--------------------------------------------------------------------------------
+4.4 TOGGLE / UPDATE IMAGE USED STATUS
+--------------------------------------------------------------------------------
+Endpoint: PATCH /mobileapi/restaurant-seller/upload/bulk-images
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+  Content-Type: application/json
+
+Request Body:
+{
+  "ids": ["cm_img_101", "cm_img_102"],
+  "isUsed": true
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "count": 2,
+  "isUsed": true
+}
+
+================================================================================
+5. BULK FOOD IMPORT APIS (EXCEL & CSV)
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 DOWNLOAD SPREADSHEET TEMPLATE
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/foods/bulk-template
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Query Parameters:
+  - format: "xlsx" | "csv" (default: "xlsx")
+  - dummy: "true" | "false" (default: "true", pre-fills sample dishes adapted to cuisine)
+
+Usage in Mobile App:
+- If format=xlsx: Download binary spreadsheet 'restaurant-food-bulk-template.xlsx'.
+- If format=csv: Download CSV file 'restaurant-food-bulk-template.csv'.
+
+--------------------------------------------------------------------------------
+5.2 UPLOAD & IMPORT SPREADSHEET
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/restaurant-seller/foods/bulk-import
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+  Content-Type: multipart/form-data
+
+Form Data:
+  - file: File (.xlsx or .csv, max 8MB, max 500 rows)
+
+Execution Model:
+- The import is SYNCHRONOUS and ALL-OR-NOTHING.
+- If any row fails validation, the entire batch is rejected, and an array of descriptive
+  row-by-row error strings is returned.
+- If all rows are valid, dishes are created in a database transaction, and any
+  referenced media gallery images are automatically marked with isUsed: true.
+
+Success Response (200 OK):
+{
+  "success": true,
+  "count": 15,
+  "message": "Successfully imported 15 food items."
+}
+
+Validation Failure Response (400 Bad Request):
+{
+  "success": false,
+  "error": "Import validation failed",
+  "errors": [
+    "Row 3: selling price (120) cannot exceed regular price (100) for \"Butter Chicken\"",
+    "Row 7: food_name is required",
+    "Row 9: valid price greater than 0 is required for \"Mango Lassi\""
+  ]
+}
+
+--------------------------------------------------------------------------------
+5.3 BULK IMPORT PROGRESS STATUS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/foods/bulk-import/progress
+Headers:
+  Authorization: Bearer <MOBILE_ACCESS_TOKEN>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "hasActiveJob": false,
+  "message": "No active bulk import job."
+}
+
+================================================================================
+6. SPREADSHEET COLUMN SPECIFICATION & RULES (8 COLUMNS)
+================================================================================
+The Excel or CSV spreadsheet contains exactly 8 columns in order:
+
+┌────┬──────────────────────┬──────────┬──────────┬────────────────────────────────────────────────────────┐
+│ #  │ Column Header Name   │ Type     │ Required │ Description & Rules                                    │
+├────┼──────────────────────┼──────────┼──────────┼────────────────────────────────────────────────────────┤
+│ 1  │ category             │ String   │ YES      │ Category (e.g. "Pizza", "Biryani", "Drinks", "Dessert")│
+│ 2  │ food_name            │ String   │ YES      │ Name of dish (e.g. "Chicken Shawarma Plate")          │
+│ 3  │ price                │ Number   │ YES      │ Regular Listed MRP price (> 0) (e.g. 150.00)           │
+│ 4  │ selling_price        │ Number   │ NO       │ Final price customer pays (e.g. 125.00). Must be <= MRP│
+│    │                      │          │          │ Leave blank for no discount.                           │
+│ 5  │ is_veg               │ String   │ YES      │ "YES" / "TRUE" / "1" for veg; "NO" / "0" for non-veg   │
+│ 6  │ description          │ String   │ NO       │ Dish description, ingredients, notes                   │
+│ 7  │ food_images          │ String   │ NO       │ URLs separated by pipe '|' (e.g. url1|url2|url3)       │
+│ 8  │ is_active            │ String   │ NO       │ "YES" / "TRUE" / "1" (default: true)                   │
+└────┴──────────────────────┴──────────┴──────────┴────────────────────────────────────────────────────────┘
+
+Spreadsheet Aliases Supported:
+- food_name: "name", "dish_name", "item_name", "title"
+- selling_price: "sellingPrice", "discount", "offer_price", "discounted_price"
+- food_images: "images", "image_urls", "photos"
+
+Sample Spreadsheet Row:
+category: Biryani
+food_name: Chicken Dum Biryani
+price: 160
+selling_price: 130
+is_veg: NO
+description: Long grain basmati rice with chicken and aromatic spices.
+food_images: https://res.cloudinary.com/demo/image/upload/v1/b1.webp|https://res.cloudinary.com/demo/image/upload/v1/b2.webp
+is_active: YES
+
+Database Result:
+- price: 160.00
+- discount: 30.00 (160 - 130)
+- sellingPrice: 130.00
+
+================================================================================
+7. MOBILE APP UI / UX IMPLEMENTATION GUIDELINES
+================================================================================
+
+1. Food Create / Edit Form:
+   - Provide two price inputs side-by-side:
+     [ Listed MRP * ]       [ Selling Price (Customer pays) ]
+   - Add live hint below Selling Price:
+     "Customer saves: Le 30.00 (19% OFF)" in green text.
+   - If Selling Price > Listed MRP, display inline validation:
+     "Selling price cannot exceed regular price."
+   - If user clears Selling Price, display "No discount applied".
+
+2. Food Menu List Item Card:
+   - If discount > 0:
+     Display Selling Price prominently: "Le 130.00"
+     Display Listed MRP struck-through: "~~Le 160.00~~"
+     Display savings pill: "Save Le 30" or "19% OFF"
+   - If discount == 0:
+     Display Listed Price normally: "Le 160.00"
+
+3. Bulk Image Gallery Screen:
+   - Multi-select thumbnail grid.
+   - Action Bar:
+     [ Copy Selected URLs (|) ] -> Copies pipe-delimited string to clipboard
+     [ Delete Selected ] -> Calls DELETE endpoint
+   - Upload Button: Pick multiple images from device library to upload.
+
+4. Bulk Upload Screen:
+   - Tab 1: Download Template (.xlsx or .csv)
+   - Tab 2: Upload File (Select .xlsx / .csv and display validation errors if any)
+
+================================================================================
+8. COMPLETE PAYLOAD & RESPONSE REFERENCE FOR MOBILE DEVS
+================================================================================
+HTTP Status Codes:
+- 200 OK: Request succeeded.
+- 201 Created: New resource created.
+- 400 Bad Request: Missing required fields, sellingPrice > price, or invalid spreadsheet.
+- 401 Unauthorized: Invalid or missing bearer token.
+- 403 Forbidden: User role is not SELLER_RESTAURANT.
+- 404 Not Found: Food item or seller account not found.
+- 500 Internal Server Error: Server error.
+
+================================================================================
+9. FLUTTER & REACT NATIVE CODE IMPLEMENTATIONS
+================================================================================
+
+--- 9.1 Flutter / Dart Food Upload Function ---
+```dart
+import 'dart:io';
+import 'package:http/http.dart' as http;
+
+Future<bool> createFoodItem({
+  required String token,
+  required String name,
+  required String category,
+  required double price,
+  double? sellingPrice,
+  required bool isVeg,
+  String? description,
+  List<File>? newImages,
+  String? galleryImageUrls,
+}) async {
+  final uri = Uri.parse('https://your-domain/mobileapi/restaurant-seller/foods');
+  final request = http.MultipartRequest('POST', uri);
+  request.headers['Authorization'] = 'Bearer $token';
+
+  request.fields['name'] = name;
+  request.fields['category'] = category;
+  request.fields['price'] = price.toString();
+  if (sellingPrice != null && sellingPrice > 0) {
+    request.fields['sellingPrice'] = sellingPrice.toString();
+  }
+  request.fields['isVeg'] = isVeg ? 'true' : 'false';
+  if (description != null) request.fields['description'] = description;
+  if (galleryImageUrls != null) request.fields['imageUrls'] = galleryImageUrls;
+
+  if (newImages != null) {
+    for (final img in newImages) {
+      request.files.add(await http.MultipartFile.fromPath('images', img.path));
+    }
+  }
+
+  final response = await request.send();
+  return response.statusCode == 201 || response.statusCode == 200;
+}
+```
+
+--- 9.2 React Native / TypeScript Food Upload Function ---
+```tsx
+export async function createFoodItem(token: string, data: {
+  name: string;
+  category: string;
+  price: number;
+  sellingPrice?: number;
+  isVeg: boolean;
+  description?: string;
+  newImages?: Array<{ uri: string; name: string; type: string }>;
+  galleryImageUrls?: string;
+}) {
+  const formData = new FormData();
+  formData.append('name', data.name);
+  formData.append('category', data.category);
+  formData.append('price', String(data.price));
+  if (data.sellingPrice && data.sellingPrice > 0) {
+    formData.append('sellingPrice', String(data.sellingPrice));
+  }
+  formData.append('isVeg', data.isVeg ? 'true' : 'false');
+  if (data.description) formData.append('description', data.description);
+  if (data.galleryImageUrls) formData.append('imageUrls', data.galleryImageUrls);
+
+  if (data.newImages) {
+    data.newImages.forEach((img) => {
+      formData.append('images', {
+        uri: img.uri,
+        name: img.name,
+        type: img.type,
+      } as any);
+    });
+  }
+
+  const res = await fetch('https://your-domain/mobileapi/restaurant-seller/foods', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Note: Do not set Content-Type manually when using FormData in React Native
+    },
+    body: formData,
+  });
+
+  return await res.json();
+}
+```
+
+================================================================================
+END OF RESTAURANT SELLER MOBILE API DOCUMENTATION
+================================================================================

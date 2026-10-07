@@ -152,10 +152,13 @@ export async function GET(request: NextRequest) {
             if (Array.isArray(parsed) && parsed.length > 0) firstImage = parsed[0]
           } catch {}
         }
+        const sellingPrice = Math.max(0, f.price - (f.discount || 0))
         return {
           id: f.id,
           name: f.name,
           price: f.price,
+          discount: f.discount || 0,
+          sellingPrice,
           image: firstImage,
           isVeg: f.isVeg,
           category: f.category

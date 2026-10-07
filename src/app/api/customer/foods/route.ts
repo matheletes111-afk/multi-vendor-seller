@@ -33,19 +33,9 @@ export async function GET(request: NextRequest) {
       where.isVeg = isVegRaw === "true" || isVegRaw === "1"
     }
 
-    if (minPriceRaw) {
-      const minPrice = parseFloat(minPriceRaw)
-      if (!isNaN(minPrice)) {
-        where.price = { ...where.price, gte: minPrice }
-      }
-    }
-
-    if (maxPriceRaw) {
-      const maxPrice = parseFloat(maxPriceRaw)
-      if (!isNaN(maxPrice)) {
-        where.price = { ...where.price, lte: maxPrice }
-      }
-    }
+    // Price range is applied on the selling price (price - discount) after the query
+    const minPrice = minPriceRaw ? parseFloat(minPriceRaw) : NaN
+    const maxPrice = maxPriceRaw ? parseFloat(maxPriceRaw) : NaN
 
     if (restaurantSellerId && restaurantSellerId !== "ALL") {
       where.restaurantSellerId = restaurantSellerId
@@ -87,7 +77,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const formattedFoods = foods.map(f => {
+    const mappedFoods = foods.map(f => {
       const totalReviews = f.reviews.length
       const averageRating = totalReviews > 0 
         ? parseFloat((f.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1))
@@ -96,9 +86,12 @@ export async function GET(request: NextRequest) {
       const { reviews, ...restFood } = f
       const extractedImages = extractFoodImages(f.images)
       const firstImage = extractedImages[0] || null
+      const sellingPrice = Math.max(0, f.price - (f.discount || 0))
 
       return {
         ...restFood,
+        discount: f.discount || 0,
+        sellingPrice,
         images: extractedImages,
         image: firstImage,
         averageRating,
@@ -106,6 +99,11 @@ export async function GET(request: NextRequest) {
         restaurantName: f.restaurantSeller.businessInfo?.businessName || f.restaurantSeller.user.name || "Restaurant"
       }
     })
+
+    const formattedFoods = mappedFoods.filter(f =>
+      (isNaN(minPrice) || f.sellingPrice >= minPrice) &&
+      (isNaN(maxPrice) || f.sellingPrice <= maxPrice)
+    )
 
     let result = formattedFoods
     if (ratingRaw && ratingRaw !== "ALL") {

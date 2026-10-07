@@ -71,6 +71,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: f.name,
         description: f.description,
         price: f.price,
+        discount: f.discount || 0,
+        sellingPrice: Math.max(0, f.price - (f.discount || 0)),
         images: extractedImages,
         image: firstImage,
         category: f.category,

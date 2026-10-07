@@ -72,6 +72,8 @@ export async function GET(request: NextRequest) {
         name: f.name,
         description: f.description,
         price: f.price,
+        discount: f.discount || 0,
+        sellingPrice: Math.max(0, f.price - (f.discount || 0)),
         image: firstImage,
         images: f.images,
         category: f.category,
