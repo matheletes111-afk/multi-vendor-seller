@@ -96,6 +96,15 @@ export const BACKOFFICE_MODULES: PermissionModule[] = [
     basePath: "/admin/coupons",
     allowedPrefixes: ["/admin/coupons", "/api/admin/coupons"],
   },
+  {
+    key: "seller-drip-campaigns",
+    label: "Seller Daily Emails",
+    category: "Master",
+    description: "7-day onboarding and re-engagement email templates for all 4 seller types",
+    basePath: "/admin/seller-drip-campaigns",
+    allowedPrefixes: ["/admin/seller-drip-campaigns", "/api/admin/seller-drip-campaigns"],
+  },
+
 
   // ── 2. PRODUCTS & SERVICES ──
   {

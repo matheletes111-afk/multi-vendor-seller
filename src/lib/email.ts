@@ -2002,6 +2002,197 @@ Please sign in and change your password.
   })
 }
 
+// ── 7-DAY AUTOMATED SELLER DRIP & ENGAGEMENT EMAIL ──────────────────────────
+export async function sendSellerDripEmail({
+  to,
+  sellerName,
+  businessName,
+  sellerType,
+  dayNumber,
+  subject,
+  preheader,
+  headline,
+  body,
+  bulletPoints = [],
+  ctaText,
+  ctaUrl,
+  baseUrl,
+}: {
+  to?: string | null
+  sellerName?: string | null
+  businessName?: string | null
+  sellerType: "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | string
+  dayNumber: number
+  subject: string
+  preheader?: string | null
+  headline: string
+  body: string
+  bulletPoints?: string[]
+  ctaText: string
+  ctaUrl: string
+  baseUrl?: string
+}) {
+  if (!to || !to.trim()) {
+    return { success: false, error: new Error("No recipient email address provided.") }
+  }
+
+  const normalizedType = (sellerType || "PRODUCT").toUpperCase()
+  const displayName = sellerName?.trim() || businessName?.trim() || "Valued Merchant"
+  const effectiveBaseUrl = (baseUrl || process.env.NEXT_PUBLIC_LIVE_SITE_URL || "https://meeemsl.com").replace(/\/+$/, "")
+  const fullCtaUrl = ctaUrl.startsWith("http") ? ctaUrl : `${effectiveBaseUrl}${ctaUrl.startsWith("/") ? "" : "/"}${ctaUrl}`
+
+  // Palette by seller type
+  let headerGradient = "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)"
+  let accentColor = "#4338ca"
+  let badgeBg = "rgba(255, 255, 255, 0.18)"
+  let badgeText = "#fef08a"
+  let typeLabel = "Product Merchant"
+
+  if (normalizedType === "SERVICE") {
+    headerGradient = "linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%)"
+    accentColor = "#059669"
+    badgeBg = "rgba(255, 255, 255, 0.2)"
+    badgeText = "#a7f3d0"
+    typeLabel = "Service Professional"
+  } else if (normalizedType === "HOTEL") {
+    headerGradient = "linear-gradient(135deg, #78350f 0%, #b45309 50%, #d97706 100%)"
+    accentColor = "#d97706"
+    badgeBg = "rgba(255, 255, 255, 0.2)"
+    badgeText = "#fef3c7"
+    typeLabel = "Hospitality Partner"
+  } else if (normalizedType === "RESTAURANT") {
+    headerGradient = "linear-gradient(135deg, #881337 0%, #be123c 50%, #e11d48 100%)"
+    accentColor = "#e11d48"
+    badgeBg = "rgba(255, 255, 255, 0.2)"
+    badgeText = "#ffe4e6"
+    typeLabel = "Restaurant Partner"
+  }
+
+  const bulletsHtml =
+    bulletPoints.length > 0
+      ? `
+      <div style="margin: 22px 0; background-color: #f8fafc; border-radius: 12px; padding: 18px 20px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Key Highlights for You:</p>
+        <ul style="margin: 0; padding: 0; list-style: none;">
+          ${bulletPoints
+            .map(
+              (bp) => `
+            <li style="margin-bottom: 10px; display: flex; align-items: flex-start; font-size: 14px; color: #1e293b; line-height: 1.5;">
+              <span style="display: inline-block; width: 20px; height: 20px; min-width: 20px; background-color: ${accentColor}; color: #ffffff; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; margin-right: 10px;">✓</span>
+              <span>${bp}</span>
+            </li>`
+            )
+            .join("")}
+        </ul>
+      </div>`
+      : ""
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b;">
+      ${preheader ? `<div style="display: none; max-height: 0px; overflow: hidden;">${preheader}</div>` : ""}
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+              
+              <!-- HEADER -->
+              <tr>
+                <td style="background: ${headerGradient}; padding: 34px 28px; text-align: center;">
+                  <div style="display: inline-block; background-color: ${badgeBg}; border-radius: 20px; padding: 5px 14px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.3);">
+                    <span style="color: ${badgeText}; font-size: 12px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;">
+                      DAY ${dayNumber} OF 7 • ${typeLabel.toUpperCase()}
+                    </span>
+                  </div>
+                  <h1 style="color: #ffffff; margin: 0; font-size: 23px; font-weight: 800; line-height: 1.35;">
+                    ${headline}
+                  </h1>
+                </td>
+              </tr>
+
+              <!-- BODY -->
+              <tr>
+                <td style="padding: 32px 30px;">
+                  <p style="font-size: 16px; font-weight: 600; color: #0f172a; margin: 0 0 14px 0;">
+                    Hello ${displayName},
+                  </p>
+                  
+                  <div style="font-size: 15px; color: #334155; line-height: 1.65; margin: 0 0 18px 0;">
+                    ${body.replace(/\n\n/g, "</p><p style='margin: 0 0 14px 0;'>").replace(/\n/g, "<br/>")}
+                  </div>
+
+                  ${bulletsHtml}
+
+                  <!-- CTA BUTTON -->
+                  <div style="text-align: center; margin: 32px 0 24px 0;">
+                    <a href="${fullCtaUrl}" 
+                       style="background: ${headerGradient}; color: #ffffff; padding: 15px 36px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 15px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);">
+                      ${ctaText}
+                    </a>
+                  </div>
+
+                  <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.5;">
+                    Or visit directly: <a href="${fullCtaUrl}" style="color: ${accentColor}; word-break: break-all;">${fullCtaUrl}</a>
+                  </p>
+
+                  <!-- SUPPORT BOX -->
+                  <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 28px; font-size: 13px; color: #64748b; line-height: 1.6;">
+                    <p style="margin: 0;">
+                      Have questions or need assistance? Our merchant team is always here to help. Reach us at <a href="mailto:support@meeemsl.com" style="color: ${accentColor}; font-weight: 600; text-decoration: none;">support@meeemsl.com</a>.
+                    </p>
+                  </div>
+
+                </td>
+              </tr>
+
+              <!-- FOOTER -->
+              <tr>
+                <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #64748b;">MEEEM Multi-Vendor Marketplace</p>
+                  <p style="margin: 0;">
+                    <a href="https://meeemsl.com" style="color: #64748b; text-decoration: none;">meeemsl.com</a> • Freetown, Sierra Leone
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `
+
+  const text = `
+DAY ${dayNumber} OF 7 • ${typeLabel}
+${headline}
+
+Hello ${displayName},
+
+${body}
+
+${bulletPoints.length > 0 ? "\nHighlights:\n" + bulletPoints.map((b) => `• ${b}`).join("\n") + "\n" : ""}
+Take Action Now: ${fullCtaUrl}
+
+Need assistance? Contact support@meeemsl.com.
+MEEEM Marketplace
+  `.trim()
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text,
+  })
+}
+
+
 
 
 

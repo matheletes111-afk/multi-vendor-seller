@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:link-apple-plans": "tsx scripts/link-apple-iap-plans.ts",
     "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts",
+    "cron:daily-drip": "tsx scripts/send-daily-drip.ts",
     "socket": "node socket-server.js",
     "test:socket": "node scripts/test-socket.js"
   },

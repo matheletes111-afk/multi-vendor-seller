@@ -43,6 +43,7 @@ import {
   Shield,
   ShieldAlert,
   ArrowLeft,
+  Mail,
 } from "lucide-react"
 import { DashboardFooter } from "@/components/layout/dashboard-footer"
 import { isPathPermitted, getFirstAllowedPath, SUPER_ADMIN_ONLY_PREFIXES } from "@/lib/permissions"
@@ -164,6 +165,7 @@ export function AdminLayoutClient({
         "reviews",
         "settings",
         "coupons",
+        "seller-drip-campaigns",
       ]) || isSuper ? (
         <div>
           <div className="px-3 mb-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
@@ -181,6 +183,8 @@ export function AdminLayoutClient({
             <NavItem href="/admin/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} moduleKey="reviews" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/settings" label="Settings" icon={<User className="h-4 w-4" />} moduleKey="settings" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/coupons" label="Coupons" icon={<Ticket className="h-4 w-4" />} moduleKey="coupons" isSuperAdmin={isSuper} permissions={permissions} />
+            <NavItem href="/admin/seller-drip-campaigns" label="Seller Daily Emails" icon={<Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />} moduleKey="seller-drip-campaigns" isSuperAdmin={isSuper} permissions={permissions} />
+
 
             {/* Super Admin-Only Section for Roles & Staff */}
             {isSuper && (
