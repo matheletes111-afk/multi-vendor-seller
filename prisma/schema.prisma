@@ -2012,3 +2012,44 @@ model BackofficeRole {
 
   @@map("backoffice_roles")
 }
+
+// ==========================================
+// SELLER DRIP EMAIL CAMPAIGNS (7-DAY LIFECYCLE)
+// ==========================================
+
+model SellerDripTemplate {
+  id           String   @id @default(cuid())
+  sellerType   String   // "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
+  dayNumber    Int      // 1 to 7
+  subject      String
+  preheader    String?
+  headline     String
+  body         String   @db.Text
+  bulletPoints Json     @default("[]") // Array of string highlight points
+  ctaText      String   @default("Get Started")
+  ctaUrl       String   @default("/product-seller/dashboard")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([sellerType, dayNumber])
+  @@index([sellerType])
+  @@map("seller_drip_templates")
+}
+
+model SellerDripLog {
+  id             String   @id @default(cuid())
+  sellerId       String
+  sellerType     String   // "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
+  dayNumber      Int      // 1 to 7
+  recipientEmail String
+  templateId     String?
+  status         String   @default("SENT") // "SENT" | "FAILED"
+  error          String?
+  sentAt         DateTime @default(now())
+
+  @@index([sellerId, sentAt])
+  @@index([sellerId, dayNumber])
+  @@index([sentAt])
+  @@map("seller_drip_logs")
+}
