@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       })
     }
 
-    if (!user || !user.isEmailVerified) {
+    if (!user) {
       await recordOtpFailure(rateLimitKey)
       return NextResponse.json({ error: "Invalid credentials or OTP." }, { status: 400 })
     }
@@ -61,7 +61,13 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword, verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
+      data: {
+        password: hashedPassword,
+        isEmailVerified: true,
+        verifyEmailOtp: null,
+        emailVerificationExpires: null,
+        emailOtpSentAt: null,
+      },
     })
 
     await resetOtpRateLimit(rateLimitKey)

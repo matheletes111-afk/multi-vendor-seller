@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       })
     }
 
-    if (!user || !user.isEmailVerified) {
+    if (!user) {
       return NextResponse.json({ message: "If an account exists with this credential, OTP has been sent." }, { status: 200 })
     }
 

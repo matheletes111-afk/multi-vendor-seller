@@ -104,6 +104,7 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        isEmailVerified: true,
         verifyEmailOtp: null,
         emailVerificationExpires: null,
         emailOtpSentAt: null,

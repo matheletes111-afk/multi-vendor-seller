@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       })
     }
 
-    if (!user || !user.isEmailVerified) {
+    if (!user) {
       return NextResponse.json(
         {
           success: true,

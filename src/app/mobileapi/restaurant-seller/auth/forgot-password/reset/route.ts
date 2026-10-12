@@ -56,7 +56,6 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     if (
       !user ||
-      !user.isEmailVerified ||
       user.verifyEmailOtp !== otp ||
       !user.emailVerificationExpires ||
       user.emailVerificationExpires < new Date()
@@ -67,7 +66,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword, verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
+      data: {
+        password: hashedPassword,
+        isEmailVerified: true,
+        verifyEmailOtp: null,
+        emailVerificationExpires: null,
+        emailOtpSentAt: null,
+      },
     })
 
     return NextResponse.json(
