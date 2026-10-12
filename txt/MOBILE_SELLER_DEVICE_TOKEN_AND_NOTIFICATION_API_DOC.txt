@@ -1,0 +1,365 @@
+================================================================================
+MOBILE SELLER APPS - DEVICE TOKEN CAPTURE & PUSH NOTIFICATION API SPECIFICATION
+================================================================================
+Document: MOBILE_SELLER_DEVICE_TOKEN_AND_NOTIFICATION_API_DOC.txt
+Audience: Seller Mobile App Developers (Product, Service, Hotel, Restaurant)
+Date: 2026-10-12
+Purpose: Complete technical integration guide for capturing push notification
+         device tokens after seller login and handling high-priority incoming alerts.
+================================================================================
+
+
+1. ARCHITECTURAL OVERVIEW & MULTI-SELLER SUPPORT
+--------------------------------------------------------------------------------
+This single unified API serves all 4 seller mobile applications:
+  1. Product Seller App    (UserRole: SELLER_PRODUCT)
+  2. Service Seller App    (UserRole: SELLER_SERVICE)
+  3. Hotel Seller App      (UserRole: SELLER_HOTEL)
+  4. Restaurant Seller App (UserRole: SELLER_RESTAURANT)
+
+The device token is captured AFTER login. The token is never passed inside the
+login endpoint; it must be registered immediately upon receiving the Bearer
+mobile access token.
+
+  +--------------------------------------------------------------------------+
+  |                             SELLER LIFECYCLE                             |
+  +--------------------------------------------------------------------------+
+  | 1. Seller Logs In via Email/Phone + Password (or 2FA OTP)                |
+  |    --> Receives `tokens.accessToken` (Bearer JWT)                        |
+  |                                                                          |
+  | 2. Mobile App retrieves FCM/APNS token from OS SDK                       |
+  |    --> FirebaseMessaging.instance.getToken()                            |
+  |                                                                          |
+  | 3. Mobile App calls POST /mobileapi/seller/device-token                  |
+  |    --> Header: Authorization: Bearer <accessToken>                       |
+  |    --> Body: { token, platform, deviceId, deviceModel, userAgent }       |
+  |                                                                          |
+  | 4. Backend validates seller role & stores token in PostgreSQL            |
+  |    --> De-duplicates by deviceId / token                                 |
+  |    --> Retains up to 10 latest active devices per seller                 |
+  |                                                                          |
+  | 5. On Token Refresh (FCM onTokenRefresh event):                          |
+  |    --> Re-call POST /mobileapi/seller/device-token with new token        |
+  |                                                                          |
+  | 6. On Seller Logout:                                                     |
+  |    --> App calls DELETE /mobileapi/seller/device-token                   |
+  |    --> Disables push alerts on this device so next user doesn't see them |
+  +--------------------------------------------------------------------------+
+
+
+2. API ENDPOINTS
+--------------------------------------------------------------------------------
+
+A. REGISTER / UPDATE DEVICE TOKEN (AFTER LOGIN)
+   Endpoint: POST /mobileapi/seller/device-token
+   Authentication: Required (Bearer Token)
+   Content-Type: application/json
+
+   Headers:
+   --------------------------------------------------------------------------
+   Authorization: Bearer <seller_mobile_access_token>
+   Content-Type: application/json
+
+   Request Body Schema:
+   --------------------------------------------------------------------------
+   {
+     "token": string,        // [REQUIRED] Full FCM or APNS registration push token string
+     "platform": string,     // [OPTIONAL] "android" | "ios" | "web" (default: "android")
+     "deviceId": string,     // [RECOMMENDED] Unique device UUID (e.g. android_id or identifierForVendor)
+     "deviceModel": string,  // [OPTIONAL] e.g. "Samsung Tab A8", "Redmi Note 12"
+     "userAgent": string     // [OPTIONAL] App name & version, e.g. "MeeemRestaurantSeller/1.0"
+   }
+
+   Request Example:
+   --------------------------------------------------------------------------
+   {
+     "token": "eF9_xK3pLqW...jY0w2xA8v7B6c5d4e3f2g1h0k",
+     "platform": "android",
+     "deviceId": "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e",
+     "deviceModel": "Samsung Galaxy Tab A8",
+     "userAgent": "MeeemRestaurantSeller/1.0"
+   }
+
+   Success Response (200 OK):
+   --------------------------------------------------------------------------
+   {
+     "success": true,
+     "message": "Seller device token registered successfully for push notifications.",
+     "data": {
+       "role": "SELLER_RESTAURANT", // Confirmed authenticated seller role
+       "registeredTokensCount": 1,
+       "devices": [
+         {
+           "token": "eF9_xK3pLqW...jY0w2xA8v7B6c5d4e3f2g1h0k",
+           "deviceId": "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e",
+           "platform": "android",
+           "deviceModel": "Samsung Galaxy Tab A8",
+           "userAgent": "MeeemRestaurantSeller/1.0",
+           "lastActiveAt": "2026-10-12T07:35:00.000Z",
+           "createdAt": "2026-10-12T07:35:00.000Z"
+         }
+       ]
+     }
+   }
+
+   Error Responses:
+   --------------------------------------------------------------------------
+   * 400 Bad Request:
+     { "success": false, "error": "Device push token is required" }
+
+   * 401 Unauthorized:
+     { "success": false, "error": "Unauthorized: Invalid or expired mobile session." }
+
+   * 403 Forbidden:
+     { "success": false, "error": "Forbidden: Seller role required." }
+     (Returned if a Customer or non-seller tries to call this endpoint)
+
+   * 500 Internal Server Error:
+     { "success": false, "error": "Failed to update device token." }
+
+
+B. UNREGISTER DEVICE TOKEN (UPON LOGOUT)
+   Endpoint: DELETE /mobileapi/seller/device-token
+   Authentication: Required (Bearer Token)
+   Content-Type: application/json
+
+   Headers:
+   --------------------------------------------------------------------------
+   Authorization: Bearer <seller_mobile_access_token>
+   Content-Type: application/json
+
+   Request Body Schema:
+   --------------------------------------------------------------------------
+   {
+     "token": string,    // [EITHER token OR deviceId is REQUIRED]
+     "deviceId": string  // [EITHER token OR deviceId is REQUIRED]
+   }
+
+   Request Example:
+   --------------------------------------------------------------------------
+   {
+     "deviceId": "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e"
+   }
+
+   Success Response (200 OK):
+   --------------------------------------------------------------------------
+   {
+     "success": true,
+     "message": "Seller device token unregistered successfully.",
+     "data": {
+       "remainingDevicesCount": 0
+     }
+   }
+
+
+3. NOTIFICATION DATA PAYLOADS & SOUND CHANNELS FOR SELLER APPS
+--------------------------------------------------------------------------------
+Seller push notifications are sent with MAX/HIGH priority so orders are not
+missed even when the tablet or phone is locked.
+
+Android Notification Channel Configuration:
+- Channel ID: `delivery_alerts`
+- Importance: High / Max
+- Sound: Default or custom loud order chime
+- Vibration: Enabled
+
+Common Notification Payload Structure:
+--------------------------------------------------------------------------------
+{
+  "notification": {
+    "title": "🔔 New Order Received!",
+    "body": "New order #ORD-5012 received from Customer. Tap to accept."
+  },
+  "data": {
+    "type": "NEW_ORDER",                 // Event type
+    "orderId": "clx1234567890",
+    "orderNumber": "ORD-5012",
+    "totalAmount": "250.00",
+    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+  }
+}
+
+Common Notification Types for Seller Apps:
+--------------------------------------------------------------------------------
+1. "NEW_ORDER" (Product & Restaurant Sellers)
+   Trigger: Customer places order and completes payment.
+   Action: Play order bell / alert sound, open Incoming Orders tab.
+
+2. "ORDER_CANCELLED"
+   Trigger: Customer or Admin cancels the order before dispatch.
+   Action: Show cancellation dialog / stop preparation.
+
+3. "RIDER_ASSIGNED" / "RIDER_ARRIVED"
+   Trigger: Dispatch system assigns rider or rider reaches shop for pickup.
+   Action: Show "Handover Package to Rider" prompt.
+
+4. "HOTEL_BOOKING_NEW" (Hotel Sellers)
+   Trigger: Guest books room.
+   Action: Open Bookings management screen.
+
+5. "SERVICE_BOOKING_NEW" (Service Sellers)
+   Trigger: Customer books service slot.
+   Action: Open Service Schedule screen.
+
+6. "PAYOUT_SETTLED"
+   Trigger: Admin processes store payout/settlement.
+   Action: Open Revenue & Payouts tab.
+
+
+4. MOBILE IMPLEMENTATION CODE EXAMPLES
+--------------------------------------------------------------------------------
+
+A. FLUTTER (DART) IMPLEMENTATION FOR SELLER APPS:
+--------------------------------------------------------------------------------
+```dart
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class SellerPushService {
+  static const String baseUrl = "https://your-api-domain.com";
+
+  /// Call this immediately after successful seller login
+  static Future<void> registerDeviceTokenAfterLogin(String accessToken) async {
+    try {
+      // 1. Request notification permissions with critical alert support
+      NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        announcement: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        print("[Push] Notification permission denied by seller");
+        return;
+      }
+
+      // 2. Obtain native FCM/APNS token
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print("[Push] FCM token is null");
+        return;
+      }
+
+      // 3. Obtain Unique Device ID and Model
+      final deviceInfo = DeviceInfoPlugin();
+      String deviceId = "unknown";
+      String deviceModel = "Seller Tablet";
+
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        deviceId = androidInfo.id;
+        deviceModel = "${androidInfo.brand} ${androidInfo.model}";
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor ?? "unknown_ios";
+        deviceModel = iosInfo.utsname.machine;
+      }
+
+      // 4. Send to Unified Seller Endpoint
+      final response = await http.post(
+        Uri.parse("$baseUrl/mobileapi/seller/device-token"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({
+          "token": fcmToken,
+          "platform": Platform.isIOS ? "ios" : "android",
+          "deviceId": deviceId,
+          "deviceModel": deviceModel,
+          "userAgent": "MeeemSellerApp/1.0",
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print("[Push] Seller device token registered successfully");
+      } else {
+        print("[Push] Failed to register token: ${response.body}");
+      }
+
+      // 5. Listen to token refreshes
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        registerDeviceTokenAfterLogin(accessToken);
+      });
+    } catch (e) {
+      print("[Push] Exception during seller token registration: $e");
+    }
+  }
+
+  /// Call this when seller logs out
+  static Future<void> unregisterDeviceTokenOnLogout(String accessToken, String deviceId) async {
+    try {
+      await http.delete(
+        Uri.parse("$baseUrl/mobileapi/seller/device-token"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({"deviceId": deviceId}),
+      );
+      print("[Push] Seller device token unregistered on logout");
+    } catch (e) {
+      print("[Push] Error unregistering seller token on logout: $e");
+    }
+  }
+}
+```
+
+B. REACT NATIVE / EXPO IMPLEMENTATION FOR SELLER APPS:
+--------------------------------------------------------------------------------
+```javascript
+import messaging from '@react-native-firebase/messaging';
+import DeviceInfo from 'react-native-device-info';
+import { Platform } from 'react-native';
+
+export async function registerSellerDeviceToken(accessToken) {
+  try {
+    const authStatus = await messaging().requestPermission({
+      providesAppNotificationSettings: true,
+      provisional: false,
+    });
+    
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (!enabled) return;
+
+    const fcmToken = await messaging().getToken();
+    const deviceId = await DeviceInfo.getUniqueId();
+    const deviceModel = await DeviceInfo.getModel();
+
+    await fetch('https://your-api-domain.com/mobileapi/seller/device-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        token: fcmToken,
+        platform: Platform.OS,
+        deviceId: deviceId,
+        deviceModel: deviceModel,
+        userAgent: 'MeeemSellerRN/1.0',
+      }),
+    });
+  } catch (error) {
+    console.warn('Failed to register seller device token:', error);
+  }
+}
+```
+
+
+5. CRITICAL CHECKLIST FOR SELLER MOBILE DEVELOPERS
+--------------------------------------------------------------------------------
+[x] Call `registerDeviceTokenAfterLogin(accessToken)` immediately after seller login.
+[x] Setup Android Notification Channel `delivery_alerts` with sound and vibration
+    so incoming order rings can wake the screen.
+[x] Ensure `deviceId` is provided to allow multi-device management (store tablets + phone).
+[x] Handle background and terminated state taps to navigate directly to the new order page.
+[x] Call `DELETE /mobileapi/seller/device-token` on logout to avoid cross-account alerts.
+================================================================================

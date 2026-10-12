@@ -6,7 +6,8 @@ export interface SendPushNotificationParams {
   title: string
   body: string
   data?: Record<string, string>
-  riderId?: string // If provided, invalid tokens will be cleaned from DB
+  riderId?: string // If provided, invalid tokens will be cleaned from Rider DB
+  userId?: string // If provided, invalid tokens will be cleaned from User DB (Customer/Seller)
 }
 
 export interface PushResult {
@@ -24,6 +25,7 @@ export async function sendPushNotification({
   body,
   data = {},
   riderId,
+  userId,
 }: SendPushNotificationParams): Promise<PushResult> {
   const cleanTokens = Array.from(
     new Set(tokens.filter((t) => typeof t === "string" && t.trim().length > 0))
@@ -111,6 +113,28 @@ export async function sendPushNotification({
         }
       } catch (err) {
         console.error("[FCM] Failed to clean invalid tokens for rider:", err)
+      }
+    }
+
+    // Clean invalid tokens from DB if userId is provided (Customer / Seller)
+    if (invalidTokens.length > 0 && userId) {
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { deviceTokens: true },
+        })
+
+        if (dbUser && Array.isArray(dbUser.deviceTokens)) {
+          const updatedTokens = (dbUser.deviceTokens as any[]).filter(
+            (item) => !invalidTokens.includes(item.token)
+          )
+          await prisma.user.update({
+            where: { id: userId },
+            data: { deviceTokens: updatedTokens },
+          })
+        }
+      } catch (err) {
+        console.error("[FCM] Failed to clean invalid tokens for user:", err)
       }
     }
 
@@ -210,3 +234,67 @@ export function extractTokens(deviceTokensField: any): string[] {
   }
   return []
 }
+
+/**
+ * Sends FCM push notification to any registered User (Customer or Seller).
+ */
+export async function sendPushNotificationToUser(
+  userId: string,
+  payload: {
+    title: string
+    body: string
+    data?: Record<string, string>
+  }
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, deviceTokens: true },
+  })
+
+  if (!user) {
+    console.warn(`[FCM] User ${userId} not found when attempting to send push notification.`)
+    return { successCount: 0, failureCount: 0, errors: ["User not found"] }
+  }
+
+  const tokens = extractTokens(user.deviceTokens)
+  if (tokens.length === 0) {
+    return { successCount: 0, failureCount: 0, errors: ["No registered device tokens for user"] }
+  }
+
+  return sendPushNotification({
+    tokens,
+    userId: user.id,
+    title: payload.title,
+    body: payload.body,
+    data: payload.data,
+  })
+}
+
+/**
+ * Sends push notification to a Customer by their User ID.
+ */
+export async function sendPushNotificationToCustomer(
+  customerUserId: string,
+  payload: {
+    title: string
+    body: string
+    data?: Record<string, string>
+  }
+) {
+  return sendPushNotificationToUser(customerUserId, payload)
+}
+
+/**
+ * Sends push notification to a Seller by their User ID.
+ */
+export async function sendPushNotificationToSeller(
+  sellerUserId: string,
+  payload: {
+    title: string
+    body: string
+    data?: Record<string, string>
+  }
+) {
+  return sendPushNotificationToUser(sellerUserId, payload)
+}
+

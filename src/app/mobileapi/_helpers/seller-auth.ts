@@ -60,3 +60,55 @@ export async function getMobileSellerAuth(
 
   return { ok: true, userId: payload.userId, role }
 }
+
+const ALL_SELLER_ROLES: UserRole[] = [
+  UserRole.SELLER_PRODUCT,
+  UserRole.SELLER_SERVICE,
+  UserRole.SELLER_HOTEL,
+  UserRole.SELLER_RESTAURANT,
+]
+
+/**
+ * Verifies mobile bearer token and ensures the user has ANY seller role (Product, Service, Hotel, Restaurant).
+ */
+export async function getMobileAnySellerAuth(
+  request: NextRequest
+): Promise<MobileSellerAuthResult> {
+  const authHeader = request.headers.get("Authorization")
+  if (!authHeader?.startsWith("Bearer ")) return { ok: false, error: "unauthorized" }
+
+  const token = authHeader.slice(7).trim()
+  const payload = verifyMobileAccessToken(token)
+
+  if (!payload || typeof payload.userId !== "string" || !payload.userId) {
+    return { ok: false, error: "unauthorized" }
+  }
+
+  const role = payload.role as UserRole
+  if (!ALL_SELLER_ROLES.includes(role)) {
+    return { ok: false, error: "forbidden" }
+  }
+
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { password: true },
+    })
+    if (!dbUser) {
+      return { ok: false, error: "unauthorized" }
+    }
+    const tokenHasPassword = payload.passwordHash != null
+    const dbHasPassword = dbUser.password != null
+    if (
+      (tokenHasPassword && dbUser.password !== payload.passwordHash) ||
+      (dbHasPassword && dbUser.password !== payload.passwordHash)
+    ) {
+      return { ok: false, error: "unauthorized" }
+    }
+  } catch (error) {
+    console.error("Error verifying seller password hash:", error)
+    return { ok: false, error: "unauthorized" }
+  }
+
+  return { ok: true, userId: payload.userId, role }
+}
