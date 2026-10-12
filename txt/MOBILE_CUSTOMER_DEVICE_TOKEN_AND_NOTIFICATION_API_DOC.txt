@@ -1,0 +1,335 @@
+================================================================================
+MOBILE CUSTOMER APP - DEVICE TOKEN CAPTURE & PUSH NOTIFICATION API SPECIFICATION
+================================================================================
+Document: MOBILE_CUSTOMER_DEVICE_TOKEN_AND_NOTIFICATION_API_DOC.txt
+Audience: Customer Mobile App Developers (Flutter / React Native / iOS / Android)
+Date: 2026-10-12
+Purpose: Complete technical integration guide for capturing push notification
+         device tokens after customer login and handling incoming push notifications.
+================================================================================
+
+
+1. ARCHITECTURAL OVERVIEW & LIFECYCLE FLOW
+--------------------------------------------------------------------------------
+The customer app captures native push notification tokens (Firebase Cloud
+Messaging / Apple Push Notification Service) AFTER login. The token is never
+sent in the plain login request; it is registered immediately after receiving
+the authenticated JWT mobile access token.
+
+  +--------------------------------------------------------------------------+
+  |                             CUSTOMER LIFECYCLE                           |
+  +--------------------------------------------------------------------------+
+  | 1. Customer Logs in (Phone OTP / Email+Password)                         |
+  |    --> Receives `tokens.accessToken` (Bearer JWT)                        |
+  |                                                                          |
+  | 2. Mobile App retrieves FCM/APNS token from OS SDK                       |
+  |    --> FirebaseMessaging.instance.getToken()                            |
+  |                                                                          |
+  | 3. Mobile App calls POST /mobileapi/customer/device-token                |
+  |    --> Header: Authorization: Bearer <accessToken>                       |
+  |    --> Body: { token, platform, deviceId, deviceModel, userAgent }       |
+  |                                                                          |
+  | 4. Backend stores up to 10 active devices per customer                   |
+  |    --> De-duplicates by deviceId / token                                 |
+  |    --> Updates lastActiveAt timestamp                                    |
+  |                                                                          |
+  | 5. On Token Refresh (FCM onTokenRefresh event):                          |
+  |    --> Re-call POST /mobileapi/customer/device-token with new token      |
+  |                                                                          |
+  | 6. On Customer Logout:                                                   |
+  |    --> App calls DELETE /mobileapi/customer/device-token                 |
+  |    --> Clears token from DB so logged-out customer won't get push alerts |
+  +--------------------------------------------------------------------------+
+
+
+2. API ENDPOINTS
+--------------------------------------------------------------------------------
+
+A. REGISTER / UPDATE DEVICE TOKEN (AFTER LOGIN)
+   Endpoint: POST /mobileapi/customer/device-token
+   Authentication: Required (Bearer Token)
+   Content-Type: application/json
+
+   Headers:
+   --------------------------------------------------------------------------
+   Authorization: Bearer <customer_mobile_access_token>
+   Content-Type: application/json
+
+   Request Body Schema:
+   --------------------------------------------------------------------------
+   {
+     "token": string,        // [REQUIRED] Full FCM or APNS registration push token string
+     "platform": string,     // [OPTIONAL] "android" | "ios" | "web" (default: "android")
+     "deviceId": string,     // [RECOMMENDED] Unique device UUID (e.g. android_id or identifierForVendor)
+     "deviceModel": string,  // [OPTIONAL] e.g. "Samsung Galaxy S23", "iPhone 15 Pro"
+     "userAgent": string     // [OPTIONAL] App name & version, e.g. "MeeemCustomerApp/1.2.0"
+   }
+
+   Request Example:
+   --------------------------------------------------------------------------
+   {
+     "token": "dK8_jL9pQmN...fZ1w0xY9u8A7b6c5d4e3f2g1h0i",
+     "platform": "android",
+     "deviceId": "e5f2a1b0-4c3d-2e1f-0a9b-8c7d6e5f4a3b",
+     "deviceModel": "Samsung Galaxy S23",
+     "userAgent": "MeeemCustomerApp/1.2.0"
+   }
+
+   Success Response (200 OK):
+   --------------------------------------------------------------------------
+   {
+     "success": true,
+     "message": "Customer device token registered successfully for push notifications.",
+     "data": {
+       "registeredTokensCount": 1,
+       "devices": [
+         {
+           "token": "dK8_jL9pQmN...fZ1w0xY9u8A7b6c5d4e3f2g1h0i",
+           "deviceId": "e5f2a1b0-4c3d-2e1f-0a9b-8c7d6e5f4a3b",
+           "platform": "android",
+           "deviceModel": "Samsung Galaxy S23",
+           "userAgent": "MeeemCustomerApp/1.2.0",
+           "lastActiveAt": "2026-10-12T07:30:00.000Z",
+           "createdAt": "2026-10-12T07:30:00.000Z"
+         }
+       ]
+     }
+   }
+
+   Error Responses:
+   --------------------------------------------------------------------------
+   * 400 Bad Request:
+     { "success": false, "error": "Device push token is required" }
+
+   * 401 Unauthorized:
+     { "success": false, "error": "Unauthorized: Invalid or expired mobile session." }
+
+   * 500 Internal Server Error:
+     { "success": false, "error": "Failed to update device token." }
+
+
+B. UNREGISTER DEVICE TOKEN (UPON LOGOUT)
+   Endpoint: DELETE /mobileapi/customer/device-token
+   Authentication: Required (Bearer Token)
+   Content-Type: application/json
+
+   Headers:
+   --------------------------------------------------------------------------
+   Authorization: Bearer <customer_mobile_access_token>
+   Content-Type: application/json
+
+   Request Body Schema:
+   --------------------------------------------------------------------------
+   {
+     "token": string,    // [EITHER token OR deviceId is REQUIRED]
+     "deviceId": string  // [EITHER token OR deviceId is REQUIRED]
+   }
+
+   Request Example:
+   --------------------------------------------------------------------------
+   {
+     "deviceId": "e5f2a1b0-4c3d-2e1f-0a9b-8c7d6e5f4a3b"
+   }
+
+   Success Response (200 OK):
+   --------------------------------------------------------------------------
+   {
+     "success": true,
+     "message": "Customer device token unregistered successfully.",
+     "data": {
+       "remainingDevicesCount": 0
+     }
+   }
+
+
+3. NOTIFICATION DATA PAYLOADS RECEIVED BY CUSTOMER APP
+--------------------------------------------------------------------------------
+Notifications are delivered via Firebase Cloud Messaging. Both display notification
+and background data payload are provided.
+
+Common Notification Payload Structure:
+--------------------------------------------------------------------------------
+{
+  "notification": {
+    "title": "📦 Order Update",
+    "body": "Your order #ORD-100234 is Out for Delivery!"
+  },
+  "data": {
+    "type": "ORDER_STATUS_UPDATE",       // Notification classification key
+    "orderId": "clx9876543210",
+    "orderNumber": "ORD-100234",
+    "status": "OUT_FOR_DELIVERY",
+    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+  }
+}
+
+Common Notification Types for Customer App:
+--------------------------------------------------------------------------------
+1. "ORDER_CONFIRMED"
+   Trigger: Seller accepts/confirms order.
+   Action: Navigate to Order Detail page.
+
+2. "ORDER_SHIPPED" / "OUT_FOR_DELIVERY"
+   Trigger: Rider picks up package and is en route.
+   Action: Show live tracking button / navigate to tracking screen.
+
+3. "ORDER_DELIVERED"
+   Trigger: Rider confirms delivery with OTP / proof.
+   Action: Open order detail and show "Rate & Review Products" prompt.
+
+4. "PROMOTIONAL_COUPON"
+   Trigger: Admin or system sends targeted coupon discount.
+   Action: Navigate to Offers / Coupons section.
+
+
+4. MOBILE IMPLEMENTATION CODE EXAMPLES
+--------------------------------------------------------------------------------
+
+A. FLUTTER (DART) IMPLEMENTATION:
+--------------------------------------------------------------------------------
+```dart
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class CustomerPushService {
+  static const String baseUrl = "https://your-api-domain.com";
+
+  /// Call this immediately after successful login or OTP verification
+  static Future<void> registerDeviceTokenAfterLogin(String accessToken) async {
+    try {
+      // 1. Request notification permissions
+      NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        print("[Push] Notification permission denied by customer");
+        return;
+      }
+
+      // 2. Obtain native FCM/APNS token
+      String? fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print("[Push] FCM token is null");
+        return;
+      }
+
+      // 3. Obtain Unique Device ID and Model
+      final deviceInfo = DeviceInfoPlugin();
+      String deviceId = "unknown";
+      String deviceModel = "Mobile Device";
+
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        deviceId = androidInfo.id;
+        deviceModel = "${androidInfo.brand} ${androidInfo.model}";
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        deviceId = iosInfo.identifierForVendor ?? "unknown_ios";
+        deviceModel = iosInfo.utsname.machine;
+      }
+
+      // 4. Send to Backend
+      final response = await http.post(
+        Uri.parse("$baseUrl/mobileapi/customer/device-token"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({
+          "token": fcmToken,
+          "platform": Platform.isIOS ? "ios" : "android",
+          "deviceId": deviceId,
+          "deviceModel": deviceModel,
+          "userAgent": "MeeemCustomerApp/1.0",
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print("[Push] Customer device token registered successfully");
+      } else {
+        print("[Push] Failed to register token: ${response.body}");
+      }
+
+      // 5. Listen to token refreshes
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        registerDeviceTokenAfterLogin(accessToken);
+      });
+    } catch (e) {
+      print("[Push] Exception during token registration: $e");
+    }
+  }
+
+  /// Call this when customer logs out
+  static Future<void> unregisterDeviceTokenOnLogout(String accessToken, String deviceId) async {
+    try {
+      await http.delete(
+        Uri.parse("$baseUrl/mobileapi/customer/device-token"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $accessToken",
+        },
+        body: jsonEncode({"deviceId": deviceId}),
+      );
+      print("[Push] Customer device token unregistered on logout");
+    } catch (e) {
+      print("[Push] Error unregistering token on logout: $e");
+    }
+  }
+}
+```
+
+B. REACT NATIVE / EXPO IMPLEMENTATION:
+--------------------------------------------------------------------------------
+```javascript
+import messaging from '@react-native-firebase/messaging';
+import DeviceInfo from 'react-native-device-info';
+import { Platform } from 'react-native';
+
+export async function registerCustomerDeviceToken(accessToken) {
+  try {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (!enabled) return;
+
+    const fcmToken = await messaging().getToken();
+    const deviceId = await DeviceInfo.getUniqueId();
+    const deviceModel = await DeviceInfo.getModel();
+
+    await fetch('https://your-api-domain.com/mobileapi/customer/device-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        token: fcmToken,
+        platform: Platform.OS,
+        deviceId: deviceId,
+        deviceModel: deviceModel,
+        userAgent: 'MeeemCustomerRN/1.0',
+      }),
+    });
+  } catch (error) {
+    console.warn('Failed to register customer device token:', error);
+  }
+}
+```
+
+
+5. CRITICAL CHECKLIST FOR MOBILE DEVELOPER
+--------------------------------------------------------------------------------
+[x] Call `registerDeviceTokenAfterLogin(accessToken)` immediately after login success.
+[x] Listen to `onTokenRefresh` stream so rotated tokens are instantly updated.
+[x] Call `unregisterDeviceTokenOnLogout()` before deleting the JWT token from storage.
+[x] Include `deviceId` in every request to guarantee clean multi-device de-duplication.
+[x] Handle notification tap events when app is in Foreground, Background, and Terminated states.
+================================================================================

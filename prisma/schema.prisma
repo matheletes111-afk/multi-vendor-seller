@@ -123,6 +123,7 @@ model User {
   loginOtpAttempts        Int       @default(0)
   /// Set when the customer finishes or skips the category-interest onboarding (web/mobile).
   categoryInterestPromptCompletedAt DateTime?
+  deviceTokens            Json      @default("[]") // [{ token, platform, deviceId, deviceModel, userAgent, lastActiveAt, createdAt }]
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
