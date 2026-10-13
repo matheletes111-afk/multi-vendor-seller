@@ -404,11 +404,17 @@ export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promi
     const heic2anyModule = await import("heic2any")
     const heic2any = heic2anyModule.default || heic2anyModule
 
-    const converted = await heic2any({
+    const conversionPromise = heic2any({
       blob: file,
       toType: "image/jpeg",
       quality,
     })
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("HEIC conversion timeout")), 8000)
+    )
+
+    const converted = await Promise.race([conversionPromise, timeoutPromise])
 
     const jpegBlob = Array.isArray(converted) ? converted[0] : converted
     return new File([jpegBlob], `${cleanName}.jpg`, {
@@ -416,7 +422,7 @@ export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promi
       lastModified: Date.now(),
     })
   } catch (err) {
-    console.warn("heic2any conversion error:", err)
+    console.warn("heic2any conversion error or timeout:", err)
     return file instanceof File ? file : new File([file], `${cleanName}.jpg`, { type: "image/jpeg" })
   }
 }
