@@ -365,7 +365,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                           <div className="flex flex-wrap items-center gap-2">
                             <input
                               type="file"
-                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.heic,.heif"
                               className="sr-only"
                               id={`delivery-proof-file-${item.id}`}
                               onChange={async (e) => {
