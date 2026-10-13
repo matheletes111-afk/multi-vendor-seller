@@ -480,17 +480,52 @@ export async function completeWebNextAuthLogin({
   const { getSafeRedirectUrl } = await import("@/lib/safe-redirect")
   const { createOtpLoginToken } = await import("@/lib/web-otp-login")
 
-  const origin = new URL(request.url).origin
-  const host = request.headers.get("host") ?? new URL(request.url).host
+  const proto =
+    request.headers.get("x-forwarded-proto") ??
+    (request.url.startsWith("https") ? "https" : "http")
+  const host =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    new URL(request.url).host
+  const origin = `${proto}://${host}`
   const validatedCallbackUrl = getSafeRedirectUrl(callbackUrl, defaultPath, origin)
 
-  let effectiveCsrfToken = csrfToken
+  let effectiveCsrfToken = csrfToken?.trim() || ""
   let cookie = request.headers.get("cookie") ?? ""
 
+  // If a CSRF cookie is already present from the client, extract its token to ensure 100% match.
+  // NextAuth stores cookie value as "token|hash". The form parameter must equal "token".
+  const existingCsrfMatch = cookie.match(
+    /(?:(?:__Host-)?authjs\.csrf-token|next-auth\.csrf-token)=([^;]+)/
+  )
+  if (existingCsrfMatch) {
+    const rawVal = decodeURIComponent(existingCsrfMatch[1].trim())
+    const tokenFromCookie = rawVal.split("|")[0]
+    if (tokenFromCookie) {
+      effectiveCsrfToken = tokenFromCookie
+    }
+  }
+
+  // Ensure both prefixed (__Host-) and standard cookie forms exist so NextAuth
+  // matches regardless of protocol evaluation behind reverse proxies:
+  if (cookie.includes("__Host-authjs.csrf-token=") && !cookie.includes("authjs.csrf-token=")) {
+    const val = (cookie.match(/__Host-authjs\.csrf-token=([^;]+)/) || [])[1]
+    if (val) cookie += `; authjs.csrf-token=${val}`
+  } else if (cookie.includes("authjs.csrf-token=") && !cookie.includes("__Host-authjs.csrf-token=")) {
+    const val = (cookie.match(/(?:^|;\s*)authjs\.csrf-token=([^;]+)/) || [])[1]
+    if (val) cookie += `; __Host-authjs.csrf-token=${val}`
+  }
+
+  let newlyGeneratedCookies: string[] = []
   if (!effectiveCsrfToken || !cookie.includes("authjs.csrf-token")) {
     try {
       const csrfReq = new NextRequest(`${origin}/api/nextauth/csrf`, {
-        headers: { Host: host, ...(cookie ? { Cookie: cookie } : {}) },
+        headers: {
+          Host: host,
+          "x-forwarded-proto": proto,
+          "x-forwarded-host": host,
+          ...(cookie ? { Cookie: cookie } : {}),
+        },
       })
       const csrfRes = await nextAuthGet(csrfReq as any)
       const csrfData = await csrfRes.json().catch(() => ({}))
@@ -499,6 +534,7 @@ export async function completeWebNextAuthLogin({
       }
       const setCookies = csrfRes.headers.getSetCookie?.() || []
       if (setCookies.length > 0) {
+        newlyGeneratedCookies = setCookies
         const cookiePairs = setCookies.map((c) => c.split(";")[0].trim())
         cookie = cookie ? `${cookie}; ${cookiePairs.join("; ")}` : cookiePairs.join("; ")
       }
@@ -528,6 +564,8 @@ export async function completeWebNextAuthLogin({
       "Content-Type": "application/x-www-form-urlencoded",
       "X-Auth-Return-Redirect": "1",
       Host: host,
+      "x-forwarded-proto": proto,
+      "x-forwarded-host": host,
       ...(cookie && { Cookie: cookie }),
     },
     body: form.toString(),
@@ -550,13 +588,23 @@ export async function completeWebNextAuthLogin({
     nextAuthUrl.includes("login") ||
     nextAuthUrl.includes("registration")
 
+  const responseHeaders = new Headers()
+  newlyGeneratedCookies.forEach((c) => responseHeaders.append("Set-Cookie", c))
+  res.headers.getSetCookie?.().forEach((c: string) => responseHeaders.append("Set-Cookie", c))
+
   if (isErrorRedirect) {
     let msg = "Failed to establish session. Please try again."
     try {
       const err = new URL(nextAuthUrl, origin).searchParams.get("error")
-      if (err) msg = err
+      if (err === "MissingCSRF") {
+        msg = "Security session expired. Please refresh and try again."
+      } else if (err === "CredentialsSignin") {
+        msg = "Invalid verification credentials. Please try again."
+      } else if (err) {
+        msg = err
+      }
     } catch { }
-    return NextResponse.json({ error: msg }, { status: 401 })
+    return NextResponse.json({ error: msg }, { status: 401, headers: responseHeaders })
   }
 
   let finalRedirect = getSafeRedirectUrl(nextAuthUrl || callbackUrl, defaultPath, origin)
@@ -573,7 +621,8 @@ export async function completeWebNextAuthLogin({
     finalRedirect = "/riderapp/change-password?first=true"
   }
 
-  const headers = new Headers()
-  res.headers.getSetCookie?.().forEach((c: string) => headers.append("Set-Cookie", c))
-  return NextResponse.json({ success: true, url: finalRedirect }, { status: 200, headers })
+  return NextResponse.json(
+    { success: true, url: finalRedirect },
+    { status: 200, headers: responseHeaders }
+  )
 }

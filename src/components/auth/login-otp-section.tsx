@@ -146,7 +146,11 @@ export function LoginOtpSection({
           setTimeout(() => onBackToLogin(), 2000)
           return
         }
-        setError(data.error || "Invalid verification code. Please try again.")
+        let errMsg = data.error || "Invalid verification code. Please try again."
+        if (errMsg === "MissingCSRF") {
+          errMsg = "Security session expired. Please refresh and try again."
+        }
+        setError(errMsg)
         return
       }
 

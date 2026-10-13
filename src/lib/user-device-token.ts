@@ -77,7 +77,7 @@ export async function registerUserDeviceToken(
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { deviceTokens: updatedTokens },
+    data: { deviceTokens: updatedTokens as any },
   })
 
   return {
