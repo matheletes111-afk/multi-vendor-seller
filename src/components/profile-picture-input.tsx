@@ -122,36 +122,35 @@ export function ProfilePictureInput({
     // Reset input value so re-selecting same file triggers change
     e.target.value = "";
 
-    setIsProcessing(true);
-    try {
-      const { compressImage } = await import("@/lib/image-compressor");
-      // Prepare high-res converted JPEG/WebP for cropping modal (prevents Safari HEIC crashes)
-      const prepped = await compressImage(file, 1600, 1600, 0.9);
-      setFileToCrop(prepped);
-      setCropperOpen(true);
-    } catch (err: any) {
-      console.error("Image preparation error:", err);
-      // Fallback: pass raw file to cropper modal
+    const isHeic =
+      file.type.includes("heic") ||
+      file.type.includes("heif") ||
+      /\.(heic|heif)$/i.test(file.name);
+
+    if (isHeic) {
+      setIsProcessing(true);
+      try {
+        const { convertHeicToJpeg } = await import("@/lib/image-compressor");
+        const converted = await convertHeicToJpeg(file, 0.95);
+        setFileToCrop(converted);
+        setCropperOpen(true);
+      } catch (err: any) {
+        console.error("HEIC conversion error:", err);
+        setFileToCrop(file);
+        setCropperOpen(true);
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // Non-HEIC files (JPEG, PNG, WebP) open the cropper immediately without waiting
       setFileToCrop(file);
       setCropperOpen(true);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
-  const handlePhotoCaptured = async (file: File) => {
-    setIsProcessing(true);
-    try {
-      const { compressImage } = await import("@/lib/image-compressor");
-      const prepped = await compressImage(file, 1600, 1600, 0.9);
-      setFileToCrop(prepped);
-      setCropperOpen(true);
-    } catch (_) {
-      setFileToCrop(file);
-      setCropperOpen(true);
-    } finally {
-      setIsProcessing(false);
-    }
+  const handlePhotoCaptured = (file: File) => {
+    setFileToCrop(file);
+    setCropperOpen(true);
   };
 
   const handleCropComplete = (croppedFile: File) => {
