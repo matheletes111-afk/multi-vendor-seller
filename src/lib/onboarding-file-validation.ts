@@ -7,8 +7,8 @@
  * to prevent browser freezing, memory spikes, and decoding errors.
  */
 
-export const ALLOWED_DOC_ACCEPT = ".pdf,image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif,.avif,.bmp,.tiff"
-export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp"
+export const ALLOWED_DOC_ACCEPT = ".pdf,application/pdf,image/*,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif,.avif,.bmp,.tiff"
+export const ALLOWED_IMAGE_ONLY_ACCEPT = "image/*,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp"
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([
   ".jpg",
@@ -154,15 +154,19 @@ export function validateOnboardingFile(
   }
 
   // 5. File size check:
-  // For raw images before compression, allow up to 50MB so high-res phone photos (48MP, 108MP, ProRAW) aren't rejected upfront.
-  // For PDFs and final uploads, enforce a safe limit (default 2.5MB) to keep total step payload below 4.5MB.
-  const effectiveMaxMb = isImage && isPreCompression ? 50 : maxSizeMb
+  // For images, allow up to 50MB before client compression and up to 25MB for mobile API / direct uploads,
+  // so high-res phone photos (like 20MB iPhone / Android photos) are never rejected upfront.
+  // For PDFs, strictly enforce maxSizeMb (default 2.5MB / 4.5MB) to keep document sizes bounded.
+  const effectiveMaxMb = isImage
+    ? Math.max(isPreCompression ? 50 : 25, maxSizeMb)
+    : maxSizeMb
+
   if (file.size && file.size > effectiveMaxMb * 1024 * 1024) {
     return {
       isValid: false,
       error: isPdf
         ? `PDF size exceeds ${maxSizeMb} MB limit. Please select a smaller PDF.`
-        : `File size exceeds ${effectiveMaxMb} MB limit. Please select a smaller file.`,
+        : `Image file size exceeds ${effectiveMaxMb} MB limit. Please select a smaller file.`,
     }
   }
 

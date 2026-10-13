@@ -135,11 +135,22 @@ const HOTEL_SELLER_STEP_FILES: Record<number, string[]> = {
     const formData = new FormData(form)
     formData.append("step", currentStep.toString())
 
-    // Ensure ONLY compressed preview files belonging to the CURRENT step are attached
     const currentStepFileKeys = HOTEL_SELLER_STEP_FILES[currentStep] || []
+
+    // 1. Remove all file keys from other steps to prevent stale/duplicate transmission
+    const allKnownStepFiles = Object.values(HOTEL_SELLER_STEP_FILES).flat()
+    allKnownStepFiles.forEach((key) => {
+      if (!currentStepFileKeys.includes(key)) {
+        formData.delete(key)
+      }
+    })
+
+    // 2. Ensure ONLY client-compressed files (in KBs) are sent; delete raw DOM file entries
     currentStepFileKeys.forEach((key) => {
       if (previews[key]?.file) {
         formData.set(key, previews[key].file)
+      } else {
+        formData.delete(key)
       }
     })
 
@@ -278,9 +289,16 @@ const HOTEL_SELLER_STEP_FILES: Record<number, string[]> = {
         const text = await res.text()
         result = text ? JSON.parse(text) : {}
       } catch (parseErr) {
+        if (res.status === 413) {
+          throw new Error("Uploaded file is too large for the server (Status 413). Please select a smaller file or document and try again.")
+        }
         if (!res.ok) {
           throw new Error(`Server returned error (${res.status}). Please check your uploaded files.`)
         }
+      }
+
+      if (res.status === 413) {
+        throw new Error("Uploaded file is too large for the server (Status 413). Please select a smaller file or document and try again.")
       }
 
       if (!res.ok) throw new Error(result.error || `Failed to save step (Status ${res.status})`)
@@ -324,8 +342,10 @@ const HOTEL_SELLER_STEP_FILES: Record<number, string[]> = {
       window.scrollTo(0, 0)
     } catch (err: any) {
       let msg = err.message || "An unexpected error occurred. Please try again."
-      if (msg.includes("Failed to fetch") || msg.includes("Load failed") || msg.includes("NetworkError")) {
-        msg = "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 2.5 MB and your connection is stable, then try again."
+      if (msg.includes("413") || msg.includes("too large") || msg.includes("Payload Too Large")) {
+        msg = "Uploaded file exceeds the maximum allowed server limit (Status 413). Please choose a smaller file or ensure your documents are under 4.5 MB, then try again."
+      } else if (msg.includes("Failed to fetch") || msg.includes("Load failed") || msg.includes("NetworkError")) {
+        msg = "Upload failed (Network/File Size issue). Please ensure each uploaded document or photo is under 4.5 MB and your connection is stable, then try again."
       }
       setError(msg)
       if (typeof window !== "undefined") {
@@ -437,8 +457,22 @@ const HOTEL_SELLER_STEP_FILES: Record<number, string[]> = {
       <div className="mt-3 flex items-center justify-between p-3 border rounded-xl bg-primary/5 border-primary/20">
         <div className="flex items-center gap-3 min-w-0">
           {isImage ? (
-            <div className="relative w-14 h-14 rounded-lg overflow-hidden border shadow-xs shrink-0">
-              <img src={displayUrl} alt={label} className="w-full h-full object-cover" />
+            <div className="relative w-14 h-14 rounded-lg overflow-hidden border shadow-xs shrink-0 bg-slate-100 flex items-center justify-center">
+              <img
+                src={displayUrl}
+                alt={label}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none"
+                  const p = e.currentTarget.parentElement
+                  if (p && !p.querySelector(".img-fallback")) {
+                    const fallback = document.createElement("div")
+                    fallback.className = "img-fallback flex flex-col items-center justify-center text-primary"
+                    fallback.innerHTML = '<span style="font-size:9px;font-weight:bold;">IMG</span>'
+                    p.appendChild(fallback)
+                  }
+                }}
+              />
             </div>
           ) : isPdf ? (
             <div className="w-14 h-14 rounded-lg bg-red-50 flex flex-col items-center justify-center border border-red-100 text-red-600 shrink-0">

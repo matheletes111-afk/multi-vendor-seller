@@ -46,46 +46,67 @@ export function ImageCropperModal({
 
     let isSubscribed = true
     let objectUrl = ""
+    let fallbackTimeout: NodeJS.Timeout | null = null
 
-    try {
-      objectUrl = URL.createObjectURL(imageFile)
-    } catch (_) {
-      onCropComplete(imageFile)
-      onOpenChange(false)
-      return
-    }
+    const loadImage = async () => {
+      let fileToLoad: File = imageFile
+      const isHeic =
+        /\.(heic|heif)$/i.test(imageFile.name || "") ||
+        (imageFile.type || "").toLowerCase().includes("heic") ||
+        (imageFile.type || "").toLowerCase().includes("heif")
 
-    const img = new Image()
-    img.crossOrigin = "anonymous"
+      if (isHeic) {
+        try {
+          const { convertHeicToJpeg } = await import("@/lib/image-compressor")
+          const converted = await convertHeicToJpeg(imageFile, 0.95)
+          if (converted) fileToLoad = converted
+        } catch (_) {}
+      }
 
-    const fallbackTimeout = setTimeout(() => {
-      if (isSubscribed && !imgElement) {
+      if (!isSubscribed) return
+
+      try {
+        objectUrl = URL.createObjectURL(fileToLoad)
+      } catch (_) {
         onCropComplete(imageFile)
         onOpenChange(false)
+        return
       }
-    }, 4000)
 
-    img.onload = () => {
-      if (!isSubscribed) return
-      clearTimeout(fallbackTimeout)
-      setImgElement(img)
-      setZoom(1)
-      setRotation(0)
-      setPan({ x: 0, y: 0 })
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+
+      fallbackTimeout = setTimeout(() => {
+        if (isSubscribed && !imgElement) {
+          onCropComplete(fileToLoad)
+          onOpenChange(false)
+        }
+      }, 5000)
+
+      img.onload = () => {
+        if (!isSubscribed) return
+        if (fallbackTimeout) clearTimeout(fallbackTimeout)
+        setImgElement(img)
+        setZoom(1)
+        setRotation(0)
+        setPan({ x: 0, y: 0 })
+      }
+
+      img.onerror = () => {
+        if (!isSubscribed) return
+        if (fallbackTimeout) clearTimeout(fallbackTimeout)
+        onCropComplete(fileToLoad)
+        onOpenChange(false)
+      }
+
+      img.src = objectUrl
     }
 
-    img.onerror = () => {
-      if (!isSubscribed) return
-      clearTimeout(fallbackTimeout)
-      onCropComplete(imageFile)
-      onOpenChange(false)
-    }
-
-    img.src = objectUrl
+    loadImage()
 
     return () => {
       isSubscribed = false
-      clearTimeout(fallbackTimeout)
+      if (fallbackTimeout) clearTimeout(fallbackTimeout)
       if (objectUrl) {
         try {
           URL.revokeObjectURL(objectUrl)
@@ -308,27 +329,50 @@ export function ImageCropperModal({
 
       ctx.drawImage(imgElement, -drawW / 2, -drawH / 2, drawW, drawH)
 
-      // Export to Blob
-      exportCanvas.toBlob(
-        (blob) => {
-          if (!blob) {
+      // Export to WebP (with JPEG fallback)
+      const exportWebp = () => {
+        exportCanvas.toBlob(
+          (blob) => {
+            if (blob && (blob.type === "image/webp" || !blob.type)) {
+              const baseName = (imageFile.name || "image").replace(/\.[^/.]+$/, "")
+              const croppedFile = new File([blob], `${baseName}-cropped.webp`, {
+                type: "image/webp",
+                lastModified: Date.now(),
+              })
+              onCropComplete(croppedFile)
+              onOpenChange(false)
+              setSaving(false)
+            } else {
+              exportJpeg()
+            }
+          },
+          "image/webp",
+          0.88
+        )
+      }
+
+      const exportJpeg = () => {
+        exportCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              setSaving(false)
+              return
+            }
+            const baseName = (imageFile.name || "image").replace(/\.[^/.]+$/, "")
+            const croppedFile = new File([blob], `${baseName}-cropped.jpg`, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            })
+            onCropComplete(croppedFile)
+            onOpenChange(false)
             setSaving(false)
-            return
-          }
+          },
+          "image/jpeg",
+          0.88
+        )
+      }
 
-          const fileName = imageFile.name.replace(/\.[^/.]+$/, "") + "-cropped.jpg"
-          const croppedFile = new File([blob], fileName, {
-            type: "image/jpeg",
-            lastModified: Date.now(),
-          })
-
-          onCropComplete(croppedFile)
-          onOpenChange(false)
-          setSaving(false)
-        },
-        "image/jpeg",
-        0.92
-      )
+      exportWebp()
     } catch (err) {
       console.error("Failed to export crop:", err)
       setSaving(false)

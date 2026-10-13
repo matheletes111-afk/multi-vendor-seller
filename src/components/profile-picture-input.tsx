@@ -5,11 +5,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
-import { User, Upload, Camera, Crop } from "lucide-react";
+import { Loader2, User, Upload, Camera, Crop } from "lucide-react";
 import { ImageCropperModal } from "@/components/media/image-cropper-modal";
 import { CameraCaptureModal } from "@/components/media/camera-capture-modal";
 
-const MAX_MB = 4.5;
+const MAX_MB = 50; // Allow up to 50MB raw phone photos before client-side compression down to KBs
 const MAX_BYTES = MAX_MB * 1024 * 1024;
 
 interface ProfilePictureInputProps {
@@ -42,6 +42,7 @@ export function ProfilePictureInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Modals state
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -52,16 +53,12 @@ export function ProfilePictureInput({
 
   const processAndApplyImage = async (file: File) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setIsProcessing(true);
 
     try {
       const { compressImage } = await import("@/lib/image-compressor");
+      // Compresses down to crisp 600x600 WebP (typically 40KB - 80KB)
       const compressed = await compressImage(file, 600, 600, 0.85);
-
-      if (compressed.size > MAX_BYTES) {
-        alert(`Image must be under ${MAX_MB} MB`);
-        onImageChange?.(null);
-        return;
-      }
 
       if (fileInputRef.current) {
         try {
@@ -83,40 +80,78 @@ export function ProfilePictureInput({
         onImageChange?.(null);
         return;
       }
-      if (file.size > MAX_BYTES) {
-        alert(`Image must be under ${MAX_MB} MB`);
+      try {
+        const newUrl = URL.createObjectURL(file);
+        setPreviewUrl(newUrl);
+        setSelectedFile(file);
+        onImageChange?.(file);
+      } catch (_) {
+        alert("Could not process the selected image.");
         onImageChange?.(null);
-        return;
       }
-      const newUrl = URL.createObjectURL(file);
-      setPreviewUrl(newUrl);
-      setSelectedFile(file);
-      onImageChange?.(file);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       onImageChange?.(null);
       return;
     }
 
-    if (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)) {
-      alert("Please select an image file (e.g. JPG, PNG)");
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name);
+
+    if (!isImage) {
+      alert("Please select an image file (JPG, PNG, WebP, or HEIC)");
       e.target.value = "";
       onImageChange?.(null);
       return;
     }
 
-    // Open cropper with 1:1 ratio
-    setFileToCrop(file);
-    setCropperOpen(true);
+    if (file.size > MAX_BYTES) {
+      alert(`Image file is too large (must be under ${MAX_MB} MB).`);
+      e.target.value = "";
+      onImageChange?.(null);
+      return;
+    }
+
+    // Reset input value so re-selecting same file triggers change
+    e.target.value = "";
+
+    setIsProcessing(true);
+    try {
+      const { compressImage } = await import("@/lib/image-compressor");
+      // Prepare high-res converted JPEG/WebP for cropping modal (prevents Safari HEIC crashes)
+      const prepped = await compressImage(file, 1600, 1600, 0.9);
+      setFileToCrop(prepped);
+      setCropperOpen(true);
+    } catch (err: any) {
+      console.error("Image preparation error:", err);
+      // Fallback: pass raw file to cropper modal
+      setFileToCrop(file);
+      setCropperOpen(true);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handlePhotoCaptured = (file: File) => {
-    setFileToCrop(file);
-    setCropperOpen(true);
+  const handlePhotoCaptured = async (file: File) => {
+    setIsProcessing(true);
+    try {
+      const { compressImage } = await import("@/lib/image-compressor");
+      const prepped = await compressImage(file, 1600, 1600, 0.9);
+      setFileToCrop(prepped);
+      setCropperOpen(true);
+    } catch (_) {
+      setFileToCrop(file);
+      setCropperOpen(true);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCropComplete = (croppedFile: File) => {
@@ -128,21 +163,27 @@ export function ProfilePictureInput({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start gap-4">
-        <Avatar className={`${avatarSize} shrink-0 ring-2 ring-muted`}>
+        <Avatar className={`${avatarSize} shrink-0 ring-2 ring-muted relative overflow-hidden`}>
           {displayUrl ? (
             <AvatarImage src={displayUrl} alt="Profile" className="object-cover" />
           ) : null}
           <AvatarFallback className="bg-muted text-muted-foreground">
             <User className="h-8 w-8 sm:h-10 sm:w-10" />
           </AvatarFallback>
+          {isProcessing && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white backdrop-blur-xs">
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            </div>
+          )}
         </Avatar>
         <div className="flex flex-col gap-2 min-w-0">
           <input
             ref={fileInputRef}
             type="file"
             name={fileInputName}
-            accept="image/*,.heic,.heif"
+            accept="image/*,image/jpeg,image/png,image/webp,.heic,.heif,.jpg,.jpeg,.png,.webp"
             onChange={handleFileChange}
+            disabled={isProcessing}
             className="hidden"
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -150,16 +191,22 @@ export function ProfilePictureInput({
               type="button"
               variant="outline"
               size="sm"
+              disabled={isProcessing}
               onClick={() => fileInputRef.current?.click()}
               className="text-xs h-8"
             >
-              <Upload className="mr-1.5 h-3.5 w-3.5" />
-              Upload photo
+              {isProcessing ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {isProcessing ? "Processing..." : "Upload photo"}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              disabled={isProcessing}
               onClick={() => setCameraOpen(true)}
               className="text-xs h-8 text-purple-600 border-purple-200 hover:bg-purple-50"
             >
@@ -171,6 +218,7 @@ export function ProfilePictureInput({
                 type="button"
                 variant="ghost"
                 size="sm"
+                disabled={isProcessing}
                 onClick={() => {
                   if (selectedFile) {
                     setFileToCrop(selectedFile);
@@ -193,7 +241,9 @@ export function ProfilePictureInput({
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max {MAX_MB} MB.</p>
+          <p className="text-xs text-muted-foreground">
+            All formats (JPG, PNG, WebP, HEIC). Auto-compressed to KBs.
+          </p>
         </div>
       </div>
       {showUrlField && (
