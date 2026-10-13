@@ -107,8 +107,41 @@ export async function POST(request: Request) {
       : getFirstAllowedPath(permissions)
 
     // 2. Proxy credentials to NextAuth
-    const origin = new URL(request.url).origin
-    const host = new URL(request.url).host
+    const proto =
+      request.headers.get("x-forwarded-proto") ??
+      (request.url.startsWith("https") ? "https" : "http")
+    const host =
+      request.headers.get("x-forwarded-host") ??
+      request.headers.get("host") ??
+      new URL(request.url).host
+    const origin = `${proto}://${host}`
+
+    let effectiveCsrfToken = csrfToken?.trim() || ""
+    let cookie = request.headers.get("cookie") ?? ""
+
+    const existingCsrfMatch = cookie.match(
+      /(?:(?:__Host-)?authjs\.csrf-token|next-auth\.csrf-token)=([^;]+)/
+    )
+    if (existingCsrfMatch) {
+      let rawVal = existingCsrfMatch[1].trim()
+      try {
+        rawVal = decodeURIComponent(rawVal)
+      } catch {
+        /* ignore malformed encoding */
+      }
+      const tokenFromCookie = rawVal.split("|")[0]
+      if (tokenFromCookie) {
+        effectiveCsrfToken = tokenFromCookie
+      }
+    }
+
+    if (cookie.includes("__Host-authjs.csrf-token=") && !cookie.includes("authjs.csrf-token=")) {
+      const val = (cookie.match(/__Host-authjs\.csrf-token=([^;]+)/) || [])[1]
+      if (val) cookie += `; authjs.csrf-token=${val}`
+    } else if (cookie.includes("authjs.csrf-token=") && !cookie.includes("__Host-authjs.csrf-token=")) {
+      const val = (cookie.match(/(?:^|;\s*)authjs\.csrf-token=([^;]+)/) || [])[1]
+      if (val) cookie += `; __Host-authjs.csrf-token=${val}`
+    }
 
     const form = new URLSearchParams({
       email: user.email || user.phone || rawIdentifier,
@@ -116,16 +149,17 @@ export async function POST(request: Request) {
       ...(otpLoginToken ? { otpLoginToken } : {}),
       role: UserRole.ADMIN,
       callbackUrl: body.callbackUrl || targetUrl,
-      ...(csrfToken && { csrfToken }),
+      ...(effectiveCsrfToken && { csrfToken: effectiveCsrfToken }),
     })
 
-    const cookie = request.headers.get("cookie") ?? ""
     const nextauthRequest = new NextRequest(`${origin}/api/nextauth/callback/credentials`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "X-Auth-Return-Redirect": "1",
         Host: host,
+        "x-forwarded-proto": proto,
+        "x-forwarded-host": host,
         ...(cookie && { Cookie: cookie }),
       },
       body: form.toString(),
