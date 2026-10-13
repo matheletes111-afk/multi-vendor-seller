@@ -157,6 +157,21 @@ export async function compressImage(
     return file
   }
 
+  // 1. Detect HEIC format (common on iPhone / iOS Safari)
+  let fileToProcess: File = file
+  const isHeic = isHeicFormat(file) || (await isHeicByHeader(file))
+
+  if (isHeic && typeof window !== "undefined") {
+    try {
+      const convertedJpeg = await convertHeicToJpeg(file, 0.9)
+      if (convertedJpeg && convertedJpeg !== file) {
+        fileToProcess = convertedJpeg
+      }
+    } catch (heicErr) {
+      console.warn("Client HEIC conversion failed, proceeding with fallback decoding:", heicErr)
+    }
+  }
+
   return new Promise((resolve) => {
     let resolved = false
     let objectUrl = ""
@@ -173,15 +188,12 @@ export async function compressImage(
       resolve(result)
     }
 
-    // Safety timeout: if decoding hangs (common WebKit bug with raw HEIC blobs), release safely
+    // Safety timeout: if decoding hangs, release safely
     const timer = setTimeout(() => {
-      safeResolve(file)
-    }, 6000)
+      safeResolve(fileToProcess)
+    }, 10000)
 
-    // Always convert to WebP for maximum website speed and smaller upload sizes (preserves alpha transparency)
-    const outputType = "image/webp"
-    const cleanName = fileName.replace(/\.[^/.]+$/, "") || "photo"
-    const outputName = `${cleanName}.webp`
+    const cleanName = (fileToProcess.name || fileName || "photo").replace(/\.[^/.]+$/, "") || "photo"
 
     const renderToCanvasAndResolve = (source: CanvasImageSource, naturalWidth: number, naturalHeight: number) => {
       let width = naturalWidth
@@ -191,7 +203,7 @@ export async function compressImage(
         if (typeof (source as any).close === "function") {
           try { (source as any).close() } catch (_) {}
         }
-        safeResolve(file)
+        safeResolve(fileToProcess)
         return
       }
 
@@ -215,10 +227,12 @@ export async function compressImage(
         if (typeof (source as any).close === "function") {
           try { (source as any).close() } catch (_) {}
         }
-        safeResolve(file)
+        safeResolve(fileToProcess)
         return
       }
 
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = "high"
 
       try {
         ctx.drawImage(source, 0, 0, width, height)
@@ -226,7 +240,7 @@ export async function compressImage(
         if (typeof (source as any).close === "function") {
           try { (source as any).close() } catch (_) {}
         }
-        safeResolve(file)
+        safeResolve(fileToProcess)
         return
       }
 
@@ -234,38 +248,89 @@ export async function compressImage(
         try { (source as any).close() } catch (_) {}
       }
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            safeResolve(file)
-            return
-          }
+      // Export to WebP (with JPEG fallback for older engines)
+      const tryExportWebp = () => {
+        canvas.toBlob(
+          (webpBlob) => {
+            // Check if WebP export succeeded and is actually a webp MIME type
+            if (webpBlob && (webpBlob.type === "image/webp" || !webpBlob.type)) {
+              const compressedFile = new File([webpBlob], `${cleanName}.webp`, {
+                type: "image/webp",
+                lastModified: Date.now(),
+              })
 
-          const compressedFile = new File([blob], outputName, {
-            type: outputType,
-            lastModified: Date.now(),
-          })
+              // If still over 850KB (rare noisy photo), perform a quick secondary downscale to strictly keep in KBs
+              if (compressedFile.size > 850 * 1024 && (width > 900 || height > 900)) {
+                try {
+                  const pass2Canvas = document.createElement("canvas")
+                  const pass2W = Math.round(width * 0.75)
+                  const pass2H = Math.round(height * 0.75)
+                  pass2Canvas.width = pass2W
+                  pass2Canvas.height = pass2H
+                  const p2Ctx = pass2Canvas.getContext("2d")
+                  if (p2Ctx) {
+                    p2Ctx.drawImage(canvas, 0, 0, pass2W, pass2H)
+                    pass2Canvas.toBlob(
+                      (p2Blob) => {
+                        if (p2Blob) {
+                          safeResolve(
+                            new File([p2Blob], `${cleanName}.webp`, {
+                              type: "image/webp",
+                              lastModified: Date.now(),
+                            })
+                          )
+                          return
+                        }
+                        safeResolve(compressedFile)
+                      },
+                      "image/webp",
+                      0.72
+                    )
+                    return
+                  }
+                } catch (_) {}
+              }
 
-          // Use compressed file if smaller, or if converted from HEIC/raw format
-          if (compressedFile.size < file.size || outputType !== file.type) {
-            safeResolve(compressedFile)
-          } else {
-            safeResolve(file)
-          }
-        },
-        outputType,
-        quality
-      )
+              safeResolve(compressedFile)
+            } else {
+              // Fallback to JPEG if browser doesn't support WebP canvas encoding
+              tryExportJpeg()
+            }
+          },
+          "image/webp",
+          quality
+        )
+      }
+
+      const tryExportJpeg = () => {
+        canvas.toBlob(
+          (jpegBlob) => {
+            if (!jpegBlob) {
+              safeResolve(fileToProcess)
+              return
+            }
+            safeResolve(
+              new File([jpegBlob], `${cleanName}.jpg`, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              })
+            )
+          },
+          "image/jpeg",
+          quality
+        )
+      }
+
+      tryExportWebp()
     }
 
-    // Attempt modern createImageBitmap first if available
+    // Attempt modern createImageBitmap first
     if (typeof createImageBitmap === "function") {
-      createImageBitmap(file)
+      createImageBitmap(fileToProcess)
         .then((bitmap) => {
           renderToCanvasAndResolve(bitmap, bitmap.width, bitmap.height)
         })
         .catch(() => {
-          // Fallback to Image element
           loadViaImageElement()
         })
     } else {
@@ -274,21 +339,86 @@ export async function compressImage(
 
     function loadViaImageElement() {
       try {
-        objectUrl = URL.createObjectURL(file)
+        objectUrl = URL.createObjectURL(fileToProcess)
       } catch (_) {
-        safeResolve(file)
+        safeResolve(fileToProcess)
         return
       }
 
       const img = new Image()
+      img.crossOrigin = "anonymous"
       img.onload = () => {
         renderToCanvasAndResolve(img, img.naturalWidth || img.width, img.naturalHeight || img.height)
       }
       img.onerror = () => {
-        safeResolve(file)
+        safeResolve(fileToProcess)
       }
       img.src = objectUrl
     }
   })
 }
+
+/**
+ * Checks if a file or object represents a HEIC/HEIF image by filename or MIME type.
+ */
+export function isHeicFormat(file: { name?: string; type?: string }): boolean {
+  if (!file) return false
+  const name = (file.name || "").toLowerCase()
+  const type = (file.type || "").toLowerCase().trim()
+  if (/\.(heic|heif)$/i.test(name)) return true
+  if (type.includes("heic") || type.includes("heif")) return true
+  return false
+}
+
+/**
+ * Robustly inspects the initial bytes of a file to check for HEIC/HEIF ftyp signatures.
+ */
+export async function isHeicByHeader(file: File | Blob): Promise<boolean> {
+  if (!file || typeof file.slice !== "function") return false
+  try {
+    const slice = file.slice(0, 16)
+    const buf = new Uint8Array(await slice.arrayBuffer())
+    if (buf.length >= 12 && buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+      const brand = String.fromCharCode(buf[8], buf[9], buf[10], buf[11]).toLowerCase()
+      if (["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand)) {
+        return true
+      }
+    }
+  } catch (_) {}
+  return false
+}
+
+/**
+ * Converts a HEIC / HEIF image file or blob to standard JPEG format in the browser.
+ * Uses dynamic import so server-side Next.js bundle is unaffected.
+ */
+export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promise<File> {
+  if (typeof window === "undefined") {
+    return file instanceof File ? file : new File([file], "image.jpg", { type: "image/jpeg" })
+  }
+
+  const rawName = file instanceof File ? file.name : "photo.heic"
+  const cleanName = rawName.replace(/\.[^/.]+$/, "") || "photo"
+
+  try {
+    const heic2anyModule = await import("heic2any")
+    const heic2any = heic2anyModule.default || heic2anyModule
+
+    const converted = await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality,
+    })
+
+    const jpegBlob = Array.isArray(converted) ? converted[0] : converted
+    return new File([jpegBlob], `${cleanName}.jpg`, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    })
+  } catch (err) {
+    console.warn("heic2any conversion error:", err)
+    return file instanceof File ? file : new File([file], `${cleanName}.jpg`, { type: "image/jpeg" })
+  }
+}
+
 

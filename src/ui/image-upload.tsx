@@ -16,7 +16,8 @@ export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (!file.type.startsWith("image/")) {
+      const isImg = file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name)
+      if (!isImg) {
         alert("Please upload an image file")
         return
       }
@@ -95,7 +96,7 @@ export function ImageUpload({ onImageSelect, currentImage }: ImageUploadProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.bmp,.tiff"
         onChange={handleFileChange}
         className="hidden"
       />
