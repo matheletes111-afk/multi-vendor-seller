@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/ui/dialog"
 import { Button } from "@/ui/button"
-import { RotateCw, ZoomIn, ZoomOut, Check, X, Crop, RefreshCw } from "lucide-react"
+import { RotateCw, ZoomIn, ZoomOut, Check, X, Crop, RefreshCw, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type CropAspectRatio = "free" | "1:1" | "4:3" | "16:9" | "3:2" | "16:10"
@@ -26,6 +26,8 @@ export function ImageCropperModal({
   title = "Crop & Adjust Image",
 }: ImageCropperModalProps) {
   const [imgElement, setImgElement] = useState<HTMLImageElement | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0) // 0, 90, 180, 270
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -41,14 +43,19 @@ export function ImageCropperModal({
   useEffect(() => {
     if (!imageFile || !open) {
       setImgElement(null)
+      setIsLoading(false)
+      setLoadError(null)
       return
     }
 
     let isSubscribed = true
     let objectUrl = ""
-    let fallbackTimeout: NodeJS.Timeout | null = null
 
     const loadImage = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      setImgElement(null)
+
       let fileToLoad: File = imageFile
       const isHeic =
         /\.(heic|heif)$/i.test(imageFile.name || "") ||
@@ -68,24 +75,19 @@ export function ImageCropperModal({
       try {
         objectUrl = URL.createObjectURL(fileToLoad)
       } catch (_) {
-        onCropComplete(imageFile)
-        onOpenChange(false)
+        if (!isSubscribed) return
+        setIsLoading(false)
+        setLoadError("Could not generate a preview for this file.")
         return
       }
 
       const img = new Image()
       img.crossOrigin = "anonymous"
 
-      fallbackTimeout = setTimeout(() => {
-        if (isSubscribed && !imgElement) {
-          onCropComplete(fileToLoad)
-          onOpenChange(false)
-        }
-      }, 5000)
-
       img.onload = () => {
         if (!isSubscribed) return
-        if (fallbackTimeout) clearTimeout(fallbackTimeout)
+        setIsLoading(false)
+        setLoadError(null)
         setImgElement(img)
         setZoom(1)
         setRotation(0)
@@ -94,9 +96,10 @@ export function ImageCropperModal({
 
       img.onerror = () => {
         if (!isSubscribed) return
-        if (fallbackTimeout) clearTimeout(fallbackTimeout)
-        onCropComplete(fileToLoad)
-        onOpenChange(false)
+        setIsLoading(false)
+        setLoadError(
+          "Unable to decode image preview in this browser. You can still use the image directly without cropping."
+        )
       }
 
       img.src = objectUrl
@@ -106,14 +109,13 @@ export function ImageCropperModal({
 
     return () => {
       isSubscribed = false
-      if (fallbackTimeout) clearTimeout(fallbackTimeout)
       if (objectUrl) {
         try {
           URL.revokeObjectURL(objectUrl)
         } catch (_) {}
       }
     }
-  }, [imageFile, open, onCropComplete, onOpenChange])
+  }, [imageFile, open])
 
   // Get crop box dimensions based on container and aspect ratio
   const getCropDimensions = useCallback((containerWidth: number, containerHeight: number) => {
@@ -400,6 +402,42 @@ export function ImageCropperModal({
           className="relative w-full h-[320px] sm:h-[380px] bg-slate-950 rounded-xl overflow-hidden cursor-move select-none touch-none mt-2 flex items-center justify-center"
         >
           <canvas ref={canvasRef} className="w-full h-full block" />
+
+          {isLoading && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-xs text-white">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-400 mb-2" />
+              <span className="text-xs font-medium">Preparing image for crop...</span>
+            </div>
+          )}
+
+          {loadError && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/95 text-white p-6 text-center">
+              <AlertCircle className="w-8 h-8 text-amber-400 mb-2" />
+              <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">{loadError}</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    if (imageFile) onCropComplete(imageFile)
+                    onOpenChange(false)
+                  }}
+                >
+                  Use Image Directly
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="absolute bottom-2 left-2 pointer-events-none bg-black/60 text-white/90 text-[10px] px-2 py-1 rounded backdrop-blur-xs">
             Drag to pan • Pinch or scroll to zoom
           </div>

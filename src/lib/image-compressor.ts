@@ -400,6 +400,46 @@ export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promi
   const rawName = file instanceof File ? file.name : "photo.heic"
   const cleanName = rawName.replace(/\.[^/.]+$/, "") || "photo"
 
+  // Quick binary check: If the file is already a JPEG, PNG, or WebP despite a .heic extension,
+  // do not invoke heic2any (which would throw ERR_USER Image is already browser readable).
+  try {
+    if (typeof file.slice === "function") {
+      const headerSlice = file.slice(0, 32)
+      const buffer = new Uint8Array(await headerSlice.arrayBuffer())
+      // JPEG check (FF D8 FF)
+      if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+        return new File([file], `${cleanName}.jpg`, {
+          type: "image/jpeg",
+          lastModified: Date.now(),
+        })
+      }
+      // PNG check (89 50 4E 47)
+      if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+        return new File([file], `${cleanName}.png`, {
+          type: "image/png",
+          lastModified: Date.now(),
+        })
+      }
+    }
+  } catch (_) {}
+
+  // Primary decoder: heic-to (newer libheif, supports newer iPhone HEIC variants, no web worker)
+  try {
+    const { heicTo } = await import("heic-to/csp")
+    const converted = await Promise.race([
+      heicTo({ blob: file, type: "image/jpeg", quality }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("HEIC conversion timeout")), 20000)
+      ),
+    ])
+    return new File([converted], `${cleanName}.jpg`, {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    })
+  } catch (primaryErr) {
+    console.warn("heic-to conversion failed, trying heic2any:", primaryErr)
+  }
+
   try {
     const heic2anyModule = await import("heic2any")
     const heic2any = heic2anyModule.default || heic2anyModule
@@ -411,7 +451,7 @@ export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promi
     })
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("HEIC conversion timeout")), 8000)
+      setTimeout(() => reject(new Error("HEIC conversion timeout")), 12000)
     )
 
     const converted = await Promise.race([conversionPromise, timeoutPromise])
@@ -421,8 +461,21 @@ export async function convertHeicToJpeg(file: File | Blob, quality = 0.9): Promi
       type: "image/jpeg",
       lastModified: Date.now(),
     })
-  } catch (err) {
-    console.warn("heic2any conversion error or timeout:", err)
+  } catch (err: any) {
+    const errMsg = String(err?.message || err || "")
+    console.warn("heic2any conversion error or timeout:", errMsg)
+
+    // If heic2any determined the image is already browser readable (e.g. JPEG disguised as HEIC)
+    if (errMsg.includes("already browser readable")) {
+      const match = errMsg.match(/already browser readable:\s*([^\s]+)/)
+      const detectedType = match ? match[1] : "image/jpeg"
+      const ext = detectedType.includes("png") ? "png" : "jpg"
+      return new File([file], `${cleanName}.${ext}`, {
+        type: detectedType,
+        lastModified: Date.now(),
+      })
+    }
+
     return file instanceof File ? file : new File([file], `${cleanName}.jpg`, { type: "image/jpeg" })
   }
 }
