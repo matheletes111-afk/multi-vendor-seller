@@ -48,7 +48,12 @@ export async function POST(request: Request) {
       /(?:(?:__Host-)?authjs\.csrf-token|next-auth\.csrf-token)=([^;]+)/
     )
     if (existingCsrfMatch) {
-      const rawVal = decodeURIComponent(existingCsrfMatch[1].trim())
+      let rawVal = existingCsrfMatch[1].trim()
+      try {
+        rawVal = decodeURIComponent(rawVal)
+      } catch {
+        /* ignore malformed encoding */
+      }
       const tokenFromCookie = rawVal.split("|")[0]
       if (tokenFromCookie) {
         effectiveCsrfToken = tokenFromCookie

@@ -31,7 +31,13 @@ export async function GET(request: NextRequest) {
     const data = await res.json().catch(() => ({}))
 
     const headers = new Headers()
-    res.headers.getSetCookie?.().forEach((c: string) => headers.append("Set-Cookie", c))
+    const setCookies =
+      typeof (res.headers as any)?.getSetCookie === "function"
+        ? (res.headers as any).getSetCookie()
+        : [res.headers.get("set-cookie")].filter(Boolean)
+    if (Array.isArray(setCookies)) {
+      setCookies.forEach((c: string) => headers.append("Set-Cookie", c))
+    }
 
     return NextResponse.json(data, { status: res.status, headers })
   } catch (error) {

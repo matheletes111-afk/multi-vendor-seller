@@ -499,7 +499,12 @@ export async function completeWebNextAuthLogin({
     /(?:(?:__Host-)?authjs\.csrf-token|next-auth\.csrf-token)=([^;]+)/
   )
   if (existingCsrfMatch) {
-    const rawVal = decodeURIComponent(existingCsrfMatch[1].trim())
+    let rawVal = existingCsrfMatch[1].trim()
+    try {
+      rawVal = decodeURIComponent(rawVal)
+    } catch {
+      /* ignore malformed encoding */
+    }
     const tokenFromCookie = rawVal.split("|")[0]
     if (tokenFromCookie) {
       effectiveCsrfToken = tokenFromCookie
@@ -532,10 +537,13 @@ export async function completeWebNextAuthLogin({
       if (csrfData?.csrfToken) {
         effectiveCsrfToken = csrfData.csrfToken
       }
-      const setCookies = csrfRes.headers.getSetCookie?.() || []
-      if (setCookies.length > 0) {
+      const setCookies =
+        typeof (csrfRes.headers as any)?.getSetCookie === "function"
+          ? (csrfRes.headers as any).getSetCookie()
+          : [csrfRes.headers.get("set-cookie")].filter(Boolean)
+      if (Array.isArray(setCookies) && setCookies.length > 0) {
         newlyGeneratedCookies = setCookies
-        const cookiePairs = setCookies.map((c) => c.split(";")[0].trim())
+        const cookiePairs = setCookies.map((c: string) => c.split(";")[0].trim())
         cookie = cookie ? `${cookie}; ${cookiePairs.join("; ")}` : cookiePairs.join("; ")
       }
     } catch (err) {
@@ -590,7 +598,13 @@ export async function completeWebNextAuthLogin({
 
   const responseHeaders = new Headers()
   newlyGeneratedCookies.forEach((c) => responseHeaders.append("Set-Cookie", c))
-  res.headers.getSetCookie?.().forEach((c: string) => responseHeaders.append("Set-Cookie", c))
+  const resCookies =
+    typeof (res.headers as any)?.getSetCookie === "function"
+      ? (res.headers as any).getSetCookie()
+      : [res.headers.get("set-cookie")].filter(Boolean)
+  if (Array.isArray(resCookies)) {
+    resCookies.forEach((c: string) => responseHeaders.append("Set-Cookie", c))
+  }
 
   if (isErrorRedirect) {
     let msg = "Failed to establish session. Please try again."
