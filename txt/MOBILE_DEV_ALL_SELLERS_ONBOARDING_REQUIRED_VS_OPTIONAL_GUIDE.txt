@@ -1,0 +1,733 @@
+================================================================================
+MEEEM MULTI-VENDOR MARKETPLACE — MOBILE DEVELOPER SPECIFICATION
+SELLER ONBOARDING FORMS: COMPLETE REQUIRED VS OPTIONAL FIELDS REFERENCE
+(100% VERIFIED & SYNCHRONIZED WITH WEB ONBOARDING CLIENTS & BACKEND VALIDATION)
+================================================================================
+Document Path: txt/MOBILE_DEV_ALL_SELLERS_ONBOARDING_REQUIRED_VS_OPTIONAL_GUIDE.txt
+Target Audience: Mobile App Developers (iOS / Android / Flutter / React Native)
+Applicable Panels: Product Sellers, Service Providers, Restaurant Partners, Hotel Hosts, Delivery Fleet Riders
+Version: 3.1.0 (Fully Synchronized with Web UI & Backend)
+Last Updated: October 2026
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE OVERVIEW & WEB-TO-MOBILE SYNCHRONIZATION
+2. MASTER COMPARISON MATRIX (100% SYNCED WITH WEB CLIENTS)
+3. FILE UPLOAD TECHNICAL SPECIFICATIONS & SIZE CONSTRAINTS
+4. STEP 1: INITIAL ACCOUNT REGISTRATION & OTP (ALL SELLERS)
+5. PRODUCT SELLER ONBOARDING SPECIFICATION (/product-seller)
+   - Step 1 (DB Step 2): Business Information
+   - Step 2 (DB Step 3): Identity & KYC Verification
+   - Step 3 (DB Step 4): Payment & Payout Details
+   - Step 4 (DB Step 5): Store Setup & Categories
+   - Step 5 (DB Step 6): Agreement & Compliance
+6. SERVICE PROVIDER ONBOARDING SPECIFICATION (/service-seller)
+   - Step 1 (DB Step 2): Business Information
+   - Step 2 (DB Step 3): Identity & KYC Verification
+   - Step 3 (DB Step 4): Payment & Payout Details
+   - Step 4 (DB Step 5): Service Profile & Service Categories
+   - Step 5 (DB Step 6): Agreement & Compliance
+7. RESTAURANT PARTNER ONBOARDING SPECIFICATION (/restaurant-seller)
+   - Step 1 (DB Step 2): Business Information
+   - Step 2 (DB Step 3): Identity & Food License Verification
+   - Step 3 (DB Step 4): Outlet Setup, Cuisines & Services
+   - Step 4 (DB Step 5): Payment & Payout Details
+   - Step 5 (DB Step 6): Agreement & Compliance
+8. HOTEL HOST ONBOARDING SPECIFICATION (/hotel-seller)
+   - Step 1 (DB Step 2): Business Information
+   - Step 2 (DB Step 3): Identity & KYC Verification
+   - Step 3 (DB Step 4): Basic Property Setup & Room Capacity
+   - Step 4 (DB Step 5): Payment & Payout Details
+   - Step 5 (DB Step 6): Agreement & Compliance
+9. BONUS: DELIVERY FLEET RIDER ONBOARDING SPECIFICATION (/riderapp)
+10. UNIFIED PAYMENT & PAYOUT SETTLEMENT RULES (BANK VS MOBILE MONEY)
+11. PREDEFINED SYSTEM LISTS & ENUMS (CUISINES, HOTEL CATEGORIES, REFERRALS)
+12. MOBILE API INTEGRATION GUIDELINES & ERROR HANDLING
+
+
+================================================================================
+1. EXECUTIVE OVERVIEW & WEB-TO-MOBILE SYNCHRONIZATION
+================================================================================
+This document has been rigorously cross-checked against:
+1. Web Client Wizard Handlers:
+   - `src/app/product-seller/onboarding/onboarding-client.tsx`
+   - `src/app/service-seller/onboarding/onboarding-client.tsx`
+   - `src/app/restaurant-seller/onboarding/onboarding-client.tsx`
+   - `src/app/hotel-seller/onboarding/onboarding-client.tsx`
+2. Backend API Routes & Validation Handlers:
+   - `src/app/api/*/onboarding/route.ts` & `src/app/mobileapi/*/onboarding/route.ts`
+   - `src/lib/seller-approval-validation.ts`
+   - `src/lib/payment-details-helper.ts`
+   - `src/lib/onboarding-file-validation.ts`
+   - `src/lib/onboarding-constants.ts`
+
+CORE RULES ENFORCED BY THE WEB PLATFORM:
+- UI Astrixes & Blockers: Any field marked with an asterisk (*) on the web 
+  is strictly validated by the client-side `handleNext` function before 
+  allowing the seller to advance to the next step.
+- Step Numbering Compatibility:
+  - Mobile Apps can submit using 1-based `mobileStep` (1 to 5) OR 
+    database-based `step` (2 to 6).
+  - The backend also uses smart field signature detection as a fallback.
+- Status Life Cycle:
+  [Registration] -> [Onboarding Steps 1-5] -> [Submitted: PENDING] -> [Admin Review]
+  - If approved: `status: "APPROVED"` -> full dashboard unlocked.
+  - If correction needed: `status: "CORRECTION_NEEDED"` -> seller sees 
+    `adminFeedback` and can re-submit the specific step/files.
+
+
+================================================================================
+2. MASTER COMPARISON MATRIX (100% SYNCED WITH WEB CLIENTS)
+================================================================================
+Legend:
+  [REQ]  = Mandatory (Form has asterisk * and strictly blocks 'Next Step' if missing)
+  [COND] = Conditionally Required (Mandatory when a specific toggle/option is chosen)
+  [OPT]  = Optional (Field is available but does not block form progression)
+  [N/A]  = Not Applicable for this seller vertical
+
+-------------------------------------------------------------------------------------------------------------------------------------
+FIELD / DOCUMENT                         PRODUCT SELLER   SERVICE SELLER   RESTAURANT SELLER  HOTEL SELLER     RIDER FLEET
+-------------------------------------------------------------------------------------------------------------------------------------
+[INITIAL REGISTRATION - STEP 1]
+Full Legal Name                          [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Mobile Phone Number & Country Code       [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Password (min 6 characters)              [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Email Address                            [OPT]            [OPT]            [OPT]              [OPT]            [OPT]
+
+[BUSINESS INFO - STEP 1 / DB STEP 2]
+Profile Picture / Headshot (Image)       [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Business / Trade Name                    [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Business Type (Individual/Company/etc.)  [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Tax Identification Number (TIN / PAN)    [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Business Address (Street)                [REQ]            [REQ]            [OPT]              [OPT]            [N/A]
+City                                     [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Area (Field name: `district`)            [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+State                                    [N/A]            [N/A]            [REQ]              [REQ]            [N/A]
+Postal Code (`postalCode`)               [OPT: Hidden]    [OPT: Hidden]    [N/A]              [N/A]            [N/A]
+Landmark                                 [N/A]            [N/A]            [REQ]              [REQ]            [N/A]
+Owner / Manager (POC) Name               [N/A]            [N/A]            [REQ]              [REQ]            [N/A]
+POC Contact Phone Number                 [N/A]            [N/A]            [REQ]              [REQ]            [N/A]
+Have GST Toggle ("true"/"false")         [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+GST Identification Number (`gstInvNo`)   [COND: if GST]   [COND: if GST]   [COND: if GST]     [COND: if GST]   [N/A]
+GST Customer Name (`gstCustomerName`)    [COND: if GST]   [COND: if GST]   [COND: if GST]     [COND: if GST]   [N/A]
+Registration Number (`businessRegNumber`)[OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+Nature of Business Summary               [OPT]            [OPT]            [N/A]              [N/A]            [N/A]
+Years in Operation                       [OPT]            [OPT]            [N/A]              [N/A]            [N/A]
+Business Registration Certificate (Doc)  [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+GST / TIN Certificate (Doc)              [COND: if GST]   [COND: if GST]   [COND: if GST]     [COND: if GST]   [N/A]
+City Council Certificate (Doc)           [OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+Proof of Business Address (Doc)          [OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+
+[IDENTITY & KYC - STEP 2 / DB STEP 3]
+National Identity Number (NIN)           [REQ: 11-digit]  [REQ: 11-digit]  [N/A: In ID Num]   [N/A: In ID Num] [REQ: via NID]
+ID Document Type (`idType`)              [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+ID Document Number (`idNumber`)          [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+ID Document Front (Photo/Scan)           [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+ID Document Back (Photo/Scan)            [COND: not Pass] [COND: not Pass] [COND: not Pass]   [COND: not Pass] [COND: not Pass]
+Selfie Verification (Face Check)         [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Food License Number (`foodLicenseNumber`)[N/A]            [N/A]            [REQ]              [N/A]            [N/A]
+Food License Copy (`foodLicense` Doc)    [N/A]            [N/A]            [REQ]              [N/A]            [N/A]
+Rider Driving License Number             [N/A]            [N/A]            [N/A]              [N/A]            [REQ]
+Rider Driving License Card (Doc)         [N/A]            [N/A]            [N/A]              [N/A]            [REQ]
+Rider Vehicle Insurance (Doc)            [N/A]            [N/A]            [N/A]              [N/A]            [OPT]
+
+[OUTLET / STORE / PROPERTY / FLEET SETUP - STEP 4 / DB STEP 4-5]
+Store / Restaurant / Hotel Name          [REQ]            [REQ]            [N/A]              [N/A]            [N/A]
+Store Description / Bio                  [OPT]            [OPT]            [N/A]              [N/A]            [N/A]
+Brand / Storefront Logo (Image)          [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Main Ambience / Property Photo (Image)   [N/A]            [N/A]            [REQ]              [REQ]            [N/A]
+Banner Graphic (Image)                   [OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+Category / Cuisine / Service Selection   [REQ: >=1 cat]   [REQ: >=1 cat]   [REQ: >=1 cuis]    [REQ: >=1 cat]   [REQ: Zones]
+Estimate Branch / Outlet / Room Count    [N/A]            [N/A]            [REQ: Rest. Count] [REQ: Room Count][N/A]
+Physical Address / GPS Map Pin           [OPT]            [OPT]            [OPT]              [OPT]            [REQ: Online]
+Vehicle Type & Number Plate              [N/A]            [N/A]            [N/A]              [N/A]            [REQ]
+
+[PAYMENT & PAYOUT DETAILS - STEP 3 OR 4 / DB STEP 4 OR 5]
+Payment Option ("Bank"|"Orange"|"Afri")  [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+-- IF MOBILE MONEY ("Orange Money" | "AfriMoney"):
+   Mobile Wallet Number (`mobileNumber`) [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Agent Number (`agentNumber`)          [OPT]            [OPT]            [OPT]              [OPT]            [OPT]
+-- IF BANK TRANSFER:
+   Bank Name                             [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Account Holder Name                   [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Account Number                        [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   BBAN Number                           [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Branch Name                           [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Bank Address                          [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+   Bank Passbook / Cheque Copy (Doc)     [OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+   Bank Verification Letter (Doc)        [OPT]            [OPT]            [OPT]              [OPT]            [N/A]
+
+[LEGAL AGREEMENT & COMPLIANCE - FINAL STEP / DB STEP 6]
+General Terms & Conditions Checkbox      [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Privacy Policy & Compliance Checkbox     [REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Vendor & Service Agreement Checkbox      [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+Payment & Commission Terms Checkbox      [REQ]            [REQ]            [REQ]              [REQ]            [N/A]
+How Did You Hear About Us (`hearAboutUs`)[REQ]            [REQ]            [REQ]              [REQ]            [REQ]
+Referral Custom Text (`hearAboutUsOther`)[COND: if Other] [COND: if Other] [COND: if Other]   [COND: if Other] [COND: if Other]
+-------------------------------------------------------------------------------------------------------------------------------------
+
+
+================================================================================
+3. FILE UPLOAD TECHNICAL SPECIFICATIONS & SIZE CONSTRAINTS
+================================================================================
+
+3.1. ACCEPTED FORMATS & MIME TYPES
+--------------------------------------------------------------------------------
+1. IMAGE-ONLY FIELDS (Must be images, PDF upload will be rejected):
+   - Profile Picture (`profileImage`)
+   - Selfie Verification with ID (`selfie`)
+   - Storefront / Restaurant / Hotel Logo (`logo` / `storeLogo`)
+   - Storefront / Restaurant / Hotel Banner (`banner` / `storeBanner`)
+   - Main Cuisine / Property Photo (`mainPhoto`)
+   Allowed Extensions: .jpg, .jpeg, .png, .webp, .heic, .heif, .avif, .bmp
+   Allowed Mime Types: image/jpeg, image/png, image/webp, image/heic, image/avif
+
+2. DOCUMENT FIELDS (Accepts BOTH PDF and Images):
+   - Business Registration Certificate (`busRegCert`)
+   - GST / TIN Certificate (`gstTinCert`)
+   - City Council Certificate (`cityCouncilCert`)
+   - Proof of Business Address (`addressProof`)
+   - ID Front & ID Back (`idFront`, `idBack`)
+   - Food Hygiene License (`foodLicense`)
+   - Bank Passbook / Cheque Copy (`bankPassbook` / `passbook`)
+   - Bank Verification Letter (`bankLetter`)
+   - Rider Driving License (`drivingLicenseDoc`)
+   - Rider National ID Card (`nationalIdDoc`)
+   - Rider Vehicle Insurance (`vehicleInsuranceDoc`)
+   Allowed Extensions: .pdf, .jpg, .jpeg, .png, .webp
+
+3. FORBIDDEN FORMATS (Server immediately responds with 400 Bad Request):
+   - Word Documents: .doc, .docx
+   - Excel Spreadsheets: .xls, .xlsx, .csv
+   - SVGs: .svg (strictly blocked due to XSS vulnerability)
+   - Executables & Archives: .exe, .bat, .zip, .rar, .7z
+
+3.2. FILE SIZE LIMITS & COMPRESSION GUIDELINES
+--------------------------------------------------------------------------------
+- Web Client Limit: Web onboarding client checks `file.size <= 2.5 MB`.
+- Server Limit: API endpoint allows up to `4.5 MB` before rejection.
+- Mobile Best Practice:
+  - Compress camera captures on device to JPEG/WebP quality 80% (target 300KB - 800KB).
+  - Recommended dimensions:
+    - Profile & Logos: 500x500 to 800x800 square (1:1 aspect ratio).
+    - ID Cards: 16:10 or 3:2 aspect ratio.
+    - Banners: 16:9 widescreen ratio.
+    - Main Property Photos: 4:3 or 16:9 ratio.
+
+
+================================================================================
+4. STEP 1: INITIAL ACCOUNT REGISTRATION & OTP (ALL SELLERS)
+================================================================================
+Endpoints:
+  - Product Seller:    POST /mobileapi/product-seller/auth/registration
+  - Service Seller:    POST /mobileapi/service-seller/auth/registration
+  - Restaurant Seller: POST /mobileapi/restaurant-seller/auth/registration
+  - Hotel Seller:      POST /mobileapi/hotel-seller/auth/registration
+  - Content-Type:      application/json
+
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS    WEB UI LABEL & DESCRIPTION
+--------------------------------------------------------------------------------
+name                string  REQUIRED  "Full Name" — Legal registrant name.
+phone               string  REQUIRED  "Mobile Number" — Phone number without country code.
+phoneCountryCode    string  REQUIRED  "Country Code" — Calling code (e.g. "+232").
+password            string  REQUIRED  "Password" — Min 6 characters with mixed chars.
+email               string  OPTIONAL  "Email Address" — Optional. Verified if provided.
+--------------------------------------------------------------------------------
+
+
+================================================================================
+5. PRODUCT SELLER ONBOARDING SPECIFICATION (/product-seller)
+================================================================================
+Base Endpoints:
+  - GET  /mobileapi/product-seller/onboarding
+  - POST /mobileapi/product-seller/onboarding
+  - GET  /mobileapi/product-seller/categories (For Category Selection)
+
+--------------------------------------------------------------------------------
+5.1. STEP 1: BUSINESS INFORMATION (Mobile Step 1 / DB Step 2)
+Web UI Header: "Business Information" — "Please provide your legal business details and registration info."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "1" (or "2").
+profileImage        File    REQUIRED      "Profile Picture *" — Image only (JPG/PNG/WebP).
+businessName        string  REQUIRED      "Business Name *" — Legal entity/shop name.
+businessType        string  REQUIRED      "Business Type *" — "Individual" | "Proprietor" | "Partnership" | "Company".
+taxIdNumber         string  REQUIRED      "TIN No *" — Tax Identification Number.
+street              string  REQUIRED      "Business Address (Street) *" — Physical street.
+city                string  REQUIRED      "City *" — City/Municipality.
+district            string  REQUIRED      "Area *" (Field: `district`) — Locality/District.
+haveGst             string  REQUIRED      "Do you sell with GST? *" — "true" or "false".
+gstInvNo            string  CONDITIONAL   "GST Identification Number *" — REQUIRED if haveGst == "true".
+gstCustomerName     string  CONDITIONAL   "Customer GST Name *" — REQUIRED if haveGst == "true".
+busRegCert          File    REQUIRED      "Business Registration Certificate *" — PDF or Image.
+gstTinCert          File    CONDITIONAL   "GST TIN Certificate *" — REQUIRED if haveGst == "true".
+businessRegNumber   string  OPTIONAL      "Registration Number" — Official corporate reg.
+cityCouncilCert     File    OPTIONAL      "City Council Certificate (Optional)" — PDF/Image.
+addressProof        File    OPTIONAL      "Proof of Address (Edsa, Guma, etc.) (Optional)" — PDF/Image.
+postalCode          string  OPTIONAL      "Postal Code" — Hidden on web UI (`display: none`).
+natureOfBusiness    string  OPTIONAL      Physical goods traded summary.
+yearsInOperation    number  OPTIONAL      Operational years.
+
+--------------------------------------------------------------------------------
+5.2. STEP 2: IDENTITY & KYC VERIFICATION (Mobile Step 2 / DB Step 3)
+Web UI Header: "Identity Verification" — "Mandatory KYC verification for security and fraud prevention."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "2" (or "3").
+nationIdentityNumber string REQUIRED      "National Identity Number (NIN) *" — 11-digit NIN.
+idType              string  REQUIRED      "ID Type *" — "National ID Card" | "Passport" | "Driver's License".
+idNumber            string  REQUIRED      "ID Number *" — Government ID card number.
+idFront             File    REQUIRED      "Upload ID Front *" — Card front photo/PDF.
+idBack              File    CONDITIONAL   "Upload ID Back *" — REQUIRED if idType != "Passport".
+                                          (For Passport, back photo is skipped).
+selfie              File    REQUIRED      "Face Verification *" — Live selfie with ID (Image only).
+
+--------------------------------------------------------------------------------
+5.3. STEP 3: PAYMENT & PAYOUT DETAILS (Mobile Step 3 / DB Step 4)
+Web UI Header: "Payment & Payout Details" — "Choose how you would like to receive payouts from your sales."
+Content-Type: multipart/form-data OR application/json
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "3" (or "4").
+paymentOption       string  REQUIRED      "Payment Option *" — "Bank" | "Orange Money" | "AfriMoney".
+
+-- IF paymentOption == "Orange Money" OR "AfriMoney":
+mobileNumber        string  REQUIRED      "Mobile Number *" — Phone number registered with provider.
+agentNumber         string  OPTIONAL      "Agent Number (Optional - for payments)" — Merchant/agent code.
+preferredPayoutMethod string OPTIONAL     Automatically set to "Mobile Wallet".
+
+-- IF paymentOption == "Bank":
+bankName            string  REQUIRED      "Bank Name *" — e.g. Sierra Leone Commercial Bank.
+accountHolderName   string  REQUIRED      "Account Holder Name *" — Official bank account name.
+accountNumber       string  REQUIRED      "Account Number *" — Bank account digits.
+bbanNumber          string  REQUIRED      "BBAN Number *" — Basic Bank Account Number.
+branchName          string  REQUIRED      "Branch Name *" — Branch location.
+bankAddress         string  REQUIRED      "Bank Address *" — Street address of branch.
+passbook            File    OPTIONAL      "Bank Passbook / Cheque Copy (Optional)" — PDF/Image.
+bankLetter          File    OPTIONAL      "Bank Letter with Account No. (Optional)" — PDF/Image.
+preferredPayoutMethod string OPTIONAL     Automatically set to "Bank Transfer".
+
+--------------------------------------------------------------------------------
+5.4. STEP 4: STORE SETUP & CATEGORIES (Mobile Step 4 / DB Step 5)
+Web UI Header: "Store Setup" — "Tell us about your store and what you sell."
+Content-Type: multipart/form-data (if files attached) OR application/json
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "4" (or "5").
+storeName / name    string  REQUIRED      "Store Name *" — Public storefront name.
+storeLogo           File    REQUIRED      "Store Logo *" — Image only (JPG/PNG/WebP, 1:1 square).
+categoryIds         array   REQUIRED      "Product Categories *" — Minimum 1 category ID required.
+description         string  OPTIONAL      "Store Description" — Bio/store summary textarea.
+storeBanner         File    OPTIONAL      "Store Banner (Optional)" — Image only (16:9 ratio).
+address / storeAddress string OPTIONAL    "Store Location" — Street address from location picker.
+lat / lng           number  OPTIONAL      GPS latitude & longitude coordinates.
+city, state, country string OPTIONAL      Store geographical details.
+suggestionCount     number  OPTIONAL      Custom category suggestion count (if proposing new category).
+
+--------------------------------------------------------------------------------
+5.5. STEP 5: AGREEMENT & COMPLIANCE (Mobile Step 5 / DB Step 6)
+Web UI Header: "Agreement & Compliance" — "Almost there! Please review and accept our terms."
+Content-Type: application/json OR multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "5" (or "6").
+hearAboutUs         string  REQUIRED      "How did you hear about us? *" — Predefined list (Section 11).
+hearAboutUsOther    string  CONDITIONAL   "Please specify where you heard about us *" — REQUIRED if "Other".
+agreedToTerms       boolean REQUIRED      "General Terms & Conditions" — Must be true.
+agreedToPrivacy     boolean REQUIRED      "Privacy Policy & Data Compliance" — Must be true.
+agreedToReturnPolicy boolean REQUIRED     "Vendor (Seller) & Service Provider Agreement" — Must be true.
+agreedToCommission  boolean REQUIRED      "Payment Settling & Commission Terms" — Must be true.
+
+
+================================================================================
+6. SERVICE PROVIDER ONBOARDING SPECIFICATION (/service-seller)
+================================================================================
+Base Endpoints:
+  - GET  /mobileapi/service-seller/onboarding
+  - POST /mobileapi/service-seller/onboarding
+  - GET  /mobileapi/service-seller/categories (For Service Categories)
+
+Service Seller follows the exact same 5-step flow and validations as Product Seller,
+with the following domain adjustments:
+
+1. Step 1 (DB Step 2):
+   - Field `busRegCert`: Labeled on web UI as "Business Registration Certificate / Trade License *".
+   - Field `profileImage`: Labeled on web UI as "Provider Profile Picture *".
+   - `street`, `city`, `district` (Area *), `haveGst`, `taxIdNumber` are all REQUIRED.
+   - `postalCode` is OPTIONAL (hidden with `display: none`).
+
+2. Step 2 (DB Step 3):
+   - `nationIdentityNumber`: REQUIRED ("National Identity Number (NIN) *").
+   - `idType`, `idNumber`, `idFront`, `idBack` (unless passport), `selfie` are REQUIRED.
+
+3. Step 3 (DB Step 4):
+   - Identical Bank vs Mobile Money payout rules.
+
+4. Step 4 (DB Step 5):
+   - UI Header: "Service Profile & Category Setup".
+   - `selectedServiceCategories` or `categoryIds`: REQUIRED (At least 1 service category chosen).
+   - `storeLogo`: REQUIRED (Service provider logo / badge).
+   - `storeBanner`: OPTIONAL.
+
+5. Step 5 (DB Step 6):
+   - All 4 legal checkboxes (`agreedToTerms`, `agreedToPrivacy`, `agreedToReturnPolicy`, 
+     `agreedToCommission`) + `hearAboutUs` are REQUIRED.
+
+
+================================================================================
+7. RESTAURANT PARTNER ONBOARDING SPECIFICATION (/restaurant-seller)
+================================================================================
+Base Endpoints:
+  - GET  /mobileapi/restaurant-seller/onboarding
+  - POST /mobileapi/restaurant-seller/onboarding
+
+--------------------------------------------------------------------------------
+7.1. STEP 1: BUSINESS INFORMATION (Mobile Step 1 / DB Step 2)
+Web UI Header: "Business Information" — "Legal business details for your restaurant entity."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "1" (or "2").
+profileImage        File    REQUIRED      "Profile Picture *" — Image only (Web wizard blocks if missing).
+businessName        string  REQUIRED      "Legal Business Name *" — Registered restaurant entity name.
+businessType        string  REQUIRED      "Business Type *" — "Individual" | "Proprietor" | "Partnership" | "Company".
+taxIdNumber         string  REQUIRED      "TIN / PAN Number *" — Tax identification.
+managerName         string  REQUIRED      "Owner / Manager Name *" — Legal manager full name.
+pocContact          string  REQUIRED      "POC Contact Number *" — Mobile number for kitchen contact.
+haveGst             string  REQUIRED      "Does your business have GST? *" — "true" or "false".
+gstInvNo            string  CONDITIONAL   "GST Number *" — REQUIRED if haveGst == "true".
+gstCustomerName     string  CONDITIONAL   "GST Customer Name *" — REQUIRED if haveGst == "true".
+landmark            string  REQUIRED      "Landmark *" — Pickup landmark for rider fleet.
+city                string  REQUIRED      "City *" — City/Town.
+district            string  REQUIRED      "Area *" (Field: `district`) — Area/Locality.
+state               string  REQUIRED      "State *" — State/Region.
+busRegCert          File    REQUIRED      "Business Registration Certificate *" — PDF or Image.
+gstTinCert          File    CONDITIONAL   "GST TIN Certificate *" — REQUIRED if haveGst == "true".
+cityCouncilCert     File    OPTIONAL      "City Council Certificate (Optional)" — PDF or Image.
+addressProof        File    OPTIONAL      "Proof of Address (Optional)" — PDF or Image.
+street              string  OPTIONAL      Physical street address.
+businessRegNumber   string  OPTIONAL      Corporate registration number.
+
+--------------------------------------------------------------------------------
+7.2. STEP 2: IDENTITY & FOOD LICENSE (Mobile Step 2 / DB Step 3)
+Web UI Header: "Identity & License" — "Verification documents and Food License."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "2" (or "3").
+idType              string  REQUIRED      "ID Type *" — "National ID Card" | "Passport" | "Driver's License".
+idNumber            string  REQUIRED      "ID Number *" — Document identification digits.
+idFront             File    REQUIRED      "ID Front *" — Image only (JPG/PNG/WebP, 16:10).
+idBack              File    CONDITIONAL   "ID Back *" — REQUIRED if idType != "Passport".
+selfie              File    REQUIRED      "Selfie Verification *" — Live face photo with ID.
+foodLicenseNumber   string  REQUIRED      "License Number *" — Hygiene inspection number.
+foodLicense         File    REQUIRED      "Upload License Copy *" — Official hygiene certificate (PDF/Image).
+                                          (Note: Both the document upload and number are required on web).
+
+--------------------------------------------------------------------------------
+7.3. STEP 3: OUTLET SETUP, CUISINES & SERVICES (Mobile Step 3 / DB Step 4)
+Web UI Header: "Outlet Setup" — "Details about your restaurant outlet."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "3" (or "4").
+estimateRestaurantCount number REQUIRED   "Estimate Restaurant Count *" — Integer count of active branches.
+cuisines            array   REQUIRED      "Primary Cuisines (Multi-select) *" — Minimum 1 cuisine (Section 11).
+services            array   REQUIRED      "Service Types *" — Minimum 1 service type (Delivery/Dine-in/Takeaway).
+logo                File    REQUIRED      "Restaurant Logo *" — Image only (1:1 square ratio).
+mainPhoto           File    REQUIRED      "Main Restaurant Photo *" — Image only (4:3 ratio). Ambience/dish.
+banner              File    OPTIONAL      "Restaurant Banner (Optional)" — Image only (16:9 ratio).
+
+--------------------------------------------------------------------------------
+7.4. STEP 4: PAYMENT & PAYOUT DETAILS (Mobile Step 4 / DB Step 5)
+Web UI Header: "Payment & Payout Details" — "Where you want to receive food order payouts."
+Content-Type: multipart/form-data OR application/json
+--------------------------------------------------------------------------------
+Identical to Section 5.3:
+- If Mobile Money: `paymentOption` ("Orange Money" | "AfriMoney") + `mobileNumber` are REQUIRED.
+- If Bank: `bankName`, `accountHolderName`, `accountNumber`, `bbanNumber`, `branchName`, `bankAddress` are REQUIRED.
+- `passbook` and `bankLetter` are OPTIONAL.
+
+--------------------------------------------------------------------------------
+7.5. STEP 5: AGREEMENT & COMPLIANCE (Mobile Step 5 / DB Step 6)
+Web UI Header: "Agreement" — "Accept our terms to finish registration."
+Content-Type: application/json OR multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "5" (or "6").
+hearAboutUs         string  REQUIRED      "How did you hear about us? *" — Predefined list (Section 11).
+hearAboutUsOther    string  CONDITIONAL   "Please specify where you heard about us *" — REQUIRED if "Other".
+agreedToTerms       boolean REQUIRED      "General Restaurant Seller Terms & Conditions" — Must be true.
+agreedToPrivacy     boolean REQUIRED      "Privacy Policy & Data Compliance" — Must be true.
+agreedToReturnPolicy boolean REQUIRED     "Vendor & Service Provider Agreement" — Must be true.
+agreedToCommission  boolean REQUIRED      "Payment Settling & Commission Terms" — Must be true.
+
+
+================================================================================
+8. HOTEL HOST ONBOARDING SPECIFICATION (/hotel-seller)
+================================================================================
+Base Endpoints:
+  - GET  /mobileapi/hotel-seller/onboarding
+  - POST /mobileapi/hotel-seller/onboarding
+
+--------------------------------------------------------------------------------
+8.1. STEP 1: BUSINESS INFORMATION (Mobile Step 1 / DB Step 2)
+Web UI Header: "Business Information" — "Legal business details for your hotel entity."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "1" (or "2").
+profileImage        File    REQUIRED      "Profile Picture *" — Image only (Web wizard blocks if missing).
+businessName        string  REQUIRED      "Legal Business Name *" — Hotel / Resort commercial name.
+businessType        string  REQUIRED      "Business Type *" — "Individual" | "Proprietor" | "Partnership" | "Company".
+taxIdNumber         string  REQUIRED      "TIN / PAN Number *" — Tax identification.
+managerName         string  REQUIRED      "Manager (POC) Name *" — General Manager / Signatory name.
+pocContact          string  REQUIRED      "POC Contact Number *" — Front desk / reservation contact.
+haveGst             string  REQUIRED      "Does your business have GST? *" — "true" or "false".
+gstInvNo            string  CONDITIONAL   "GST Number *" — REQUIRED if haveGst == "true".
+gstCustomerName     string  CONDITIONAL   "GST Customer Name *" — REQUIRED if haveGst == "true".
+landmark            string  REQUIRED      "Landmark *" — Tourist landmark / location marker.
+city                string  REQUIRED      "City *" — City/Town.
+district            string  REQUIRED      "Area *" (Field: `district`) — Area/Locality.
+state               string  REQUIRED      "State *" — State/Region.
+busRegCert          File    REQUIRED      "Business Registration Certificate *" — Commercial hospitality permit.
+gstTinCert          File    CONDITIONAL   "GST TIN Certificate *" — REQUIRED if haveGst == "true".
+cityCouncilCert     File    OPTIONAL      "City Council Certificate (Optional)" — Municipal tourism clearance.
+addressProof        File    OPTIONAL      "Proof of Address (Optional)" — Property deed / lease agreement.
+street              string  OPTIONAL      Physical street address.
+businessRegNumber   string  OPTIONAL      Commercial registration number.
+
+--------------------------------------------------------------------------------
+8.2. STEP 2: IDENTITY & KYC VERIFICATION (Mobile Step 2 / DB Step 3)
+Web UI Header: "Identity Verification" — "KYC documents for the owner/manager."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "2" (or "3").
+idType              string  REQUIRED      "ID Type *" — "National ID Card" | "Passport" | "Driver's License".
+idNumber            string  REQUIRED      "ID Number *" — Government document digits.
+idFront             File    REQUIRED      "ID Front *" — Image only (JPG/PNG/WebP, 16:10).
+idBack              File    CONDITIONAL   "ID Back *" — REQUIRED if idType != "Passport".
+selfie              File    REQUIRED      "Selfie Verification *" — Live face photo with ID.
+
+--------------------------------------------------------------------------------
+8.3. STEP 3: PROPERTY SETUP & ROOM CAPACITY (Mobile Step 3 / DB Step 4)
+Web UI Header: "Basic Property Setup" — "Initial details about your first hotel property."
+Content-Type: multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "3" (or "4").
+estimateHotelCount  number  REQUIRED      "Estimate Hotel Count *" — Number of properties operated.
+estimateRoomCount   number  REQUIRED      "Estimate Room Count (Per property) *" — Total bookable guest rooms.
+categories          array   REQUIRED      "Category (Multi-select) *" — Minimum 1 category (Section 11).
+logo                File    REQUIRED      "Property Logo *" — Image only (1:1 square ratio).
+mainPhoto           File    REQUIRED      "Main Property Photo *" — Image only (4:3 ratio). Facade/exterior/lobby.
+banner              File    OPTIONAL      "Property Banner (Optional)" — Image only (16:9 ratio).
+
+--------------------------------------------------------------------------------
+8.4. STEP 4: PAYMENT & PAYOUT DETAILS (Mobile Step 4 / DB Step 5)
+Web UI Header: "Payment & Payout Details" — "Where you want to receive booking payouts."
+Content-Type: multipart/form-data OR application/json
+--------------------------------------------------------------------------------
+Identical to Section 5.3:
+- If Mobile Money: `paymentOption` ("Orange Money" | "AfriMoney") + `mobileNumber` are REQUIRED.
+- If Bank: `bankName`, `accountHolderName`, `accountNumber`, `bbanNumber`, `branchName`, `bankAddress` are REQUIRED.
+- `passbook` and `bankLetter` are OPTIONAL.
+
+--------------------------------------------------------------------------------
+8.5. STEP 5: AGREEMENT & COMPLIANCE (Mobile Step 5 / DB Step 6)
+Web UI Header: "Agreement" — "Accept our terms to finish registration."
+Content-Type: application/json OR multipart/form-data
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+step                string  REQUIRED      Send "5" (or "6").
+hearAboutUs         string  REQUIRED      "How did you hear about us? *" — Predefined list (Section 11).
+hearAboutUsOther    string  CONDITIONAL   "Please specify where you heard about us *" — REQUIRED if "Other".
+agreedToTerms       boolean REQUIRED      "General Terms & Conditions" — Must be true.
+agreedToPrivacy     boolean REQUIRED      "Privacy Policy & Data Compliance" — Must be true.
+agreedToReturnPolicy boolean REQUIRED     "Vendor & Service Provider Agreement" — Must be true.
+agreedToCommission  boolean REQUIRED      "Payment Settling & Commission Terms" — Must be true.
+
+
+================================================================================
+9. BONUS: DELIVERY FLEET RIDER ONBOARDING SPECIFICATION (/riderapp)
+================================================================================
+Base Endpoints:
+  - GET  /mobileapi/rider/profile
+  - POST /mobileapi/rider/onboarding
+  - Content-Type: multipart/form-data OR application/json
+
+--------------------------------------------------------------------------------
+FIELD NAME          TYPE    STATUS        WEB UI LABEL & VALIDATION RULES
+--------------------------------------------------------------------------------
+name                string  REQUIRED      Full legal name of the courier driver.
+phone               string  REQUIRED      Personal mobile telephone number.
+phoneCountryCode    string  REQUIRED      Calling country code (e.g. "+232").
+newPassword         string  REQUIRED      Mobile app login password (min 6 characters).
+vehicleType         string  REQUIRED      "2_WHEELER" | "3_WHEELER" | "4_WHEELER".
+vehicleNumber       string  REQUIRED      Official vehicle registration plate number.
+drivingLicenseNo    string  REQUIRED      Driving license number.
+vehicleName         string  OPTIONAL      Vehicle make & model (e.g., "Honda CB Shine", "TVS King").
+selectedZones       array   REQUIRED      Array of zone strings (e.g. ["ZONE 1", "ZONE 2"]).
+selectedLocations   array   OPTIONAL      Array of specific coverage landmarks.
+profileImage        File    REQUIRED      Courier headshot photograph (Image only).
+drivingLicenseDoc   File    REQUIRED      Driving license card scan (PDF or Image).
+nationalIdDoc       File    REQUIRED      National ID card scan (PDF or Image).
+vehicleInsuranceDoc File    OPTIONAL      Vehicle roadworthiness / insurance document (PDF/Image).
+
+-- PAYOUT DETAILS:
+paymentOption       string  REQUIRED      "Bank" | "Orange Money" | "AfriMoney".
+mobileNumber        string  CONDITIONAL   REQUIRED if paymentOption is Mobile Money.
+agentNumber         string  OPTIONAL      Agent cash-out code.
+bankName            string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+accountHolderName   string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+accountNumber       string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+bbanNumber          string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+branchName          string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+bankAddress         string  CONDITIONAL   REQUIRED if paymentOption is "Bank".
+
+
+================================================================================
+10. UNIFIED PAYMENT & PAYOUT SETTLEMENT RULES (BANK VS MOBILE MONEY)
+================================================================================
+All sellers and riders share the exact same payout normalization engine
+(`validateAndFormatPaymentDetails`). The mobile app UI MUST dynamically switch
+visible fields based on the selected `paymentOption`:
+
+OPTION A: "Orange Money" OR "AfriMoney"
+--------------------------------------------------------------------------------
+1. `mobileNumber`       --> [MANDATORY]: Valid mobile phone number.
+2. `agentNumber`        --> [OPTIONAL]: Agent code for cash pickups.
+3. Bank Fields          --> [DO NOT SEND / NULL]: All bank fields are automatically 
+                            cleared to null by the server.
+4. Passbook / Letter    --> [NOT REQUIRED]: Document proofs are omitted.
+
+OPTION B: "Bank"
+--------------------------------------------------------------------------------
+1. `bankName`           --> [MANDATORY]: Commercial bank name.
+2. `accountHolderName`  --> [MANDATORY]: Legal account holder name.
+3. `accountNumber`      --> [MANDATORY]: Account number.
+4. `bbanNumber`         --> [MANDATORY]: Basic Bank Account Number.
+5. `branchName`         --> [MANDATORY]: Branch name or IFSC routing code.
+6. `bankAddress`        --> [MANDATORY]: Street address of branch.
+7. `passbook`           --> [OPTIONAL]: Passbook or cancelled cheque image.
+8. `bankLetter`         --> [OPTIONAL]: Bank verification letter.
+9. Mobile Money Fields  --> [DO NOT SEND / NULL]: Mobile numbers are ignored.
+
+
+================================================================================
+11. PREDEFINED SYSTEM LISTS & ENUMS (CUISINES, HOTEL CATEGORIES, REFERRALS)
+================================================================================
+
+11.1. RESTAURANT CUISINES LIST (40 Predefined Options)
+--------------------------------------------------------------------------------
+"Italian", "Indian", "Chinese", "Japanese", "Mexican", "Thai", "French", 
+"American", "Mediterranean", "Continental", "Pizza", "Pasta", "Biryani", 
+"Burgers", "Fast Food", "Salads", "Desserts", "Bakeries", "Beverages", 
+"Arabic", "Turkish", "Lebanese", "Greek", "Spanish", "Korean", "Vietnamese", 
+"African", "Caribbean", "Brazilian", "Steakhouse", "Seafood", "Sushi", "BBQ", 
+"Sandwiches", "Healthy", "Vegan", "Ice Cream", "Coffee & Tea", "Juices", "Other"
+
+11.2. RESTAURANT SERVICE TYPES (3 Options)
+--------------------------------------------------------------------------------
+"Delivery", "Dine-in", "Takeaway"
+
+11.3. HOTEL PROPERTY CATEGORIES (10 Predefined Options)
+--------------------------------------------------------------------------------
+"Hotel", "Resort", "Villa", "Guest House", "Apartment", "Motel", "Hostel", 
+"Lodge", "Cottage", "Other"
+
+11.4. REFERRAL SOURCE LIST (`hearAboutUs` - 15 Predefined Options)
+--------------------------------------------------------------------------------
+1.  "Google / Search Engine"
+2.  "Social Media (Facebook, Instagram, TikTok)"
+3.  "Facebook"
+4.  "Instagram"
+5.  "TikTok"
+6.  "LinkedIn"
+7.  "YouTube / Online Video"
+8.  "Friend, Family or Colleague Referral"
+9.  "Word of Mouth"
+10. "Billboard / Outdoor Advertising"
+11. "TV / Radio / Print Ad"
+12. "Events / Trade Shows / Exhibitions"
+13. "Email Newsletter or Promotion"
+14. "Blog, News or Article"
+15. "Other"
+
+CONDITIONAL RULE FOR "Other":
+- If the seller selects "Other", the mobile app MUST show a text input for 
+  `hearAboutUsOther` and make it REQUIRED.
+- The server will format the stored value as: `Other: <custom_text>`.
+
+
+================================================================================
+12. MOBILE API INTEGRATION GUIDELINES & ERROR HANDLING
+================================================================================
+
+12.1. AUTHENTICATION HEADER
+--------------------------------------------------------------------------------
+Every request must supply the Bearer JWT token:
+  Header: Authorization: Bearer <mobile_access_token>
+
+12.2. STEP NUMBERING DISPATCH
+--------------------------------------------------------------------------------
+You may pass either:
+- `mobileStep`: 1, 2, 3, 4, or 5
+- OR `step`: 2, 3, 4, 5, or 6
+- OR pass `section`: "business", "kyc", "bank", "store" / "outlet" / "property", "agreement"
+The backend automatically resolves the correct step.
+
+12.3. ADMIN CORRECTION WORKFLOW (CORRECTION_NEEDED)
+--------------------------------------------------------------------------------
+If an admin reviews an onboarding application and notices an issue (e.g., blurry 
+ID, invalid tax certificate), the seller's `status` becomes `CORRECTION_NEEDED` 
+with actionable notes in `adminFeedback`:
+- The mobile app should check `status` and `adminFeedback` on `GET /onboarding`.
+- If `status == "CORRECTION_NEEDED"`, present the feedback prominently on screen 
+  and allow the seller to update the required step/file without having to re-enter 
+  all previous data.
+
+12.4. ERROR HANDLING FORMAT (400 Bad Request)
+--------------------------------------------------------------------------------
+```json
+{
+  "success": false,
+  "error": "Cannot complete onboarding: Missing required documents: Business Registration Certificate, Selfie with ID"
+}
+```
+
+12.5. SUCCESS ONBOARDING COMPLETION RESPONSE (200 OK)
+--------------------------------------------------------------------------------
+```json
+{
+  "success": true,
+  "message": "Registration completed successfully",
+  "data": {
+    "nextStep": null,
+    "onboardingCompleted": true,
+    "status": "PENDING"
+  }
+}
+```
+
+================================================================================
+END OF SPECIFICATION DOCUMENT
+================================================================================
