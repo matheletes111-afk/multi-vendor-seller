@@ -72,6 +72,28 @@ export function RiderDashboardClient({ user: initialUser }: { user: any }) {
 
   useEffect(() => {
     loadData()
+
+    const handleApprovalChanged = (e: any) => {
+      const detail = e?.detail
+      if (!detail) return
+      setData((prev: any) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          rider: {
+            ...(prev.rider || {}),
+            isApproved: detail.isApproved,
+            status: detail.status,
+            adminFeedback: detail.adminFeedback,
+          },
+        }
+      })
+    }
+
+    window.addEventListener("approval:status_changed", handleApprovalChanged)
+    return () => {
+      window.removeEventListener("approval:status_changed", handleApprovalChanged)
+    }
   }, [])
 
   const rider = data?.rider

@@ -33,6 +33,7 @@ import {
 import { DashboardFooter } from "@/components/layout/dashboard-footer"
 import { DeviceTokenListener } from "./components/device-token-listener"
 import { RiderLocationStreamer } from "./components/rider-location-streamer"
+import { ApprovalLiveSync } from "@/components/auth/approval-live-sync"
 
 function NavItem({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
   const pathname = usePathname()
@@ -142,6 +143,13 @@ export function RiderLayoutClient({
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <DeviceTokenListener />
       <RiderLocationStreamer />
+      <ApprovalLiveSync
+        role="RIDER"
+        initialApproved={Boolean(user?.isApproved)}
+        initialStatus={user?.status}
+        settingsPath="/riderapp/settings"
+        dashboardPath="/riderapp"
+      />
 
       {/* Desktop Fixed Sidebar */}
       <aside className="fixed left-0 top-0 z-40 hidden md:block h-screen w-64 border-r border-border bg-card">

@@ -1,0 +1,503 @@
+====================================================================================================
+MEEEM MARKETPLACE — MOBILE DEVELOPER INTEGRATION GUIDE:
+REAL-TIME SELLER & RIDER APPROVAL SYNCHRONIZATION WITHOUT RE-LOGIN
+(Product Seller | Service Seller | Hotel Seller | Restaurant Seller | Delivery Rider)
+====================================================================================================
+Applies to: All 4 Seller Mobile Apps + Rider Mobile App (Flutter, React Native, iOS, Android)
+Backend Sync Status: 100% Deployed & Active
+Date: October 2026
+Document Version: 1.0.0
+====================================================================================================
+
+1. EXECUTIVE SUMMARY & PROBLEM RESOLUTION
+----------------------------------------------------------------------------------------------------
+PROBLEM IN PREVIOUS RELEASES:
+When a seller or rider completed their registration and onboarding, their account status was set to
+"PENDING" awaiting administrator verification. The mobile app restricted access to the Settings /
+Profile screen while pending.
+However, when the Admin approved, rejected, or suspended the account in the Admin Panel:
+- The mobile app had no live synchronization mechanism.
+- The user had to manually log out and log back in before the mobile app recognized they were approved.
+- If a user stayed logged in or pulled to refresh, the app remained stuck in the Pending state.
+
+BACKEND SOLUTION IMPLEMENTED:
+1. Universal Live Status Endpoint:
+   - Dedicated lightweight endpoint: GET /mobileapi/seller/live-status
+   - Panel-specific aliases for convenience:
+     * GET /mobileapi/product-seller/live-status
+     * GET /mobileapi/service-seller/live-status
+     * GET /mobileapi/hotel-seller/live-status
+     * GET /mobileapi/restaurant-seller/live-status
+     * GET /mobileapi/rider/live-status
+     * GET /api/auth/live-status (also accepts Authorization: Bearer <accessToken>)
+2. Zero Re-Login Required:
+   - Bearer access tokens are tied to user identity, not static approval flags.
+   - When an admin approves or rejects an account in the database, the mobile app immediately reads
+     the updated status via the live-status endpoint.
+   - The mobile app updates its local state (Redux / Bloc / StateNotifier) and unlocks the UI live.
+   - NO LOGOUT OR TOKEN RE-ISSUE IS NEEDED!
+
+
+====================================================================================================
+2. API SPECIFICATION: GET /mobileapi/seller/live-status
+====================================================================================================
+This lightweight endpoint reads the database directly (no caching, no S3 image signing).
+
+HTTP Method: GET
+Endpoints:
+  - Universal:          /mobileapi/seller/live-status
+  - Product Seller:     /mobileapi/product-seller/live-status
+  - Service Seller:     /mobileapi/service-seller/live-status
+  - Hotel Seller:       /mobileapi/hotel-seller/live-status
+  - Restaurant Seller:  /mobileapi/restaurant-seller/live-status
+  - Delivery Rider:     /mobileapi/rider/live-status
+
+Request Headers:
+  Authorization: Bearer <accessToken>
+  Cache-Control: no-cache
+
+----------------------------------------------------------------------------------------------------
+A. SUCCESS RESPONSE (HTTP 200 OK): ACCOUNT APPROVED & ACTIVE
+----------------------------------------------------------------------------------------------------
+{
+  "success": true,
+  "data": {
+    "userId": "usr_98a7bc6d5e4f3a2b",
+    "role": "SELLER_PRODUCT",          // SELLER_PRODUCT | SELLER_SERVICE | SELLER_HOTEL | SELLER_RESTAURANT | RIDER
+    "isApproved": true,                // <-- TRUE: Account is fully verified and active
+    "isSuspended": false,              // <-- FALSE: Account is in good standing
+    "status": "APPROVED",              // "APPROVED"
+    "onboardingCompleted": true,       // Onboarding is completed
+    "adminFeedback": null              // null when approved
+  }
+}
+
+----------------------------------------------------------------------------------------------------
+B. SUCCESS RESPONSE (HTTP 200 OK): ACCOUNT STILL PENDING APPROVAL
+----------------------------------------------------------------------------------------------------
+{
+  "success": true,
+  "data": {
+    "userId": "usr_98a7bc6d5e4f3a2b",
+    "role": "SELLER_PRODUCT",
+    "isApproved": false,               // <-- FALSE: Still under review
+    "isSuspended": false,
+    "status": "PENDING",               // "PENDING"
+    "onboardingCompleted": true,
+    "adminFeedback": null
+  }
+}
+
+----------------------------------------------------------------------------------------------------
+C. SUCCESS RESPONSE (HTTP 200 OK): ACCOUNT REJECTED / CORRECTION REQUESTED BY ADMIN
+----------------------------------------------------------------------------------------------------
+{
+  "success": true,
+  "data": {
+    "userId": "usr_98a7bc6d5e4f3a2b",
+    "role": "SELLER_PRODUCT",
+    "isApproved": false,
+    "isSuspended": false,
+    "status": "REJECTED",              // "REJECTED" or "CORRECTION_NEEDED"
+    "onboardingCompleted": true,
+    "adminFeedback": "Please re-upload a clearer picture of your National ID Front. The current image is blurry."
+  }
+}
+
+----------------------------------------------------------------------------------------------------
+D. SUCCESS RESPONSE (HTTP 200 OK): ACCOUNT SUSPENDED BY ADMIN
+----------------------------------------------------------------------------------------------------
+{
+  "success": true,
+  "data": {
+    "userId": "usr_98a7bc6d5e4f3a2b",
+    "role": "SELLER_PRODUCT",
+    "isApproved": false,
+    "isSuspended": true,               // <-- TRUE: Account has been suspended (ALWAYS use this flag)
+    "status": "APPROVED",              // NOTE: for sellers `status` may keep its old value; rely on isSuspended
+    "onboardingCompleted": true,
+    "adminFeedback": null
+  }
+}
+
+----------------------------------------------------------------------------------------------------
+E. ERROR RESPONSES
+----------------------------------------------------------------------------------------------------
+- HTTP 401 Unauthorized:
+  { "success": false, "error": "Invalid or expired access token" }
+  { "success": false, "error": "Session expired. Please log in again." }  (password was changed)
+  -> Action: Refresh token or redirect user to Login.
+
+- HTTP 403 Forbidden (panel-specific URL only):
+  Token role does not match the URL (e.g. a hotel token on /product-seller/live-status).
+  -> Action: Use the universal /mobileapi/seller/live-status or the correct panel URL.
+
+- HTTP 404 Not Found:
+  { "success": false, "error": "Seller profile not found" }
+  -> Action: Redirect user to complete registration / onboarding.
+
+
+====================================================================================================
+3. MOBILE CLIENT LIFECYCLE HOOKS: WHEN TO CALL THE LIVE STATUS ENDPOINT
+====================================================================================================
+To guarantee 100% real-time behavior without draining user battery or data, the mobile app should
+call GET /mobileapi/seller/live-status in the following 5 triggers:
+
+1. TRIGGER 1: APP LAUNCH / COLD START
+   - When the user opens the mobile app and a saved Bearer token exists in SecureStorage:
+   - Call GET /mobileapi/seller/live-status immediately before rendering the main view.
+   - If `isApproved === true`: Land user directly on the Main Dashboard Overview.
+   - If `isApproved === false`: Land user directly on the Settings screen.
+
+2. TRIGGER 2: APP RESUME / FOREGROUND (LIFECYCLE onResume)
+   - When the seller switches back to the app from the background (e.g. they minimized the app,
+     received an SMS/Email saying they were approved, and opened the app again):
+   - Flutter: `didChangeAppLifecycleState(AppLifecycleState.resumed)`
+   - React Native: `AppState.addEventListener('change', (state) => state === 'active')`
+   - Android Kotlin: `onResume()`
+   - iOS Swift: `sceneDidBecomeActive` or `UIApplication.willEnterForegroundNotification`
+   - Immediately call GET /mobileapi/seller/live-status and update the UI.
+
+3. TRIGGER 3: ACTIVE POLLING LOOP WHILE PENDING (4-SECOND INTERVAL)
+   - While `isApproved === false` AND the app is in the foreground (user is viewing Settings):
+   - Start a Timer that fires every 4 seconds calling GET /mobileapi/seller/live-status.
+   - As soon as `isApproved === true` is returned:
+     * Cancel the timer immediately (no further polling).
+     * Update local state and unlock all features.
+
+4. TRIGGER 4: PULL-TO-REFRESH
+   - On the Settings / Profile screen, implement a standard Pull-to-Refresh gesture (RefreshIndicator).
+   - When pulled, call GET /mobileapi/seller/live-status (or GET /mobileapi/{role}/settings).
+   - If status has changed to approved, immediately transition the UI.
+
+5. TRIGGER 5: AFTER UPDATING SETTINGS / KYC DOCUMENTS
+   - When a seller updates their business info, bank details, or KYC documents via
+     PUT /mobileapi/{role}/settings:
+   - Once the update completes, re-query the live-status endpoint.
+
+
+====================================================================================================
+4. MOBILE UI STATE MACHINE & NAVIGATION MATRIX
+====================================================================================================
+
++---------------------------+-----------------------------------+----------------------------------+
+| Backend State             | Navigation / Screen Location      | Bottom Navigation / Features     |
++---------------------------+-----------------------------------+----------------------------------+
+| isSuspended === true      | Show Alert Dialog & redirect to   | Completely blocked               |
+|                           | Login Screen                      |                                  |
++---------------------------+-----------------------------------+----------------------------------+
+| onboardingCompleted ==    | Force navigation to Onboarding    | Bottom bar hidden                |
+| false                     | Wizard (resume step)              |                                  |
++---------------------------+-----------------------------------+----------------------------------+
+| onboardingCompleted ==    | Land on Settings / Profile Screen | Bottom bar shows Lock icons on:  |
+| true &&                   | Top Banner:                       | - Overview / Analytics           |
+| isApproved === false &&   | [Amber Banner]                    | - Products / Foods / Rooms       |
+| status === "PENDING"      | "Account Pending Admin Approval"  | - Orders / Bookings              |
+|                           | Live Auto-Sync Active badge       | - My Revenue / Wallet            |
+|                           |                                   | (Tapping shows Pending dialog)   |
+|                           |                                   | Settings & Support are clickable |
++---------------------------+-----------------------------------+----------------------------------+
+| isApproved === false &&   | Land on Settings / Profile Screen | Operational tabs stay locked.    |
+| status === "REJECTED" or  | Top Banner:                       | Editable fields & re-upload      |
+| "CORRECTION_NEEDED"       | [Rose / Red Banner]               | documents are fully accessible   |
+|                           | "Admin Correction Notice:         | to submit corrections.           |
+|                           | <adminFeedback>"                  |                                  |
++---------------------------+-----------------------------------+----------------------------------+
+| isApproved === true &&    | Land on Main Dashboard Overview   | ALL TABS UNLOCKED                |
+| isSuspended === false     | Bottom bar normal, no lock icons. | Full access to add items, view   |
+| (APPROVED & ACTIVE)       | Pending banners removed.          | orders, manage wallet & revenue. |
++---------------------------+-----------------------------------+----------------------------------+
+
+
+====================================================================================================
+5. UI / UX SPECIFICATIONS FOR APPROVAL TRANSITION (THE "WOW" EXPERIENCE)
+====================================================================================================
+When the live-status endpoint returns `isApproved: true` while the user is looking at the screen:
+
+1. CELEBRATORY BANNER / DIALOG:
+   - Display a celebratory toast or bottom sheet:
+     ------------------------------------------------------------------------
+     |  (✓) Account Approved by Admin!                                      |
+     |  Congratulations! Your seller account has been verified.             |
+     |  All features, product listings, orders, and wallet tools are active.|
+     |                                                                      |
+     |  [ Go to Dashboard ]                         [ Dismiss ]             |
+     ------------------------------------------------------------------------
+   - Emerald Green theme (#059669 / #10B981).
+
+2. SIDEBAR / BOTTOM NAVIGATION UNLOCK:
+   - Immediately remove the padlock icons from the bottom bar items.
+   - If user taps "Go to Dashboard", switch the active tab to Overview / Dashboard.
+
+3. SETTINGS BADGE UPDATE:
+   - Change the header status badge from Amber `[ Pending Approval ]` to Green `[ Approved & Active ]`.
+   - Remove the `AccountPendingApproval` alert banner.
+
+
+====================================================================================================
+6. CODE EXAMPLES FOR MOBILE DEVELOPERS
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+A. FLUTTER (DART) IMPLEMENTATION EXAMPLE
+----------------------------------------------------------------------------------------------------
+
+```dart
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+class LiveStatusModel {
+  final bool isApproved;
+  final bool isSuspended;
+  final String status;
+  final bool onboardingCompleted;
+  final String? adminFeedback;
+
+  LiveStatusModel({
+    required this.isApproved,
+    required this.isSuspended,
+    required this.status,
+    required this.onboardingCompleted,
+    this.adminFeedback,
+  });
+
+  factory LiveStatusModel.fromJson(Map<String, dynamic> json) {
+    return LiveStatusModel(
+      isApproved: json['isApproved'] ?? false,
+      isSuspended: json['isSuspended'] ?? false,
+      status: json['status'] ?? 'PENDING',
+      onboardingCompleted: json['onboardingCompleted'] ?? false,
+      adminFeedback: json['adminFeedback'],
+    );
+  }
+}
+
+class SellerStatusService with WidgetsBindingObserver {
+  static const String baseUrl = 'https://api.meeem.com'; // Replace with your base URL
+  Timer? _pollingTimer;
+  bool _isPolling = false;
+  LiveStatusModel? currentStatus;
+
+  final Function(LiveStatusModel) onStatusChanged;
+  final Function() onSuspended;
+  final String accessToken;
+
+  SellerStatusService({
+    required this.accessToken,
+    required this.onStatusChanged,
+    required this.onSuspended,
+  }) {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void dispose() {
+    stopPolling();
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App resumed from background -> check immediately!
+      checkLiveStatus();
+    }
+  }
+
+  Future<LiveStatusModel?> checkLiveStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/mobileapi/seller/live-status'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Cache-Control': 'no-cache',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body)['data'];
+        final status = LiveStatusModel.fromJson(data);
+
+        if (status.isSuspended) {
+          stopPolling();
+          onSuspended();
+          return status;
+        }
+
+        final prevApproved = currentStatus?.isApproved ?? false;
+        currentStatus = status;
+
+        if (status.isApproved != prevApproved || status.status != currentStatus?.status) {
+          onStatusChanged(status);
+        }
+
+        // If approved, stop the 4-second polling loop to save battery
+        if (status.isApproved) {
+          stopPolling();
+        }
+
+        return status;
+      }
+    } catch (e) {
+      debugPrint('[LiveStatus] Network error: $e');
+    }
+    return null;
+  }
+
+  void startPollingIfPending() {
+    if (_isPolling) return;
+    if (currentStatus?.isApproved == true) return;
+
+    _isPolling = true;
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      checkLiveStatus();
+    });
+  }
+
+  void stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+    _isPolling = false;
+  }
+}
+```
+
+----------------------------------------------------------------------------------------------------
+B. REACT NATIVE / EXPO (TYPESCRIPT) IMPLEMENTATION EXAMPLE
+----------------------------------------------------------------------------------------------------
+
+```typescript
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { AppState, AppStateStatus, Alert } from 'react-native';
+import axios from 'axios';
+
+interface LiveStatus {
+  isApproved: boolean;
+  isSuspended: boolean;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CORRECTION_NEEDED' | 'SUSPENDED';
+  onboardingCompleted: boolean;
+  adminFeedback: string | null;
+}
+
+export function useSellerLiveStatus(accessToken: string, initialApproved = false) {
+  const [status, setStatus] = useState<LiveStatus | null>(null);
+  const [isApproved, setIsApproved] = useState<boolean>(initialApproved);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const checkLiveStatus = useCallback(async () => {
+    try {
+      const res = await axios.get('https://api.meeem.com/mobileapi/seller/live-status', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-cache',
+        },
+      });
+
+      if (res.data?.success && res.data?.data) {
+        const data: LiveStatus = res.data.data;
+        setStatus(data);
+
+        // 1. Handle suspension
+        if (data.isSuspended) {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          Alert.alert('Account Suspended', 'Your account has been suspended by Admin. Please contact support.');
+          // Redirect to login screen
+          return;
+        }
+
+        // 2. Handle approval transition
+        if (data.isApproved && !isApproved) {
+          setIsApproved(true);
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+          }
+          Alert.alert(
+            'Account Approved by Admin!',
+            'Congratulations! Your seller account is now fully approved and active.',
+            [{ text: 'Great!', onPress: () => {} }]
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[LiveStatus] Error checking status:', err);
+    }
+  }, [accessToken, isApproved]);
+
+  // 1. Check immediately on mount
+  useEffect(() => {
+    checkLiveStatus();
+  }, [checkLiveStatus]);
+
+  // 2. Lifecycle: Re-check when app returns from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        checkLiveStatus();
+      }
+    });
+    return () => subscription.remove();
+  }, [checkLiveStatus]);
+
+  // 3. Polling loop: every 4 seconds while unapproved
+  useEffect(() => {
+    if (isApproved) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      return;
+    }
+
+    pollingRef.current = setInterval(() => {
+      checkLiveStatus();
+    }, 4000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [isApproved, checkLiveStatus]);
+
+  return { status, isApproved, checkLiveStatus };
+}
+```
+
+
+====================================================================================================
+7. QA VERIFICATION & TEST PLAN FOR MOBILE TEAMS
+====================================================================================================
+Follow these exact steps to verify the implementation:
+
+TEST CASE 1: REAL-TIME APPROVAL WITHOUT RELOGIN (PASS CRITERIA)
+1. Onboard a new seller on the mobile app until they reach the "Pending Approval" state.
+2. Confirm the mobile app opens on Settings with the Amber "Account Pending Approval" banner.
+3. Confirm bottom tabs (Products, Orders, Revenue) are locked with lock icons.
+4. Keep the mobile app open on the phone.
+5. In the Admin Web Panel, click "Approve" for this seller.
+6. Observe the phone: Within 4 seconds (without touching the screen, and without logging out):
+   - The Amber banner disappears.
+   - The Green "Approved & Active" badge appears.
+   - The celebration dialog pops up.
+   - The bottom bar lock icons unlock and tapping Products / Orders opens them cleanly.
+
+TEST CASE 2: APP RESUME APPROVAL (APP MINIMIZED)
+1. Leave the seller app in the pending state.
+2. Minimize the mobile app to home screen (background).
+3. In the Admin Web Panel, click "Approve".
+4. Re-open the mobile app from the recent apps switcher.
+5. Immediately upon resuming, the app calls /mobileapi/seller/live-status and unlocks all screens.
+
+TEST CASE 3: ADMIN REJECTION WITH FEEDBACK
+1. Leave the seller app in the pending state.
+2. In Admin Panel, reject the seller with feedback: "Please re-upload a clearer Tax Certificate".
+3. Within 4 seconds on mobile:
+   - Banner turns Red with message: "Admin Correction Notice: Please re-upload a clearer Tax Certificate".
+   - Settings screen remains editable so seller can upload a new PDF and re-save.
+
+TEST CASE 4: ADMIN SUSPENSION
+1. Log in as an approved active seller.
+2. In Admin Panel, suspend the seller.
+3. On mobile, upon next resume or status check:
+   - User is ejected to Login with message: "Account Suspended".
+
+====================================================================================================
+END OF MOBILE DEVELOPER INTEGRATION GUIDE
+====================================================================================================

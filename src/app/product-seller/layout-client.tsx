@@ -17,12 +17,39 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar"
 import { Button } from "@/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/ui/sheet"
-import { LogOut, User, LayoutDashboard, Package, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet, HelpCircle, FileText } from "lucide-react"
+import { LogOut, User, LayoutDashboard, Package, ShoppingCart, CreditCard, Settings, Menu, Megaphone, Star, Wallet, HelpCircle, FileText, Lock } from "lucide-react"
 import { DashboardFooter } from "@/components/layout/dashboard-footer"
+import { ApprovalLiveSync } from "@/components/auth/approval-live-sync"
 
-function NavItem({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
+function NavItem({
+  href,
+  label,
+  icon,
+  locked = false,
+}: {
+  href: string
+  label: string
+  icon?: ReactNode
+  locked?: boolean
+}) {
   const pathname = usePathname()
   const isActive = pathname === href || pathname?.startsWith(`${href}/`)
+
+  if (locked) {
+    return (
+      <Link
+        href="/product-seller/settings?error=AccountPendingApproval"
+        prefetch={false}
+        title="Pending Admin Approval"
+        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-muted-foreground/60 hover:bg-muted/50 cursor-pointer"
+      >
+        {icon && <span className="h-4 w-4 opacity-50">{icon}</span>}
+        <span className="flex-1 truncate">{label}</span>
+        <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+      </Link>
+    )
+  }
+
   return (
     <Link
       href={href}
@@ -30,7 +57,7 @@ function NavItem({ href, label, icon }: { href: string; label: string; icon?: Re
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         isActive
-          ? "bg-blue-50 text-blue-700 hover:bg-blue-50"
+          ? "bg-blue-50 text-blue-700 hover:bg-blue-50 dark:bg-blue-950 dark:text-blue-300"
           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
       )}
     >
@@ -48,30 +75,34 @@ function Sidebar({ children, className }: { children: ReactNode; className?: str
   )
 }
 
-const navContent = (
-  <>
-    <NavItem href="/product-seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} />
-    <NavItem href="/product-seller/products" label="Products" icon={<Package className="h-4 w-4" />} />
-    <NavItem href="/product-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} />
-    <NavItem href="/product-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} />
-    <NavItem href="/product-seller/balance" label="My Revenue" icon={<Wallet className="h-4 w-4" />} />
-    <NavItem href="/product-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} />
-    <NavItem href="/product-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} />
-    <NavItem href="/product-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} />
-    <NavItem href="/product-seller/support" label="Support Desk" icon={<HelpCircle className="h-4 w-4" />} />
-    <NavItem href="/terms" label="All Terms" icon={<FileText className="h-4 w-4" />} />
-  </>
-)
+function NavLinks({ isApproved }: { isApproved: boolean }) {
+  return (
+    <>
+      <NavItem href="/product-seller" label="Overview" icon={<LayoutDashboard className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/products" label="Products" icon={<Package className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/admanagement" label="Ads" icon={<Megaphone className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/orders" label="Orders" icon={<ShoppingCart className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/balance" label="My Revenue" icon={<Wallet className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/reviews" label="Reviews" icon={<Star className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/subscription" label="Subscription" icon={<CreditCard className="h-4 w-4" />} locked={!isApproved} />
+      <NavItem href="/product-seller/settings" label="Settings" icon={<Settings className="h-4 w-4" />} locked={false} />
+      <NavItem href="/product-seller/support" label="Support Desk" icon={<HelpCircle className="h-4 w-4" />} locked={false} />
+      <NavItem href="/terms" label="All Terms" icon={<FileText className="h-4 w-4" />} locked={false} />
+    </>
+  )
+}
 
 export function ProductSellerLayoutClient({
   children,
   user,
 }: {
   children: ReactNode
-  user: { name?: string | null; email?: string | null; phone?: string | null; image?: string | null }
+  user: { name?: string | null; email?: string | null; phone?: string | null; image?: string | null; isApproved?: boolean }
 }) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [isApproved, setIsApproved] = useState<boolean>(Boolean(user?.isApproved))
+
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
@@ -80,6 +111,13 @@ export function ProductSellerLayoutClient({
       .then((res) => {
         if (res.status === 404) router.replace("/product-seller/registration")
         else if (res.status === 400) router.replace("/service-seller")
+        else if (res.ok) {
+          res.json().then((seller) => {
+            if (seller?.isApproved !== undefined) {
+              setIsApproved(Boolean(seller.isApproved))
+            }
+          }).catch(() => {})
+        }
       })
       .catch(() => { })
   }, [mounted, router])
@@ -94,12 +132,23 @@ export function ProductSellerLayoutClient({
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Product Seller</span>
           </a>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">{navContent}</nav>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <NavLinks isApproved={isApproved} />
+        </nav>
         <div className="border-t p-4">
           <Button type="button" variant="outline" className="w-full" onClick={() => signOut({ redirect: false }).then(() => { window.location.href = "/" })}>Logout</Button>
         </div>
       </Sidebar>
       <div className="flex flex-1 flex-col md:pl-64 min-w-0 max-w-full overflow-x-hidden">
+        <ApprovalLiveSync
+          role="SELLER_PRODUCT"
+          initialApproved={isApproved}
+          settingsPath="/product-seller/settings"
+          dashboardPath="/product-seller"
+          onStatusChange={(data) => {
+            setIsApproved(data.isApproved)
+          }}
+        />
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-blue-900/20 bg-gradient-to-r from-blue-50 via-blue-200 to-cyan-600 px-6 shadow-md">
           <div className="flex flex-1 items-center gap-4">
             {mounted ? (
@@ -111,7 +160,9 @@ export function ProductSellerLayoutClient({
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0">
-                  <div className="flex h-full flex-col pt-4">{navContent}</div>
+                  <div className="flex h-full flex-col pt-4">
+                    <NavLinks isApproved={isApproved} />
+                  </div>
                 </SheetContent>
               </Sheet>
             ) : (
