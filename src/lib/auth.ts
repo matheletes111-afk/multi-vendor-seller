@@ -94,17 +94,17 @@ const providers: any[] = [
         if (user.role === UserRole.SELLER_HOTEL) {
           seller = await prisma.hotelSeller.findUnique({
             where: { userId: user.id },
-            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
           })
         } else if (user.role === UserRole.SELLER_RESTAURANT) {
           seller = await prisma.restaurantSeller.findUnique({
             where: { userId: user.id },
-            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
           })
         } else {
           seller = await prisma.seller.findUnique({
             where: { userId: user.id },
-            select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+            select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
           })
         }
 
@@ -121,6 +121,7 @@ const providers: any[] = [
           passwordHash: user.password,
           isApproved: seller.isApproved,
           isSuspended: seller.isSuspended ?? false,
+          status: seller.status || (seller.isApproved ? "APPROVED" : "PENDING"),
           onboardingCompleted: seller.onboardingCompleted,
           onboardingStep: seller.onboardingStep,
         }
@@ -264,7 +265,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (session.isFirstLogin !== undefined) token.isFirstLogin = session.isFirstLogin
         if (session.status !== undefined) token.status = session.status
         if (session.passwordHash !== undefined) token.passwordHash = session.passwordHash
-        return token
       }
 
       if (user) {
@@ -297,17 +297,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (token.role === UserRole.SELLER_HOTEL) {
             seller = await prisma.hotelSeller.findUnique({
               where: { userId: user.id },
-              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+              select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
             })
           } else if (token.role === UserRole.SELLER_RESTAURANT) {
             seller = await prisma.restaurantSeller.findUnique({
               where: { userId: user.id },
-              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+              select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
             })
           } else {
             seller = await prisma.seller.findUnique({
               where: { userId: user.id },
-              select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+              select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
             })
           }
           if (seller) {
@@ -387,23 +387,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               if (token.role === UserRole.SELLER_HOTEL) {
                 seller = await prisma.hotelSeller.findUnique({
                   where: { userId: token.id as string },
-                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                  select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
                 })
               } else if (token.role === UserRole.SELLER_RESTAURANT) {
                 seller = await prisma.restaurantSeller.findUnique({
                   where: { userId: token.id as string },
-                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                  select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
                 })
               } else {
                 seller = await prisma.seller.findUnique({
                   where: { userId: token.id as string },
-                  select: { isApproved: true, isSuspended: true, onboardingCompleted: true, onboardingStep: true } as any
+                  select: { isApproved: true, isSuspended: true, status: true, onboardingCompleted: true, onboardingStep: true } as any
                 })
               }
 
               if (seller) {
                 if (seller.isApproved !== undefined) token.isApproved = seller.isApproved
                 if (seller.isSuspended !== undefined) token.isSuspended = seller.isSuspended
+                if (seller.status !== undefined) token.status = seller.status
                 if (seller.onboardingCompleted !== undefined)
                   token.onboardingCompleted = seller.onboardingCompleted
                 if (seller.onboardingStep !== undefined)

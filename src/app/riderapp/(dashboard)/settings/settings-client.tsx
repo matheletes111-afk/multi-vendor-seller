@@ -136,6 +136,18 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
     }
 
     loadSettings()
+
+    const handleApprovalChanged = (e: any) => {
+      const detail = e?.detail
+      if (!detail) return
+      if (detail.status) setRiderStatus(detail.status)
+      if (detail.adminFeedback !== undefined) setAdminFeedback(detail.adminFeedback)
+    }
+
+    window.addEventListener("approval:status_changed", handleApprovalChanged)
+    return () => {
+      window.removeEventListener("approval:status_changed", handleApprovalChanged)
+    }
   }, [])
 
   const handleSave = async (e: React.FormEvent) => {

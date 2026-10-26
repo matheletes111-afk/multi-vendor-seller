@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, Mail, Phone, MapPin, Building, ShieldCheck, MapPinned, User, ShoppingBag, ChevronRight, X, Info, Scale, Settings as SettingsIcon, UserX, Plus, Check, Pencil } from "lucide-react"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
@@ -36,6 +37,7 @@ interface CategorySuggestion {
 export function SettingsClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { update } = useSession()
   const [showSuggestionForm, setShowSuggestionForm] = useState(false)
   const [suggestionsList, setSuggestionsList] = useState<CategorySuggestion[]>([])
   const [tempSuggestion, setTempSuggestion] = useState<CategorySuggestion>({
@@ -173,6 +175,7 @@ export function SettingsClient() {
           setSuggestionsList(suggestions)
 
           if (s.isApproved) {
+            update({ isApproved: true, status: s.status || "APPROVED" }).catch(() => {})
             if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
               const url = new URL(window.location.href)
               url.searchParams.delete("error")
@@ -185,7 +188,33 @@ export function SettingsClient() {
       }
     }
     loadData()
-  }, [])
+
+    const handleApprovalChanged = (e: any) => {
+      const detail = e?.detail
+      if (!detail) return
+      setSeller((prev: any) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          isApproved: detail.isApproved,
+          status: detail.status,
+          adminFeedback: detail.adminFeedback,
+        }
+      })
+      if (detail.isApproved) {
+        if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
+          const url = new URL(window.location.href)
+          url.searchParams.delete("error")
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
+        }
+      }
+    }
+
+    window.addEventListener("approval:status_changed", handleApprovalChanged)
+    return () => {
+      window.removeEventListener("approval:status_changed", handleApprovalChanged)
+    }
+  }, [update])
 
   const paramsError = searchParams.get("error")
   const paramsSuccess = searchParams.get("success")

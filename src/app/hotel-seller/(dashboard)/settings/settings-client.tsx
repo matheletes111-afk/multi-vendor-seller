@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Eye, EyeOff, FileText, CheckCircle2, AlertCircle, Camera, User, LogOut, LayoutDashboard, Settings as SettingsIcon, Info, Scale, UserX } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card"
 import { Button } from "@/ui/button"
@@ -27,6 +28,7 @@ const HOTEL_CATEGORIES = [
 export default function HotelSettingsClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { update } = useSession()
   const [activeTab, setActiveTab] = useState<"general" | "legal" | "delete-account">(() => {
     const tab = searchParams.get("tab")
     if (tab === "legal") return "legal"
@@ -86,6 +88,7 @@ export default function HotelSettingsClient() {
             setPaymentOption(opt)
           }
           if (s.isApproved) {
+            update({ isApproved: true, status: s.status || "APPROVED" }).catch(() => {})
             if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
               const url = new URL(window.location.href)
               url.searchParams.delete("error")
@@ -98,7 +101,33 @@ export default function HotelSettingsClient() {
       }
     }
     loadData()
-  }, [])
+
+    const handleApprovalChanged = (e: any) => {
+      const detail = e?.detail
+      if (!detail) return
+      setSeller((prev: any) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          isApproved: detail.isApproved,
+          status: detail.status,
+          adminFeedback: detail.adminFeedback,
+        }
+      })
+      if (detail.isApproved) {
+        if (typeof window !== "undefined" && window.location.search.includes("error=AccountPendingApproval")) {
+          const url = new URL(window.location.href)
+          url.searchParams.delete("error")
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""))
+        }
+      }
+    }
+
+    window.addEventListener("approval:status_changed", handleApprovalChanged)
+    return () => {
+      window.removeEventListener("approval:status_changed", handleApprovalChanged)
+    }
+  }, [update])
 
   const paramsError = searchParams.get("error")
 

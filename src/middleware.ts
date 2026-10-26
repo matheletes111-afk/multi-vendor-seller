@@ -246,21 +246,52 @@ export async function middleware(request: NextRequest) {
     }
 
     const u = session.user as { onboardingCompleted?: boolean; isApproved?: boolean; isSuspended?: boolean }
-    if (u.isSuspended === true) {
-      return NextResponse.redirect(new URL(`${prefix}/login?error=AccountSuspended`, request.url))
-    }
 
     const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path
     const isOnboardingRoute = normalizedPath === `${prefix}/onboarding` || normalizedPath.startsWith(`${prefix}/onboarding/`)
     const isSettingsRoute = normalizedPath === `${prefix}/settings` || normalizedPath.startsWith(`${prefix}/settings/`)
 
+    let isApproved = u.isApproved
+    let isSuspended = u.isSuspended
+    let onboardingCompleted = u.onboardingCompleted
+
+    // If token indicates unapproved, uncompleted onboarding on a protected route, or suspended, verify live status against DB
+    if (
+      (!onboardingCompleted && !isOnboardingRoute) ||
+      (u.isApproved === false && !isSettingsRoute && !isOnboardingRoute) ||
+      u.isSuspended === true
+    ) {
+      try {
+        const verifyUrl = new URL("/api/auth/live-status", request.url)
+        verifyUrl.searchParams.set("userId", session.user.id as string)
+        verifyUrl.searchParams.set("role", session.user.role as string)
+        const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "internal-secret"
+        const verifyRes = await fetch(verifyUrl.toString(), {
+          headers: { "x-internal-secret": secret },
+          cache: "no-store",
+        })
+        if (verifyRes.ok) {
+          const live = await verifyRes.json()
+          if (typeof live.isApproved === "boolean") isApproved = live.isApproved
+          if (typeof live.isSuspended === "boolean") isSuspended = live.isSuspended
+          if (typeof live.onboardingCompleted === "boolean") onboardingCompleted = live.onboardingCompleted
+        }
+      } catch (err) {
+        console.error("Middleware live status check error:", err)
+      }
+    }
+
+    if (isSuspended === true) {
+      return NextResponse.redirect(new URL(`${prefix}/login?error=AccountSuspended`, request.url))
+    }
+
     // 1) Handle Onboarding (Allow access to onboarding route, force redirect others if not done)
-    if (!u.onboardingCompleted && !isOnboardingRoute) {
+    if (!onboardingCompleted && !isOnboardingRoute) {
       return NextResponse.redirect(new URL(`${prefix}/onboarding`, request.url))
     }
 
     // 2) Handle Approval (Allow access to settings and onboarding while pending, force redirect others to settings)
-    if (u.isApproved === false && !isSettingsRoute && !isOnboardingRoute) {
+    if (isApproved === false && !isSettingsRoute && !isOnboardingRoute) {
       return NextResponse.redirect(new URL(`${prefix}/settings?error=AccountPendingApproval`, request.url))
     }
   }
@@ -299,20 +330,44 @@ export async function middleware(request: NextRequest) {
       status?: string
     }
 
-    if (u.isSuspended === true || u.status === "SUSPENDED") {
-      return NextResponse.redirect(new URL("/riderapp/login?error=AccountSuspended", request.url))
-    }
+    let isSuspended = u.isSuspended === true || u.status === "SUSPENDED"
+    let onboardingCompleted = u.onboardingCompleted
+    let isFirstLogin = u.isFirstLogin
 
     const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path
     const isOnboardingRoute = normalizedPath === "/riderapp/onboarding" || normalizedPath.startsWith("/riderapp/onboarding/")
 
+    if (isSuspended || (!onboardingCompleted && !isOnboardingRoute)) {
+      try {
+        const verifyUrl = new URL("/api/auth/live-status", request.url)
+        verifyUrl.searchParams.set("userId", session.user.id as string)
+        verifyUrl.searchParams.set("role", session.user.role as string)
+        const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "internal-secret"
+        const verifyRes = await fetch(verifyUrl.toString(), {
+          headers: { "x-internal-secret": secret },
+          cache: "no-store",
+        })
+        if (verifyRes.ok) {
+          const live = await verifyRes.json()
+          if (typeof live.isSuspended === "boolean") isSuspended = live.isSuspended
+          if (typeof live.onboardingCompleted === "boolean") onboardingCompleted = live.onboardingCompleted
+        }
+      } catch (err) {
+        console.error("Middleware rider live status check error:", err)
+      }
+    }
+
+    if (isSuspended) {
+      return NextResponse.redirect(new URL("/riderapp/login?error=AccountSuspended", request.url))
+    }
+
     // Force onboarding if not completed or if first login
-    if ((!u.onboardingCompleted || u.isFirstLogin) && !isOnboardingRoute) {
+    if ((!onboardingCompleted || isFirstLogin) && !isOnboardingRoute) {
       return NextResponse.redirect(new URL("/riderapp/onboarding", request.url))
     }
 
     // If onboarding is completed and not first login, redirect /onboarding to dashboard
-    if (u.onboardingCompleted && !u.isFirstLogin && isOnboardingRoute) {
+    if (onboardingCompleted && !isFirstLogin && isOnboardingRoute) {
       return NextResponse.redirect(new URL("/riderapp", request.url))
     }
   }

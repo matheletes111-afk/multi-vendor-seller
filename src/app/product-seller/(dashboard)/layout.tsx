@@ -13,7 +13,7 @@ export default async function ProductSellerLayout({
   if (!session?.user) redirect("/product-seller/login")
   if (!isProductSeller(session.user)) redirect("/dashboard")
 
-  const u = session.user as { onboardingCompleted?: boolean }
+  const u = session.user as { onboardingCompleted?: boolean; isApproved?: boolean }
   if (u.onboardingCompleted !== true) {
     redirect("/product-seller/onboarding")
   }
@@ -25,6 +25,7 @@ export default async function ProductSellerLayout({
         email: session.user.email ?? null,
         phone: session.user.phone ?? null,
         image: session.user.image ?? null,
+        isApproved: Boolean(u.isApproved),
       }}
     >
       {children}

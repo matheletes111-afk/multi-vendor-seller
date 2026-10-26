@@ -12,7 +12,7 @@ export default async function ServiceSellerLayout({
   if (!session?.user) redirect("/service-seller/login")
   if (!isServiceSeller(session.user)) redirect("/dashboard")
 
-  const u = session.user as { onboardingCompleted?: boolean }
+  const u = session.user as { onboardingCompleted?: boolean; isApproved?: boolean }
   if (u.onboardingCompleted !== true) {
     redirect("/service-seller/onboarding")
   }
@@ -23,6 +23,7 @@ export default async function ServiceSellerLayout({
         email: session.user.email ?? null,
         phone: session.user.phone ?? null,
         image: session.user.image ?? null,
+        isApproved: Boolean(u.isApproved),
       }}
     >
       {children}
