@@ -60,6 +60,11 @@ frontend:
         - echo "APPLE_BUNDLE_ID=$APPLE_BUNDLE_ID" >> .env
         - echo "APPLE_APP_ID=$APPLE_APP_ID" >> .env
         - echo "APPLE_ENVIRONMENT=$APPLE_ENVIRONMENT" >> .env
+        # AfriMoney Payment Gateway Bridge
+        - echo "AFRIMONEY_BRIDGE_URL=$AFRIMONEY_BRIDGE_URL" >> .env
+        - echo "AFRIMONEY_BRIDGE_KEY=$AFRIMONEY_BRIDGE_KEY" >> .env
+        - echo "AFRIMONEY_CONSUMER_KEY=$AFRIMONEY_CONSUMER_KEY" >> .env
+        - echo "AFRIMONEY_CONSUMER_SECRET=$AFRIMONEY_CONSUMER_SECRET" >> .env
         - npx prisma generate
     build:
       commands:

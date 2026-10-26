@@ -1,0 +1,163 @@
+The HTTPS certificate for afrimoney.meeemsl.com is issued, and everything we can set up before AfriMoney replies is done. I tested it all from outside the server:
+
+┌────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
+│                     Check                      │                            Result                            │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ https://afrimoney.meeemsl.com/health           │ 200; plain HTTP redirects to HTTPS                           │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Bridge with no key                             │ 401 (rejected)                                               │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Bridge with the key                            │ 504 — expected, because the VPN tunnel isn't up yet          │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Callback port 8080 from the internet           │ Blocked by the security group                                │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ socket.meeemsl.com and its socket.io handshake │ 200, back online on the new IP                               │
+├────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Certificate                                    │ Let's Encrypt, valid until 30 Dec 2026, renews automatically │
+└────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+Your next steps:
+1. Send the VPN form to AfriMoney with:
+   - Partner VPN Peer IP: 54.88.186.137
+   - Encryption domain: 54.88.186.137/32
+   - Device: Ubuntu 24.04, strongSwan 5.9.13 (IKEv2)
+   - Phase 1: IKEv2, AES-256, SHA-512, DH group 21. Phase 2: ESP AES-256/SHA-512, no PFS.
+   - Ports: we call them on TCP 8280; their callbacks come to 54.88.186.137 on TCP 8080.
+2. Add two environment variables in Amplify:
+   - AFRIMONEY_BRIDGE_URL=https://afrimoney.meeemsl.com/afrimoney
+   - AFRIMONEY_BRIDGE_KEY = the contents of .bridge-key in this folder
+
+   The payment code should send that key in an X-Bridge-Key header. The callback route should reject requests that don't carry the same header.
+3. When AfriMoney sends the pre-shared key (and confirms their subnets), send them to me. The tunnel config is already on the server, so I fill those in, switch it on and test the connection to 10.28.99.163:8280. That should take about 5 minutes.
+
+Two things to keep in mind:
+- Limit SSH: port 22 is still open to the whole internet. I can restrict it to your IP whenever you want.
+- Delete the backup later: the snapshot snap-0e6438d4b2e04ec8e costs about $0.80 a month. Delete it once the VPN has been working for a while.
+
+================================================================================
+UPDATE (26 OCT 2026): AFRIMONEY PSK RECEIVED - ACTION REQUIRED FOR DEVOPS TEAM
+================================================================================
+
+AfriMoney / Africell team (Mario Al Alam <malalam@africell.sl>) has confirmed:
+- Status: The VPN tunnel configuration has been created on their end.
+- Encrypted file `MEEEM.zip` was delivered and unzipped.
+- Pre-Shared Key (PSK):
+  FDW8dVxHSoQfGD
+
+--------------------------------------------------------------------------------
+DEVOPS ACTION CHECKLIST (DETAILED STEP-BY-STEP):
+--------------------------------------------------------------------------------
+
+Key Parameters from AfriMoney S2S VPN Form:
+- AfriMoney Peer IP: 41.223.132.146 (FortiGate FG-3401E)
+- AfriMoney Encryption Domain (Subnets):
+  * UAT Test IP: 10.28.99.163/32 (Port 8280)
+  * PROD IPs: 10.28.99.131/32, 10.28.99.135/32, 10.28.99.136/32
+- Partner (Our) Peer IP: 54.88.186.137
+- Partner Encryption Domain: 54.88.186.137/32
+- Phase 1: IKEv2, AES256, SHA512, DH Group 21 (ecp521), Lifetime 86400s
+- Phase 2: ESP, AES256, SHA512, No PFS, Lifetime 3600s
+- Pre-Shared Key (PSK): FDW8dVxHSoQfGD
+
+--------------------------------------------------------------------------------
+STEP 1: Apply PSK and Bring Up strongSwan IPSec Tunnel
+--------------------------------------------------------------------------------
+1. SSH into the Ubuntu 24.04 server (54.88.186.137).
+2. Configure /etc/ipsec.secrets:
+   54.88.186.137 41.223.132.146 : PSK "FDW8dVxHSoQfGD"
+3. Configure /etc/ipsec.conf (or swanctl equivalent):
+   conn afrimoney-vpn
+       keyexchange=ikev2
+       ike=aes256-sha512-ecp521!
+       esp=aes256-sha512!
+       ikelifetime=86400s
+       lifetime=3600s
+       left=54.88.186.137
+       leftsubnet=54.88.186.137/32
+       right=41.223.132.146
+       rightsubnet=10.28.99.163/32,10.28.99.131/32,10.28.99.135/32,10.28.99.136/32
+       auto=start
+4. Restart and check status:
+   sudo ipsec restart
+   sudo ipsec statusall
+   (Verify: Connection state shows ESTABLISHED and Security Association INSTALLED).
+
+--------------------------------------------------------------------------------
+STEP 2: Verify Internal Routing to AfriMoney Gateway
+--------------------------------------------------------------------------------
+1. Test TCP port connectivity to AfriMoney UAT endpoint:
+   nc -zv 10.28.99.163 8280
+   # or
+   curl -I --connect-timeout 5 http://10.28.99.163:8280
+2. Confirm that traffic is routed through the IPSec tunnel without timeout.
+
+--------------------------------------------------------------------------------
+STEP 3: Verify Public HTTPS Bridge Endpoint
+--------------------------------------------------------------------------------
+1. Test the bridge reverse proxy from outside:
+   curl -i -X POST https://afrimoney.meeemsl.com/afrimoney/push-ussd/merchant-payment/v1.0 \
+     -H "X-Bridge-Key: <CONTENTS_OF_.bridge-key>" \
+     -H "Content-Type: application/json"
+2. Confirm the response:
+   - Should NO LONGER return 504 Gateway Timeout.
+   - Should return AfriMoney gateway HTTP response.
+
+--------------------------------------------------------------------------------
+STEP 4: Open Inbound Callback Port 8080 in AWS Security Group
+--------------------------------------------------------------------------------
+1. Open AWS EC2 Console -> Security Groups -> Edit Inbound Rules for instance 54.88.186.137.
+2. Add rule:
+   - Type: Custom TCP
+   - Port: 8080
+   - Source: 41.223.132.146/32 (AfriMoney Peer IP and their designated subnets).
+3. Test that the local callback listener is listening on port 8080.
+
+--------------------------------------------------------------------------------
+STEP 5: Environment Variables Setup (Amplify & Backend)
+--------------------------------------------------------------------------------
+1. Read the secret bridge key from the server:
+   cat .bridge-key (located in bridge directory)
+2. Add environment variables to AWS Amplify Console:
+   - AFRIMONEY_BRIDGE_URL=https://afrimoney.meeemsl.com/afrimoney
+   - AFRIMONEY_BRIDGE_KEY=<exact_value_from_.bridge-key>
+3. Provide AFRIMONEY_BRIDGE_KEY to development team for local/staging .env testing.
+
+--------------------------------------------------------------------------------
+STEP 6: Security Hardening & Cleanup
+--------------------------------------------------------------------------------
+1. Restrict SSH (port 22) in AWS Security Group to only authorized office/team IP(s).
+2. Schedule removal of EBS snapshot (snap-0e6438d4b2e04ec8e) after 1-2 weeks of stable operation.
+
+Once Steps 1-5 are verified, inform the development team to run Push USSD end-to-end tests.
+================================================================================
+
+================================================================================
+UPDATE (26 OCT 2026 - EVENING): DEVOPS VERIFICATION COMPLETED & CONFIRMED
+================================================================================
+
+DevOps Engineer has verified and confirmed the following:
+1. Tunnel status:
+   - Command: `sudo swanctl --list-sas` (replaces legacy `ipsec statusall`).
+   - Status: Both Phase 1 & Phase 2 are UP and ESTABLISHED.
+   - Local encryption domain accepted by Africell: 172.31.22.33/32 (VPC private IP).
+2. Internal Routing:
+   - PASS: 10.28.99.163:8280 (UAT) and all three PROD IPs respond across the tunnel.
+3. Bridge Reverse Proxy:
+   - PASS: Using the real X-Bridge-Key reaches AfriMoney's gateway (WSO2 API Manager).
+   - Response from gateway: Requires OAuth Bearer token (HTTP 401 / Invalid Credentials).
+4. Callback Port 8080:
+   - Listener is running on 172.31.22.33:8080 inside the private network.
+   - Callbacks arrive through the IPSec VPN tunnel from 10.28.99.x directly.
+   - DO NOT open port 8080 in AWS Security Group (keeping it closed prevents exposing it to the internet).
+
+--------------------------------------------------------------------------------
+NEXT ACTION FOR DEVELOPMENT TEAM (AFRIMONEY WSO2 API INTEGRATION):
+--------------------------------------------------------------------------------
+Every request from the app/backend requires TWO headers:
+1. `X-Bridge-Key: <CONTENTS_OF_.bridge-key>` (authenticates with our bridge)
+2. `Authorization: Bearer <access_token>` (authenticates with AfriMoney WSO2 API Manager)
+
+Required from AfriMoney / Africell team (Mario Al Alam <malalam@africell.sl>):
+1. Consumer Key and Consumer Secret (Client Credentials).
+2. Exact Token endpoint URL & port (e.g. POST /token with grant_type=client_credentials).
+================================================================================
