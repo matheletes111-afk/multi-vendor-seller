@@ -7,20 +7,30 @@ export const dynamic = "force-dynamic"
 
 /**
  * Diagnostic & Connection Test API for Float Payment Gateway
- * Accessible via:
- * 1. Admin login session
- * 2. OR Secret token query param: ?secret=<FLOT_WEBHOOK_PASSWORD>
  *
- * URL: GET https://www.meeemsl.com/api/flot/test?secret=meeem_flot_secret_2026
+ * Locked down: Completely disabled in production. Requires authenticated Admin session in development.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const secretParam = searchParams.get("secret")
+  // Lock down: Disabled in production
+  if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "development") {
+    return NextResponse.json(
+      { success: false, error: "Not Found" },
+      { status: 404 }
+    )
+  }
 
-  // Authentication check
+  // Authentication check: Strictly require Admin session
   const session = await auth().catch(() => null)
   const isAuthorizedAdmin = session?.user ? isAdmin(session.user) : false
 
+  if (!isAuthorizedAdmin) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    )
+  }
+
+  const { searchParams } = new URL(request.url)
   let config: any = null
   let privateKeyFound = false
   let privateKeyLength = 0
@@ -32,19 +42,6 @@ export async function GET(request: NextRequest) {
     privateKeyLength = config.privateKey?.length || 0
   } catch (err: any) {
     privateKeyError = err?.message || "Failed to load private key"
-  }
-
-  const expectedSecret = config?.webhookPassword || process.env.FLOT_WEBHOOK_PASSWORD || "meeem_flot_secret_2026"
-  const isAuthorizedBySecret = secretParam && secretParam === expectedSecret
-
-  if (!isAuthorizedAdmin && !isAuthorizedBySecret) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized",
-        hint: "Provide ?secret=<FLOT_WEBHOOK_PASSWORD> in URL or log in as Admin to run Float connection diagnostics.",
-      },
-      { status: 401 }
-    )
   }
 
   if (!privateKeyFound || !config) {
