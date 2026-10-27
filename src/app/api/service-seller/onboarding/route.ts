@@ -144,11 +144,13 @@ export async function POST(request: NextRequest) {
     if (step === 2) {
       // Step 2: Business Information
       const haveGst = formData ? (formData.get("haveGst") === "true") : !!jsonBody.data.haveGst
+      const rawTaxId = formData ? (formData.get("taxIdNumber") as string | null) : jsonBody.data?.taxIdNumber
+      const parsedTaxId = typeof rawTaxId === "string" ? rawTaxId.trim() || null : (rawTaxId ?? null)
       const data = formData ? {
         businessName: formData.get("businessName") as string,
         businessType: formData.get("businessType") as string,
         businessRegNumber: formData.get("businessRegNumber") as string,
-        taxIdNumber: formData.get("taxIdNumber") as string,
+        taxIdNumber: parsedTaxId,
         street: formData.get("street") as string,
         city: formData.get("city") as string,
         district: formData.get("district") as string,
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
       } : {
         ...jsonBody.data,
         haveGst: haveGst,
-        taxIdNumber: jsonBody.data.taxIdNumber,
+        taxIdNumber: parsedTaxId,
         gstInvNo: haveGst ? jsonBody.data.gstInvNo : null,
         gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
       }

@@ -871,8 +871,8 @@ const SERVICE_SELLER_STEP_FILES: Record<number, string[]> = {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="taxIdNumber">TIN No *</Label>
-                    <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required className="h-11 sm:h-12 rounded-xl" />
+                    <Label htmlFor="taxIdNumber">TIN No (Optional)</Label>
+                    <Input id="taxIdNumber" name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} className="h-11 sm:h-12 rounded-xl" />
                   </div>
                   <div className="space-y-2 pt-2">
                     <Label htmlFor="busRegCert" className="text-sm font-semibold">Business Registration Certificate / Trade License *</Label>
