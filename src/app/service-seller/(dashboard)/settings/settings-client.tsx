@@ -594,8 +594,8 @@ export function ServiceSettingsClient() {
                </div>
                <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Tin no (Tax ID) *</Label>
-                    <Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} required />
+                    <Label>Tin no (Tax ID) (Optional)</Label>
+                    <Input name="taxIdNumber" defaultValue={seller.businessInfo?.taxIdNumber || ""} />
                   </div>
                   {haveGst && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">

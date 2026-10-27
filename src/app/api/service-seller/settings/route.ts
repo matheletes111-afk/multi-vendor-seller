@@ -234,13 +234,13 @@ export async function PUT(request: NextRequest) {
         const h = haveGstRaw === "true"
         busInfoData.haveGst = h
         if (!h) {
-            // TIN is always required, do NOT clear it
+            // TIN is optional for service seller, do NOT clear it when GST is off unless user cleared it
             busInfoData.gstInvNo = null
             busInfoData.gstCustomerName = null
         }
     }
-    // TIN is always required regardless of GST status
-    if (taxIdNumber !== null) busInfoData.taxIdNumber = taxIdNumber.trim()
+    // TIN is optional for service seller
+    if (taxIdNumber !== null) busInfoData.taxIdNumber = taxIdNumber.trim() || null
     if (gstCustomerName !== null && (busInfoData.haveGst ?? seller.businessInfo?.haveGst)) {
         busInfoData.gstCustomerName = gstCustomerName.trim()
     }
