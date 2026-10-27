@@ -14,40 +14,29 @@ export const dynamic = "force-dynamic"
 /**
  * Diagnostic & Connectivity Test API for AfriMoney Payment Gateway & Bridge
  *
- * Usage:
- * - Direct Browser / Postman: GET /api/afrimoney/test?secret=meeem_afrimoney_test
- * - Or logged in as Admin session
+ * Locked down: Completely disabled in production. Requires authenticated Admin session in development.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const secretParam = searchParams.get("secret")
+  // Lock down: Disabled in production
+  if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "development") {
+    return NextResponse.json(
+      { success: false, error: "Not Found" },
+      { status: 404 }
+    )
+  }
 
-  // Authentication check
+  // Authentication check: Strictly require Admin session
   const session = await auth().catch(() => null)
   const isAuthorizedAdmin = session?.user ? isAdmin(session.user) : false
 
-  const config = getAfriMoneyConfig()
-
-  const allowedSecrets = [
-    "meeem_afrimoney_test",
-    process.env.INTERNAL_API_SECRET,
-    process.env.CRON_SECRET,
-    process.env.AFRIMONEY_BRIDGE_KEY,
-  ].filter(Boolean) as string[]
-
-  const isAuthorizedBySecret = Boolean(
-    secretParam && allowedSecrets.includes(secretParam)
-  )
-
-  if (!isAuthorizedAdmin && !isAuthorizedBySecret) {
+  if (!isAuthorizedAdmin) {
     return NextResponse.json(
-      {
-        error: "Unauthorized",
-        hint: "Provide ?secret=meeem_afrimoney_test in the URL or log in as Admin to run AfriMoney diagnostics.",
-      },
+      { success: false, error: "Unauthorized" },
       { status: 401 }
     )
   }
+
+  const config = getAfriMoneyConfig()
 
   // 1. Environment Variables Audit
   const envAudit = {
