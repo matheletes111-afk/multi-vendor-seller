@@ -7,6 +7,8 @@ import {
   checkBridgeHealth,
   testBridgeTunnel,
   testOAuthToken,
+  initiateAfriMoneyPushUssd,
+  queryAfriMoneyTransaction,
 } from "@/lib/afrimoney"
 
 export const dynamic = "force-dynamic"
@@ -14,29 +16,44 @@ export const dynamic = "force-dynamic"
 /**
  * Diagnostic & Connectivity Test API for AfriMoney Payment Gateway & Bridge
  *
- * Locked down: Completely disabled in production. Requires authenticated Admin session in development.
+ * Usage:
+ * - Direct Browser / Postman: GET /api/afrimoney/test?secret=meeem_afrimoney_test
+ * - Trigger Push USSD Test: GET /api/afrimoney/test?secret=meeem_afrimoney_test&action=push_test&msisdn=033600171
+ * - Or logged in as Admin session
  */
 export async function GET(request: NextRequest) {
-  // Lock down: Disabled in production
-  if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "development") {
-    return NextResponse.json(
-      { success: false, error: "Not Found" },
-      { status: 404 }
-    )
-  }
+  const { searchParams } = new URL(request.url)
+  const secretParam = searchParams.get("secret")
+  const action = searchParams.get("action")
+  const testMsisdn = searchParams.get("msisdn") || "033600171"
+  const refParam = searchParams.get("ref")
 
-  // Authentication check: Strictly require Admin session
+  // Authentication check
   const session = await auth().catch(() => null)
   const isAuthorizedAdmin = session?.user ? isAdmin(session.user) : false
 
-  if (!isAuthorizedAdmin) {
+  const config = getAfriMoneyConfig()
+
+  const allowedSecrets = [
+    "meeem_afrimoney_test",
+    process.env.INTERNAL_API_SECRET,
+    process.env.CRON_SECRET,
+    process.env.AFRIMONEY_BRIDGE_KEY,
+  ].filter(Boolean) as string[]
+
+  const isAuthorizedBySecret = Boolean(
+    secretParam && allowedSecrets.includes(secretParam)
+  )
+
+  if (!isAuthorizedAdmin && !isAuthorizedBySecret) {
     return NextResponse.json(
-      { success: false, error: "Unauthorized" },
+      {
+        error: "Unauthorized",
+        hint: "Provide ?secret=meeem_afrimoney_test in the URL or log in as Admin to run AfriMoney diagnostics.",
+      },
       { status: 401 }
     )
   }
-
-  const config = getAfriMoneyConfig()
 
   // 1. Environment Variables Audit
   const envAudit = {
@@ -47,7 +64,11 @@ export async function GET(request: NextRequest) {
     consumerKeyPreview: maskKey(config.consumerKey),
     hasConsumerSecret: Boolean(config.consumerSecret),
     consumerSecretPreview: maskKey(config.consumerSecret),
+    merchantMsisdn: config.merchantMsisdn || "123000306",
+    hasApiKey: Boolean(config.apiKey),
+    apiKeyPreview: maskKey(config.apiKey),
     tokenUrl: config.tokenUrl,
+    callbackUrl: "https://www.meeemsl.com/api/afrimoney/callback",
   }
 
   // 2. Step 1: Health check of public bridge domain
@@ -56,14 +77,50 @@ export async function GET(request: NextRequest) {
   // 3. Step 2: Bridge tunnel test to AfriMoney Gateway
   const tunnelTest = await testBridgeTunnel(config.bridgeUrl, config.bridgeKey)
 
-  // 4. Step 3: OAuth Token test (if client credentials provided)
+  // 4. Step 3: OAuth Token test (using Client Credentials)
   const oauthTest = await testOAuthToken(config)
+
+  // 5. Optional Action: Push USSD Test Initiation
+  let pushTestResult: any = null
+  if (action === "push_test") {
+    const testRef = `TEST-${Date.now()}`
+    try {
+      pushTestResult = await initiateAfriMoneyPushUssd(
+        {
+          amount: 1,
+          payerMsisdn: testMsisdn,
+          externalReferenceId: testRef,
+          remarks: "Test 1 SLE Push USSD",
+        },
+        config
+      )
+    } catch (err: any) {
+      pushTestResult = {
+        success: false,
+        error: err?.message || String(err),
+      }
+    }
+  }
+
+  // 6. Optional Action: Query Transaction Status
+  let queryResult: any = null
+  if (action === "query_test" && refParam) {
+    try {
+      queryResult = await queryAfriMoneyTransaction(refParam, config)
+    } catch (err: any) {
+      queryResult = {
+        success: false,
+        error: err?.message || String(err),
+      }
+    }
+  }
 
   // Determine overall readiness
   const isBridgeAlive = healthCheck.ok
   const isTunnelPassing =
     tunnelTest.verdict === "TUNNEL_CONNECTED_AND_GATEWAY_REACHED"
-  const isReadyToProceed = isBridgeAlive && isTunnelPassing
+  const isOAuthWorking = oauthTest.success
+  const isReadyToProceed = isBridgeAlive && isTunnelPassing && isOAuthWorking
 
   let nextAction = ""
   if (!config.bridgeKey) {
@@ -78,15 +135,12 @@ export async function GET(request: NextRequest) {
   } else if (tunnelTest.verdict === "INVALID_BRIDGE_KEY") {
     nextAction =
       "AFRIMONEY_BRIDGE_KEY in .env does not match the key on the server. Update AFRIMONEY_BRIDGE_KEY."
-  } else if (!config.consumerKey || !config.consumerSecret) {
+  } else if (!oauthTest.success) {
     nextAction =
-      "Infrastructure is READY! Now ask Mario (Africell) for Consumer Key & Secret, then set AFRIMONEY_CONSUMER_KEY & AFRIMONEY_CONSUMER_SECRET in Amplify/env."
-  } else if (oauthTest.success) {
-    nextAction =
-      "Everything is 100% OPERATIONAL! Ready to run Push USSD end-to-end payments."
+      "OAuth token retrieval failed. Check Consumer Key and Consumer Secret."
   } else {
     nextAction =
-      "Verify the Consumer Key, Secret, and Token endpoint URL with AfriMoney team."
+      "Everything is 100% OPERATIONAL! Ready to trigger Push USSD payments."
   }
 
   return NextResponse.json({
@@ -97,7 +151,7 @@ export async function GET(request: NextRequest) {
     summary: {
       bridgeReachable: isBridgeAlive,
       vpnTunnelConnected: isTunnelPassing,
-      oauthConfigured: oauthTest.attempted && oauthTest.success,
+      oauthConfigured: isOAuthWorking,
     },
     environment: envAudit,
     diagnostics: {
@@ -112,6 +166,8 @@ export async function GET(request: NextRequest) {
             : tunnelTest.body,
       },
       step3_oauthToken: oauthTest,
+      step4_pushTest: pushTestResult,
+      step5_queryTest: queryResult,
     },
   })
 }

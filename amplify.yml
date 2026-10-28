@@ -65,6 +65,8 @@ frontend:
         - echo "AFRIMONEY_BRIDGE_KEY=$AFRIMONEY_BRIDGE_KEY" >> .env
         - echo "AFRIMONEY_CONSUMER_KEY=$AFRIMONEY_CONSUMER_KEY" >> .env
         - echo "AFRIMONEY_CONSUMER_SECRET=$AFRIMONEY_CONSUMER_SECRET" >> .env
+        - echo "AFRIMONEY_MERCHANT_MSISDN=$AFRIMONEY_MERCHANT_MSISDN" >> .env
+        - echo "AFRIMONEY_API_KEY=$AFRIMONEY_API_KEY" >> .env
         - npx prisma generate
     build:
       commands:
