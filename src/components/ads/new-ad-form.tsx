@@ -13,6 +13,8 @@ import { CountryMultiSelect } from "@/components/ads/country-multi-select"
 import { cn } from "@/lib/utils"
 import { Monitor, Smartphone, Megaphone, Info } from "lucide-react"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
+import { AdPaymentDialog } from "@/components/ads/pay-now-button"
+import { AdScheduleField } from "@/components/ads/ad-schedule-field"
 
 type Product = { id: string; name: string }
 
@@ -42,6 +44,15 @@ export function NewAdForm({
   const [placements, setPlacements] = useState<string[]>(["WEB", "MOBILE"])
   const [selectedProductId, setSelectedProductId] = useState<string>("")
   const searchParams = useSearchParams()
+
+  // Payment Modal state after ad creation
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentModalData, setPaymentModalData] = useState<{
+    adId: string
+    title: string
+    amount: number | null
+    flotPaymentLink?: string | null
+  } | null>(null)
 
   // Live Preview States
   const [title, setTitle] = useState("")
@@ -146,8 +157,14 @@ export function NewAdForm({
     const data = await res.json().catch(() => ({}))
     setLoading(false)
     if (res.ok && data.success) {
-      if (data.requiresPayment && data.paymentUrl) {
-        window.location.href = data.paymentUrl
+      if (data.requiresPayment && data.ad?.id) {
+        setPaymentModalData({
+          adId: data.ad.id,
+          title: title || data.ad.title || "Ad Campaign",
+          amount: data.payableAmount != null ? Number(data.payableAmount) : null,
+          flotPaymentLink: data.paymentUrl || null,
+        })
+        setShowPaymentModal(true)
       } else {
         router.replace(successPath)
       }
@@ -401,16 +418,7 @@ export function NewAdForm({
                 <div className="space-y-6 border-t pt-6 bg-slate-50 -mx-6 px-6 pb-6 rounded-b-xl">
                   <Label className="text-base font-semibold">Budget & Reach</Label>
                   <BudgetAudienceField />
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="startAt" className="text-slate-700">Launch Date *</Label>
-                      <Input id="startAt" name="startAt" type="datetime-local" required className="h-11 rounded-lg" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endAt" className="text-slate-700">End Date *</Label>
-                      <Input id="endAt" name="endAt" type="datetime-local" required className="h-11 rounded-lg" />
-                    </div>
-                  </div>
+                  <AdScheduleField />
                   <CountryMultiSelect />
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
@@ -431,7 +439,15 @@ export function NewAdForm({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 pt-4">
+                {/* Payment notice */}
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200">
+                  <Smartphone className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong>Payment Step:</strong> You can pay with <strong>AfriMoney (Push USSD)</strong> or Float (Card / Online) immediately after clicking <em>Create &amp; Submit Ad</em>.
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4 pt-2">
                   <Button type="submit" disabled={loading} size="lg" className="min-w-[160px] rounded-full text-base font-bold shadow-lg shadow-primary/20">
                     {loading ? "Creating..." : "Create & Submit Ad"}
                   </Button>
@@ -503,6 +519,25 @@ export function NewAdForm({
           </Card>
         </div>
       </div>
+
+      {paymentModalData && (
+        <AdPaymentDialog
+          open={showPaymentModal}
+          onOpenChange={(isOpen) => {
+            setShowPaymentModal(isOpen)
+            if (!isOpen) {
+              router.replace(successPath)
+            }
+          }}
+          adId={paymentModalData.adId}
+          adTitle={paymentModalData.title}
+          amount={paymentModalData.amount}
+          flotPaymentLink={paymentModalData.flotPaymentLink}
+          onSuccess={() => {
+            router.replace(successPath)
+          }}
+        />
+      )}
     </div>
   )
 }
