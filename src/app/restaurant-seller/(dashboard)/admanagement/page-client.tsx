@@ -1,7 +1,7 @@
-import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
-import { PayNowButton } from "@/components/ads/pay-now-button"
 "use client"
 
+import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
+import { PayNowButton } from "@/components/ads/pay-now-button"
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
