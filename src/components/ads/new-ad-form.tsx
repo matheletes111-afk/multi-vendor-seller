@@ -11,7 +11,7 @@ import { AdCreativeField } from "@/components/ads/ad-creative-field"
 import { BudgetAudienceField } from "@/components/ads/budget-audience-field"
 import { CountryMultiSelect } from "@/components/ads/country-multi-select"
 import { cn } from "@/lib/utils"
-import { Monitor, Smartphone, Megaphone, Info } from "lucide-react"
+import { Monitor, Smartphone, Megaphone, Info, CreditCard } from "lucide-react"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { AdPaymentDialog } from "@/components/ads/pay-now-button"
 import { AdScheduleField } from "@/components/ads/ad-schedule-field"
@@ -46,12 +46,14 @@ export function NewAdForm({
   const searchParams = useSearchParams()
 
   // Payment Modal state after ad creation
+  const [chosenPaymentMethod, setChosenPaymentMethod] = useState<"AFRIMONEY" | "FLOAT">("AFRIMONEY")
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentModalData, setPaymentModalData] = useState<{
     adId: string
     title: string
     amount: number | null
     flotPaymentLink?: string | null
+    initialTab?: "afrimoney" | "flot"
   } | null>(null)
 
   // Live Preview States
@@ -133,6 +135,7 @@ export function NewAdForm({
     if (isSeller) {
       formData.set("adType", adType)
     }
+    formData.set("paymentMethod", chosenPaymentMethod)
 
     // Add all selected placements to the formData
     formData.delete("placements") // clear any existing from hidden inputs if needed
@@ -163,6 +166,7 @@ export function NewAdForm({
           title: title || data.ad.title || "Ad Campaign",
           amount: data.payableAmount != null ? Number(data.payableAmount) : null,
           flotPaymentLink: data.paymentUrl || null,
+          initialTab: chosenPaymentMethod === "FLOAT" ? "flot" : "afrimoney",
         })
         setShowPaymentModal(true)
       } else {
@@ -439,23 +443,54 @@ export function NewAdForm({
                   </div>
                 </div>
 
-                {/* Payment notice */}
-                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200">
-                  <Smartphone className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    <strong>Payment Step:</strong> You can pay with <strong>AfriMoney (Push USSD)</strong> or Float (Card / Online) immediately after clicking <em>Create &amp; Submit Ad</em>.
-                  </span>
-                </div>
+                {/* Payment Selection & Submit Buttons */}
+                <div className="space-y-3 pt-3">
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      Select payment method to launch campaign:
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Choose <strong>AfriMoney</strong> for direct Push USSD on your Africell phone, or <strong>Float</strong> for debit/credit cards.
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-4 pt-2">
-                  <Button type="submit" disabled={loading} size="lg" className="min-w-[160px] rounded-full text-base font-bold shadow-lg shadow-primary/20">
-                    {loading ? "Creating..." : "Create & Submit Ad"}
-                  </Button>
-                  <Link href={listHref}>
-                    <Button type="button" variant="ghost" className="rounded-full text-slate-500">
-                      Discard
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Button 1: AfriMoney (Push USSD) */}
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      onClick={() => setChosenPaymentMethod("AFRIMONEY")}
+                      size="lg"
+                      className="min-w-[210px] rounded-full text-sm font-bold bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-600/20 flex items-center gap-2"
+                    >
+                      <Smartphone className="w-4 h-4" />
+                      {loading && chosenPaymentMethod === "AFRIMONEY"
+                        ? "Creating..."
+                        : "Pay with AfriMoney (Push USSD)"}
                     </Button>
-                  </Link>
+
+                    {/* Button 2: Float (Card / Online) */}
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      onClick={() => setChosenPaymentMethod("FLOAT")}
+                      size="lg"
+                      variant="outline"
+                      className="min-w-[180px] rounded-full text-sm font-bold border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 flex items-center gap-2"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      {loading && chosenPaymentMethod === "FLOAT"
+                        ? "Creating..."
+                        : "Pay with Float (Card)"}
+                    </Button>
+
+                    {/* Discard */}
+                    <Link href={listHref}>
+                      <Button type="button" variant="ghost" className="rounded-full text-slate-500">
+                        Discard
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </form>
             </CardContent>
@@ -533,6 +568,7 @@ export function NewAdForm({
           adTitle={paymentModalData.title}
           amount={paymentModalData.amount}
           flotPaymentLink={paymentModalData.flotPaymentLink}
+          initialTab={paymentModalData.initialTab}
           onSuccess={() => {
             router.replace(successPath)
           }}
