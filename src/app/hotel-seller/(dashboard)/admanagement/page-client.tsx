@@ -1,3 +1,5 @@
+import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
+import { PayNowButton } from "@/components/ads/pay-now-button"
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -38,6 +40,8 @@ type Ad = {
   creativeType: "IMAGE" | "VIDEO"
   creativeUrl: string
   status: string
+  paymentStatus?: string
+  flotPaymentLink?: string | null
   totalBudget: number
   spentAmount: number
   maxCpc: number
@@ -230,7 +234,12 @@ export function HotelSellerAdmanagementPageClient() {
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {ad.hotel?.name ?? "Own business ad"}
                       </TableCell>
-                      <TableCell>{statusBadge(ad)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-start gap-1">
+                          {statusBadge(ad)}
+                          <PaymentStatusBadge status={ad.paymentStatus} />
+                        </div>
+                      </TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(ad.startAt).toLocaleDateString()} - {new Date(ad.endAt).toLocaleDateString()}
                       </TableCell>
@@ -245,7 +254,15 @@ export function HotelSellerAdmanagementPageClient() {
                       <TableCell className="hidden sm:table-cell text-right">{ad._count.adClicks}</TableCell>
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-wrap justify-end gap-1 items-center">
+                          {!isEnded && ad.paymentStatus !== "COMPLETED" && (
+                            <PayNowButton
+                              adId={ad.id}
+                              paymentStatus={ad.paymentStatus || "PENDING"}
+                              flotPaymentLink={ad.flotPaymentLink}
+                              onStatusChanged={fetchAds}
+                            />
+                          )}
                           <Button asChild variant="outline" size="sm" className="rounded-xl">
                             <Link href={`/hotel-seller/admanagement/${ad.id}`}>
                               <Eye className="mr-1 h-3 w-3" />

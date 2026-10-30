@@ -37,6 +37,12 @@ type Ad = {
   creativeUrl: string
   status: string
   paymentStatus?: string
+  paymentMethod?: string | null
+  afriTxnId?: string | null
+  afriFtxnId?: string | null
+  afriMsisdn?: string | null
+  flotOrderId?: string | null
+  paidAt?: string | null
   rejectionReason: string | null
   totalBudget: number
   spentAmount: number
@@ -486,6 +492,44 @@ export function AdminSellerAdsPageClient() {
                       <div className="flex flex-col gap-1 items-start">
                         {statusBadge(ad)}
                         <PaymentStatusBadge status={ad.paymentStatus} />
+                        {(() => {
+                          const method = (ad.paymentMethod || "").toUpperCase();
+                          const isAfri = method === "AFRIMONEY" || Boolean(ad.afriTxnId) || Boolean(ad.afriMsisdn);
+                          const isFlot = method === "FLOAT" || Boolean(ad.flotOrderId);
+                          const isCoupon = method === "COUPON_100_PERCENT";
+
+                          if (isAfri) {
+                            return (
+                              <span
+                                className="text-[9px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded inline-flex items-center gap-1 cursor-help"
+                                title={ad.afriMsisdn ? `AfriMoney: ${ad.afriMsisdn} (${ad.afriTxnId || ad.afriFtxnId || "Paid"})` : "AfriMoney"}
+                              >
+                                <span>📱</span> AfriMoney
+                              </span>
+                            );
+                          }
+
+                          if (isFlot) {
+                            return (
+                              <span
+                                className="text-[9px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded inline-flex items-center gap-1 cursor-help"
+                                title={ad.flotOrderId ? `Float Order: ${ad.flotOrderId}` : "Float"}
+                              >
+                                <span>💳</span> Float
+                              </span>
+                            );
+                          }
+
+                          if (isCoupon) {
+                            return (
+                              <span className="text-[9px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                                <span>🎟️</span> 100% Coupon
+                              </span>
+                            );
+                          }
+
+                          return null;
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs font-medium">

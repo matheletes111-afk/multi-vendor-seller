@@ -11,8 +11,18 @@ export type SubscriptionHistoryItem = {
   planType: string
   price: number
   paidPrice?: number | null
+  paidAt?: string | Date | null
   planSnapshot?: any | null
   status: string
+  provider?: string | null
+  paymentMethod?: string | null
+  afriTxnId?: string | null
+  afriFtxnId?: string | null
+  afriMsisdn?: string | null
+  flotOrderId?: string | null
+  flotPaymentLink?: string | null
+  originalTransactionId?: string | null
+  latestTransactionId?: string | null
   periodStart?: string | Date | null
   periodEnd?: string | Date | null
   createdAt: string | Date
@@ -71,6 +81,7 @@ export function SellerSubscriptionHistoryTable() {
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <th className="px-6 py-4">Plan / Details</th>
+              <th className="px-6 py-4">Payment Method</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Price</th>
               <th className="px-6 py-4">Applied Coupon</th>
@@ -92,6 +103,80 @@ export function SellerSubscriptionHistoryTable() {
                       </span>
                     )}
                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  {(() => {
+                    const method = (item.paymentMethod || "").toUpperCase();
+                    const provider = (item.provider || "").toLowerCase();
+                    const isAfri = method === "AFRIMONEY" || provider === "afrimoney" || Boolean(item.afriTxnId) || Boolean(item.afriFtxnId) || Boolean(item.afriMsisdn);
+                    const isFlot = method === "FLOAT" || provider === "flot" || provider === "float" || Boolean(item.flotOrderId);
+                    const isApple = provider === "apple_iap" || Boolean(item.latestTransactionId) || Boolean(item.originalTransactionId);
+                    const isStripe = provider === "stripe";
+                    const isCoupon = Boolean(item.couponCode) && (item.finalPaidAmount === 0 || item.paidPrice === 0);
+
+                    if (isAfri) {
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 w-fit">
+                            <span>📱</span> AfriMoney
+                          </span>
+                          {item.afriMsisdn && (
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {item.afriMsisdn}
+                            </span>
+                          )}
+                          {(item.afriTxnId || item.afriFtxnId) && (
+                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]" title={item.afriTxnId || item.afriFtxnId || ""}>
+                              Txn: {item.afriTxnId || item.afriFtxnId}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (isFlot) {
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 w-fit">
+                            <span>💳</span> Float (Card)
+                          </span>
+                          {item.flotOrderId && (
+                            <span className="text-[10px] text-slate-500 font-mono truncate max-w-[130px]" title={item.flotOrderId}>
+                              {item.flotOrderId}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (isApple) {
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 w-fit">
+                            <span></span> Apple Pay
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    if (isStripe) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 w-fit">
+                          <span>💳</span> Stripe
+                        </span>
+                      );
+                    }
+
+                    if (isCoupon) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 w-fit">
+                          <span>🎟️</span> Coupon
+                        </span>
+                      );
+                    }
+
+                    return <span className="text-xs text-slate-400 font-medium">—</span>;
+                  })()}
                 </td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${

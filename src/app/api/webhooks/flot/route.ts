@@ -39,14 +39,103 @@ export async function POST(request: NextRequest) {
   console.log(`[Flot Webhook] Received notification for orderId=${orderId}, status=${status}, flotRequestId=${flotRequestId}`)
 
   try {
-    const ad = await prisma.sellerAd.findUnique({
-      where: { flotOrderId: orderId },
+    const ad = await prisma.sellerAd.findFirst({
+      where: {
+        OR: [
+          { flotOrderId: orderId },
+          { flotInternalOrderId: orderId },
+          ...(flotRequestId ? [{ flotRequestId }] : []),
+        ],
+      },
     })
 
     if (!ad) {
-      console.warn(`[Flot Webhook] No SellerAd found with flotOrderId: ${orderId}`)
-      // Still return 200 to acknowledge receipt as required by Float spec
-      return NextResponse.json({ success: true, note: "Order not found" })
+      // Check Subscriptions across models
+      const [sub, hotelSub, restSub] = await Promise.all([
+        prisma.subscription.findFirst({ where: { flotOrderId: orderId }, include: { plan: true } }),
+        prisma.hotelSubscription.findFirst({ where: { flotOrderId: orderId }, include: { plan: true } }),
+        prisma.restaurantSubscription.findFirst({ where: { flotOrderId: orderId }, include: { plan: true } }),
+      ]);
+
+      const now = new Date();
+
+      if (sub) {
+        if (status === "completed") {
+          const durationDays = sub.plan?.duration || 30;
+          const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: {
+              status: "ACTIVE",
+              provider: "flot",
+              paymentMethod: "FLOAT",
+              paidAt: sub.paidAt || now,
+              currentPeriodStart: sub.currentPeriodStart || now,
+              currentPeriodEnd: periodEnd,
+            },
+          });
+          console.log(`[Flot Webhook] Subscription ${sub.id} marked ACTIVE via Float`);
+        } else if (status === "failed" && sub.status !== "ACTIVE") {
+          await prisma.subscription.update({
+            where: { id: sub.id },
+            data: { status: "CANCELED" },
+          });
+        }
+        return NextResponse.json({ success: true, type: "subscription" });
+      }
+
+      if (hotelSub) {
+        if (status === "completed") {
+          const durationDays = hotelSub.plan?.duration || 30;
+          const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+          await prisma.hotelSubscription.update({
+            where: { id: hotelSub.id },
+            data: {
+              status: "ACTIVE",
+              provider: "flot",
+              paymentMethod: "FLOAT",
+              paidAt: hotelSub.paidAt || now,
+              currentPeriodStart: hotelSub.currentPeriodStart || now,
+              currentPeriodEnd: periodEnd,
+            },
+          });
+          console.log(`[Flot Webhook] HotelSubscription ${hotelSub.id} marked ACTIVE via Float`);
+        } else if (status === "failed" && hotelSub.status !== "ACTIVE") {
+          await prisma.hotelSubscription.update({
+            where: { id: hotelSub.id },
+            data: { status: "CANCELED" },
+          });
+        }
+        return NextResponse.json({ success: true, type: "hotel_subscription" });
+      }
+
+      if (restSub) {
+        if (status === "completed") {
+          const durationDays = restSub.plan?.duration || 30;
+          const periodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+          await prisma.restaurantSubscription.update({
+            where: { id: restSub.id },
+            data: {
+              status: "ACTIVE",
+              provider: "flot",
+              paymentMethod: "FLOAT",
+              paidAt: restSub.paidAt || now,
+              currentPeriodStart: restSub.currentPeriodStart || now,
+              currentPeriodEnd: periodEnd,
+            },
+          });
+          console.log(`[Flot Webhook] RestaurantSubscription ${restSub.id} marked ACTIVE via Float`);
+        } else if (status === "failed" && restSub.status !== "ACTIVE") {
+          await prisma.restaurantSubscription.update({
+            where: { id: restSub.id },
+            data: { status: "CANCELED" },
+          });
+        }
+        return NextResponse.json({ success: true, type: "restaurant_subscription" });
+      }
+
+      console.warn(`[Flot Webhook] No SellerAd or Subscription found with flotOrderId: ${orderId}`);
+      return NextResponse.json({ success: true, note: "Order not found" });
     }
 
     if (status === "completed") {
@@ -54,13 +143,13 @@ export async function POST(request: NextRequest) {
         where: { id: ad.id },
         data: {
           paymentStatus: "COMPLETED",
+          paymentMethod: "FLOAT",
           flotRequestId: flotRequestId || ad.flotRequestId,
           paidAt: ad.paidAt || new Date(),
         },
-      })
-      console.log(`[Flot Webhook] SellerAd ${ad.id} marked COMPLETED`)
+      });
+      console.log(`[Flot Webhook] SellerAd ${ad.id} marked COMPLETED`);
     } else if (status === "failed") {
-      // If previously completed, do not overwrite; otherwise mark FAILED
       if (ad.paymentStatus !== "COMPLETED") {
         await prisma.sellerAd.update({
           where: { id: ad.id },
@@ -68,8 +157,8 @@ export async function POST(request: NextRequest) {
             paymentStatus: "FAILED",
             flotRequestId: flotRequestId || ad.flotRequestId,
           },
-        })
-        console.log(`[Flot Webhook] SellerAd ${ad.id} marked FAILED`)
+        });
+        console.log(`[Flot Webhook] SellerAd ${ad.id} marked FAILED`);
       }
     }
 

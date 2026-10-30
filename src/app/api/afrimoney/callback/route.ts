@@ -144,23 +144,28 @@ export async function POST(request: NextRequest) {
       // 2. SELLER ADS (Product, Hotel, Restaurant, Service Sellers via SellerAd)
       // ──────────────────────────────────────────────────────────────────────────
       if (!matchedCategory && (targetCategory === "AD" || targetCategory === "AUTO")) {
-        const ad = await prisma.sellerAd
-          .findFirst({
-            where: {
-              OR: [
-                { id: cleanId },
-                { afriTxnId: cleanId },
-                { afriFtxnId: ftxnId },
-                { flotOrderId: cleanId },
-                { flotOrderId: ftxnId },
-              ],
-            },
-          })
-          .catch(() => null)
+        const adConditions: any[] = [];
+        if (cleanId) {
+          adConditions.push({ id: cleanId });
+          adConditions.push({ afriTxnId: cleanId });
+          adConditions.push({ afriFtxnId: cleanId });
+          adConditions.push({ flotOrderId: cleanId });
+        }
+        if (ftxnId) {
+          adConditions.push({ afriFtxnId: ftxnId });
+          adConditions.push({ flotOrderId: ftxnId });
+        }
+        if (transactionId) {
+          adConditions.push({ afriTxnId: transactionId });
+        }
+
+        const ad = adConditions.length > 0
+          ? await prisma.sellerAd.findFirst({ where: { OR: adConditions } }).catch(() => null)
+          : null;
 
         if (ad) {
-          matchedCategory = "SELLER_AD"
-          console.log(`[AfriMoney Callback] Matched SellerAd ${ad.id} (sellerId: ${ad.sellerId || ad.hotelSellerId || ad.restaurantSellerId || "customer"}, ftxnId: ${ftxnId})`)
+          matchedCategory = "SELLER_AD";
+          console.log(`[AfriMoney Callback] Matched SellerAd ${ad.id} (sellerId: ${ad.sellerId || ad.hotelSellerId || ad.restaurantSellerId || "customer"}, ftxnId: ${ftxnId})`);
 
           await prisma.sellerAd.update({
             where: { id: ad.id },
@@ -168,10 +173,11 @@ export async function POST(request: NextRequest) {
               paymentStatus: isSuccess ? "COMPLETED" : isFailed ? "FAILED" : ad.paymentStatus,
               paymentMethod: "AFRIMONEY",
               paidAt: isSuccess ? (ad.paidAt || new Date()) : ad.paidAt,
+              afriTxnId: transactionId || ad.afriTxnId,
               afriFtxnId: ftxnId || transactionId || ad.afriFtxnId,
               afriMsisdn: payerMsisdn || body.msisdn || ad.afriMsisdn,
             },
-          })
+          });
         }
       }
 
@@ -205,11 +211,22 @@ export async function POST(request: NextRequest) {
       // ──────────────────────────────────────────────────────────────────────────
       if (!matchedCategory && (targetCategory === "SUBSCRIPTION" || targetCategory === "AUTO")) {
         // 4A. Product & Service Sellers (Subscription table)
-        const sub = await prisma.subscription.findFirst({
-          where: {
-            OR: [{ id: cleanId }, { sellerId: cleanId }],
-          },
-        }).catch(() => null)
+        const subConditions: any[] = [];
+        if (cleanId) {
+          subConditions.push({ id: cleanId });
+          subConditions.push({ sellerId: cleanId });
+          subConditions.push({ afriFtxnId: cleanId });
+        }
+        if (ftxnId) {
+          subConditions.push({ afriFtxnId: ftxnId });
+        }
+        if (transactionId) {
+          subConditions.push({ afriTxnId: transactionId });
+        }
+
+        const sub = subConditions.length > 0
+          ? await prisma.subscription.findFirst({ where: { OR: subConditions } }).catch(() => null)
+          : null;
 
         if (sub) {
           matchedCategory = "PRODUCT_OR_SERVICE_SELLER_SUBSCRIPTION"
@@ -225,8 +242,13 @@ export async function POST(request: NextRequest) {
             data: {
               status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : sub.status,
               provider: "afrimoney",
+              paymentMethod: "AFRIMONEY",
               latestTransactionId: transactionId || sub.latestTransactionId,
+              afriTxnId: transactionId || sub.afriTxnId,
+              afriFtxnId: ftxnId || sub.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || sub.afriMsisdn,
               paidPrice: amount ? Number(amount) : sub.paidPrice,
+              paidAt: isSuccess ? (sub.paidAt || now) : sub.paidAt,
               currentPeriodStart: isSuccess ? (sub.currentPeriodStart || now) : sub.currentPeriodStart,
               currentPeriodEnd: isSuccess ? periodEnd : sub.currentPeriodEnd,
             },
@@ -235,11 +257,22 @@ export async function POST(request: NextRequest) {
 
         // 4B. Hotel Sellers (HotelSubscription table)
         if (!matchedCategory) {
-          const hotelSub = await prisma.hotelSubscription.findFirst({
-            where: {
-              OR: [{ id: cleanId }, { hotelSellerId: cleanId }],
-            },
-          }).catch(() => null)
+          const hotelConditions: any[] = [];
+          if (cleanId) {
+            hotelConditions.push({ id: cleanId });
+            hotelConditions.push({ hotelSellerId: cleanId });
+            hotelConditions.push({ afriFtxnId: cleanId });
+          }
+          if (ftxnId) {
+            hotelConditions.push({ afriFtxnId: ftxnId });
+          }
+          if (transactionId) {
+            hotelConditions.push({ afriTxnId: transactionId });
+          }
+
+          const hotelSub = hotelConditions.length > 0
+            ? await prisma.hotelSubscription.findFirst({ where: { OR: hotelConditions } }).catch(() => null)
+            : null;
 
           if (hotelSub) {
             matchedCategory = "HOTEL_SELLER_SUBSCRIPTION"
@@ -255,8 +288,13 @@ export async function POST(request: NextRequest) {
               data: {
                 status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : hotelSub.status,
                 provider: "afrimoney",
+                paymentMethod: "AFRIMONEY",
                 latestTransactionId: transactionId || hotelSub.latestTransactionId,
+                afriTxnId: transactionId || hotelSub.afriTxnId,
+                afriFtxnId: ftxnId || hotelSub.afriFtxnId,
+                afriMsisdn: payerMsisdn || body.msisdn || hotelSub.afriMsisdn,
                 paidPrice: amount ? Number(amount) : hotelSub.paidPrice,
+                paidAt: isSuccess ? (hotelSub.paidAt || now) : hotelSub.paidAt,
                 currentPeriodStart: isSuccess ? (hotelSub.currentPeriodStart || now) : hotelSub.currentPeriodStart,
                 currentPeriodEnd: isSuccess ? periodEnd : hotelSub.currentPeriodEnd,
               },
@@ -266,11 +304,22 @@ export async function POST(request: NextRequest) {
 
         // 4C. Restaurant Sellers (RestaurantSubscription table)
         if (!matchedCategory) {
-          const restSub = await prisma.restaurantSubscription.findFirst({
-            where: {
-              OR: [{ id: cleanId }, { restaurantSellerId: cleanId }],
-            },
-          }).catch(() => null)
+          const restConditions: any[] = [];
+          if (cleanId) {
+            restConditions.push({ id: cleanId });
+            restConditions.push({ restaurantSellerId: cleanId });
+            restConditions.push({ afriFtxnId: cleanId });
+          }
+          if (ftxnId) {
+            restConditions.push({ afriFtxnId: ftxnId });
+          }
+          if (transactionId) {
+            restConditions.push({ afriTxnId: transactionId });
+          }
+
+          const restSub = restConditions.length > 0
+            ? await prisma.restaurantSubscription.findFirst({ where: { OR: restConditions } }).catch(() => null)
+            : null;
 
           if (restSub) {
             matchedCategory = "RESTAURANT_SELLER_SUBSCRIPTION"
@@ -286,8 +335,13 @@ export async function POST(request: NextRequest) {
               data: {
                 status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : restSub.status,
                 provider: "afrimoney",
+                paymentMethod: "AFRIMONEY",
                 latestTransactionId: transactionId || restSub.latestTransactionId,
+                afriTxnId: transactionId || restSub.afriTxnId,
+                afriFtxnId: ftxnId || restSub.afriFtxnId,
+                afriMsisdn: payerMsisdn || body.msisdn || restSub.afriMsisdn,
                 paidPrice: amount ? Number(amount) : restSub.paidPrice,
+                paidAt: isSuccess ? (restSub.paidAt || now) : restSub.paidAt,
                 currentPeriodStart: isSuccess ? (restSub.currentPeriodStart || now) : restSub.currentPeriodStart,
                 currentPeriodEnd: isSuccess ? periodEnd : restSub.currentPeriodEnd,
               },
