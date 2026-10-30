@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { Monitor, Smartphone, Megaphone, Info } from "lucide-react"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { Card, CardContent } from "@/ui/card"
+import { AdScheduleField } from "@/components/ads/ad-schedule-field"
 
 type CreativeState = { type: "IMAGE" | "VIDEO", url: string | null }
 
@@ -283,16 +284,7 @@ export function ServiceAdFormClient({
           <div className="space-y-6 border-t pt-6">
             <Label className="text-base font-semibold">Campaign Budget</Label>
             <BudgetAudienceField />
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="startAt" className="text-slate-700">Launch Date *</Label>
-                <Input id="startAt" name="startAt" type="datetime-local" required className="h-11 rounded-lg" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endAt" className="text-slate-700">End Date *</Label>
-                <Input id="endAt" name="endAt" type="datetime-local" required className="h-11 rounded-lg" />
-              </div>
-            </div>
+            <AdScheduleField />
             <CountryMultiSelect />
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">

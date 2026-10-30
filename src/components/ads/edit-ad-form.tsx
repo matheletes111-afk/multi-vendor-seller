@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { AdCreativeField } from "@/components/ads/ad-creative-field"
 import { BudgetAudienceField } from "@/components/ads/budget-audience-field"
 import { CountryMultiSelect } from "@/components/ads/country-multi-select"
+import { AdScheduleField } from "@/components/ads/ad-schedule-field"
 import { PageLoader } from "@/components/ui/page-loader"
 import { cn } from "@/lib/utils"
 import { Monitor, Smartphone, Megaphone, Info, AlertTriangle, ArrowLeft } from "lucide-react"
@@ -492,36 +493,7 @@ export function EditAdForm({
                   <Label className="text-base font-semibold">Budget & Reach</Label>
                   <BudgetAudienceField defaultTotalBudget={totalBudget} defaultMaxCpc={maxCpc} />
 
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="startAt" className="text-slate-700">
-                        Launch Date *
-                      </Label>
-                      <Input
-                        id="startAt"
-                        name="startAt"
-                        type="datetime-local"
-                        required
-                        value={startAt}
-                        onChange={(e) => setStartAt(e.target.value)}
-                        className="h-11 rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endAt" className="text-slate-700">
-                        End Date *
-                      </Label>
-                      <Input
-                        id="endAt"
-                        name="endAt"
-                        type="datetime-local"
-                        required
-                        value={endAt}
-                        onChange={(e) => setEndAt(e.target.value)}
-                        className="h-11 rounded-lg"
-                      />
-                    </div>
-                  </div>
+                  <AdScheduleField defaultStartAt={startAt} defaultEndAt={endAt} />
 
                   <CountryMultiSelect defaultCountries={targetCountries} />
 
