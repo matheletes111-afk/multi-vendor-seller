@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { createFlotPaymentLink, verifyFlotPaymentAttempt } from "@/lib/flot"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
+import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 
 export interface InitiateAdPaymentParams {
   adId: string
@@ -276,5 +277,110 @@ export async function refreshAdPaymentLink(adId: string) {
     paymentUrl: flotRes.link,
     orderId: newOrderId,
     ad: updated,
+  }
+}
+
+export interface InitiateAfriMoneyAdPaymentParams {
+  adId: string
+  payerMsisdn: string
+  userId?: string
+}
+
+export interface InitiateAfriMoneyAdPaymentResult {
+  success: boolean
+  txnId?: string
+  payableAmount: number
+  paymentStatus: string
+  message: string
+  error?: string
+}
+
+/**
+ * Initiate an AfriMoney Push USSD payment for any Seller Ad (Product, Hotel, Restaurant, Service, etc.)
+ * Fully reusable across all seller dashboards.
+ */
+export async function initiateAfriMoneyAdPayment(
+  params: InitiateAfriMoneyAdPaymentParams
+): Promise<InitiateAfriMoneyAdPaymentResult> {
+  const { adId, payerMsisdn } = params
+
+  const ad = await prisma.sellerAd.findUnique({
+    where: { id: adId },
+  })
+
+  if (!ad) {
+    return {
+      success: false,
+      payableAmount: 0,
+      paymentStatus: "NOT_FOUND",
+      message: "Ad not found",
+      error: "Ad not found",
+    }
+  }
+
+  if (ad.paymentStatus === "COMPLETED") {
+    return {
+      success: true,
+      payableAmount: 0,
+      paymentStatus: "COMPLETED",
+      message: "Ad is already paid",
+    }
+  }
+
+  const payableAmount =
+    ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget)
+
+  if (payableAmount <= 0) {
+    await prisma.sellerAd.update({
+      where: { id: ad.id },
+      data: {
+        paymentStatus: "COMPLETED",
+        paymentMethod: "AFRIMONEY",
+        paidAt: new Date(),
+      },
+    })
+    return {
+      success: true,
+      payableAmount: 0,
+      paymentStatus: "COMPLETED",
+      message: "Ad budget is zero, marked completed.",
+    }
+  }
+
+  // Prefix AD_ guarantees zero collision in our callback route
+  const externalReferenceId = `AD_${ad.id}`
+
+  const result = await initiateAfriMoneyPushUssd({
+    amount: payableAmount,
+    payerMsisdn,
+    externalReferenceId,
+    remarks: `MEEEM Ad: ${ad.title.slice(0, 20)}`,
+  })
+
+  if (!result.success) {
+    return {
+      success: false,
+      payableAmount,
+      paymentStatus: ad.paymentStatus,
+      message: result.message || "Failed to initiate AfriMoney Push USSD",
+      error: result.message || "Failed to initiate AfriMoney Push USSD",
+    }
+  }
+
+  await prisma.sellerAd.update({
+    where: { id: ad.id },
+    data: {
+      paymentStatus: "PENDING",
+      paymentMethod: "AFRIMONEY",
+      payableAmount,
+    },
+  })
+
+  return {
+    success: true,
+    txnId: result.txnId,
+    payableAmount,
+    paymentStatus: "PENDING",
+    message: "USSD payment prompt sent to your phone! Please enter your PIN to approve.",
   }
 }
