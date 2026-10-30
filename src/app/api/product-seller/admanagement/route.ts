@@ -6,6 +6,7 @@ import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { initiateAdPayment } from "@/lib/ad-payment"
+import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
 
 export async function GET(request: NextRequest) {
   const session = await auth()
@@ -162,6 +163,8 @@ export async function POST(request: NextRequest) {
       targetAgeMin: (formData.get("targetAgeMin") as string) ? parseInt((formData.get("targetAgeMin") as string), 10) : undefined,
       targetAgeMax: (formData.get("targetAgeMax") as string) ? parseInt((formData.get("targetAgeMax") as string), 10) : undefined,
       expandAudience: (formData.get("expandAudience") as string) === "on",
+      paymentMethod: (formData.get("paymentMethod") as string) || "AFRIMONEY",
+      couponCode: (formData.get("couponCode") as string) || undefined,
     } as unknown as Record<string, string | number | boolean | undefined>
   } else {
     body = await request.json().catch(() => ({})) as Record<string, string | number | boolean | undefined>
@@ -275,28 +278,124 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const paymentResult = await initiateAdPayment({
-      adId: createdAd.id,
-      totalBudget,
-      couponCode: (body.couponCode as string) || null,
-      userId: session.user.id,
+    const requestedMethod = String(body.paymentMethod || "AFRIMONEY").toUpperCase()
+
+    // 1. Process coupon if provided
+    let payableAmount = totalBudget
+    let couponDiscount = 0
+    let appliedCoupon: any = null
+
+    if (body.couponCode && String(body.couponCode).trim()) {
+      const couponVal = await validateSellerCoupon({
+        code: String(body.couponCode).trim(),
+        amount: totalBudget,
+        userId: session.user.id,
+      })
+      if (couponVal.valid) {
+        couponDiscount = couponVal.discountAmount || 0
+        payableAmount = couponVal.finalAmount != null ? couponVal.finalAmount : Math.max(0, totalBudget - couponDiscount)
+        appliedCoupon = couponVal.coupon
+      }
+    }
+
+    // 2. 100% coupon discount / Zero payable amount
+    if (payableAmount <= 0) {
+      await prisma.sellerAd.update({
+        where: { id: createdAd.id },
+        data: {
+          paymentStatus: "COMPLETED",
+          paymentMethod: "COUPON_100_PERCENT",
+          payableAmount: 0,
+          paidAt: new Date(),
+        },
+      })
+      if (appliedCoupon) {
+        await recordSellerCouponUsage({
+          couponId: appliedCoupon.id,
+          userId: session.user.id,
+          sellerAdId: createdAd.id,
+        }).catch(() => {})
+      }
+      return NextResponse.json({
+        success: true,
+        ad: createdAd,
+        requiresPayment: false,
+        paymentMethod: "COUPON_100_PERCENT",
+        paymentUrl: null,
+        payableAmount: 0,
+        couponDiscount,
+      })
+    }
+
+    // 3. Float payment path
+    if (requestedMethod === "FLOAT") {
+      const paymentResult = await initiateAdPayment({
+        adId: createdAd.id,
+        totalBudget,
+        couponCode: (body.couponCode as string) || null,
+        userId: session.user.id,
+      })
+
+      if (paymentResult.success && paymentResult.paymentUrl) {
+        return NextResponse.json({
+          success: true,
+          ad: createdAd,
+          requiresPayment: paymentResult.requiresPayment,
+          paymentMethod: "FLOAT",
+          paymentUrl: paymentResult.paymentUrl,
+          payableAmount: paymentResult.payableAmount,
+          couponDiscount: paymentResult.couponDiscount,
+        })
+      }
+
+      // If Float fails (e.g. CURRENCY_NOT_AVAILABLE_FOR_ORDER), fallback to AfriMoney smoothly!
+      await prisma.sellerAd.update({
+        where: { id: createdAd.id },
+        data: {
+          paymentStatus: "PENDING",
+          paymentMethod: "AFRIMONEY",
+          payableAmount,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        ad: createdAd,
+        requiresPayment: true,
+        paymentMethod: "AFRIMONEY",
+        paymentUrl: null,
+        payableAmount,
+        couponDiscount,
+        warning: "Float payment is temporarily unavailable. Please complete your payment using AfriMoney Push USSD.",
+      })
+    }
+
+    // 4. Default: AfriMoney payment path (No Float dependency)
+    await prisma.sellerAd.update({
+      where: { id: createdAd.id },
+      data: {
+        paymentStatus: "PENDING",
+        paymentMethod: "AFRIMONEY",
+        payableAmount,
+      },
     })
 
-    if (!paymentResult.success && paymentResult.error) {
-      return NextResponse.json({
-        success: false,
-        error: paymentResult.error,
-        ad: createdAd,
-      }, { status: 400 })
+    if (appliedCoupon) {
+      await recordSellerCouponUsage({
+        couponId: appliedCoupon.id,
+        userId: session.user.id,
+        sellerAdId: createdAd.id,
+      }).catch(() => {})
     }
 
     return NextResponse.json({
       success: true,
       ad: createdAd,
-      requiresPayment: paymentResult.requiresPayment,
-      paymentUrl: paymentResult.paymentUrl,
-      payableAmount: paymentResult.payableAmount,
-      couponDiscount: paymentResult.couponDiscount,
+      requiresPayment: true,
+      paymentMethod: "AFRIMONEY",
+      paymentUrl: null,
+      payableAmount,
+      couponDiscount,
     })
   } catch (error: unknown) {
     return NextResponse.json(

@@ -32,6 +32,7 @@ export interface AdPaymentDialogProps {
   adTitle?: string
   amount?: number | null
   flotPaymentLink?: string | null
+  initialTab?: "afrimoney" | "flot"
   onSuccess?: () => void
 }
 
@@ -45,9 +46,14 @@ export function AdPaymentDialog({
   adTitle,
   amount,
   flotPaymentLink,
+  initialTab = "afrimoney",
   onSuccess,
 }: AdPaymentDialogProps) {
-  const [activeTab, setActiveTab] = useState<"afrimoney" | "flot">("afrimoney")
+  const [activeTab, setActiveTab] = useState<"afrimoney" | "flot">(initialTab)
+
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab)
+  }, [initialTab, open])
 
   // Ad details state (fetched if not passed as props)
   const [displayTitle, setDisplayTitle] = useState(adTitle || "")
