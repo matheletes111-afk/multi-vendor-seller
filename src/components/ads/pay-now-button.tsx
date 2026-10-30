@@ -351,7 +351,7 @@ export function AdPaymentDialog({
                   <div className="relative">
                     <Input
                       type="tel"
-                      placeholder="e.g. 033600171 or 077928995"
+                      placeholder="e.g. 033xxxxxx or 077xxxxxx"
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value)
@@ -361,25 +361,6 @@ export function AdPaymentDialog({
                       className="text-sm font-medium"
                     />
                   </div>
-                </div>
-
-                {/* Test number quick helper */}
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground pt-0.5">
-                  <span>Quick test:</span>
-                  <button
-                    type="button"
-                    onClick={() => setPhone("033600171")}
-                    className="px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-[11px] font-mono transition-colors"
-                  >
-                    033600171
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPhone("077928995")}
-                    className="px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-[11px] font-mono transition-colors"
-                  >
-                    077928995
-                  </button>
                 </div>
 
                 {afriError && (
