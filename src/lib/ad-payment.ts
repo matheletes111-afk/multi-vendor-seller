@@ -373,6 +373,8 @@ export async function initiateAfriMoneyAdPayment(
       paymentStatus: "PENDING",
       paymentMethod: "AFRIMONEY",
       payableAmount,
+      afriTxnId: result.txnId || null,
+      afriMsisdn: payerMsisdn || null,
     },
   })
 

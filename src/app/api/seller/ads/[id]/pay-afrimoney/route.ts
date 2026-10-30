@@ -92,6 +92,9 @@ export async function GET(
       payableAmount: true,
       totalBudget: true,
       paidAt: true,
+      afriTxnId: true,
+      afriFtxnId: true,
+      afriMsisdn: true,
     },
   })
 
@@ -108,5 +111,8 @@ export async function GET(
     payableAmount: ad.payableAmount ?? ad.totalBudget,
     totalBudget: ad.totalBudget,
     paidAt: ad.paidAt,
+    afriTxnId: ad.afriTxnId,
+    afriFtxnId: ad.afriFtxnId,
+    afriMsisdn: ad.afriMsisdn,
   })
 }
