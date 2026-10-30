@@ -36,7 +36,7 @@ export async function POST(request: Request) {
           })),
         ],
       },
-      select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
+      select: { id: true, name: true, email: true, isEmailVerified: true, emailOtpSentAt: true },
     })
 
     if (!user) {
@@ -46,7 +46,10 @@ export async function POST(request: Request) {
       )
     }
     if (!user.isEmailVerified) {
-      return NextResponse.json({ error: "Please verify your email first before OTP login." }, { status: 400 })
+      const errorMsg = user.email
+        ? "Please verify your email first before OTP login."
+        : "Please verify your account/mobile number first before OTP login."
+      return NextResponse.json({ error: errorMsg }, { status: 400 })
     }
 
     const now = new Date()
