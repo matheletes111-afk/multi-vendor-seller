@@ -220,6 +220,8 @@ export async function activateAppleIapSubscription(
     planId: plan.id,
     status: SubscriptionStatus.ACTIVE,
     provider: "apple_iap",
+    paymentMethod: "APPLE_IAP",
+    paidAt: new Date(),
     appleProductId: txn.productId,
     originalTransactionId,
     latestTransactionId: txn.transactionId,

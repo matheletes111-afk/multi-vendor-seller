@@ -121,9 +121,19 @@ export function SellerSubscriptionDetailsCard({
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] font-medium text-muted-foreground">Payment Platform</span>
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {subscription.provider === "apple_iap"
-                    ? " Apple In-App Purchase"
-                    : "Other"}
+                  {(() => {
+                    const method = (subscription.paymentMethod || "").toUpperCase();
+                    const prov = (subscription.provider || "").toLowerCase();
+                    if (method === "AFRIMONEY" || prov === "afrimoney" || subscription.afriTxnId || subscription.afriMsisdn) {
+                      return `📱 AfriMoney ${subscription.afriMsisdn ? `(${subscription.afriMsisdn})` : ""}`;
+                    }
+                    if (method === "FLOAT" || prov === "flot" || prov === "float" || subscription.flotOrderId) {
+                      return `💳 Float ${subscription.flotOrderId ? `(${subscription.flotOrderId})` : ""}`;
+                    }
+                    if (prov === "apple_iap") return " Apple In-App Purchase";
+                    if (prov === "stripe") return "💳 Stripe";
+                    return "Standard / Included";
+                  })()}
                 </span>
               </div>
             )}

@@ -464,7 +464,7 @@ export function AdPaymentDialog({
 
 export interface PayNowButtonProps {
   adId: string
-  paymentStatus: string
+  paymentStatus?: string | null
   flotPaymentLink?: string | null
   adTitle?: string
   amount?: number | null

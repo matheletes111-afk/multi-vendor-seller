@@ -1,3 +1,5 @@
+import { PaymentStatusBadge } from "@/components/ads/payment-status-badge"
+import { PayNowButton } from "@/components/ads/pay-now-button"
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -38,6 +40,8 @@ type Ad = {
   creativeType: "IMAGE" | "VIDEO"
   creativeUrl: string
   status: string
+  paymentStatus?: string
+  flotPaymentLink?: string | null
   totalBudget: number
   spentAmount: number
   maxCpc: number
@@ -216,14 +220,27 @@ export function CustomerAdmanagementPageClient() {
                       <TableCell className="font-medium max-w-[200px]">
                         <span className="line-clamp-2">{ad.title}</span>
                       </TableCell>
-                      <TableCell>{statusBadge(ad)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-start gap-1">
+                          {statusBadge(ad)}
+                          <PaymentStatusBadge status={ad.paymentStatus} />
+                        </div>
+                      </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm whitespace-nowrap">
                         {formatCurrency(ad.spentAmount)} / {formatCurrency(ad.totalBudget)}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-right">{ad._count.adClicks}</TableCell>
                       <TableCell className="hidden xl:table-cell text-right text-sm whitespace-nowrap">{formatCurrency(ad.maxCpc)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-1">
+                        <div className="flex flex-wrap justify-end gap-1 items-center">
+                          {ad.status !== "ENDED" && ad.paymentStatus !== "COMPLETED" && (
+                            <PayNowButton
+                              adId={ad.id}
+                              paymentStatus={ad.paymentStatus || "PENDING"}
+                              flotPaymentLink={ad.flotPaymentLink}
+                              onStatusChanged={fetchAds}
+                            />
+                          )}
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/customer/admanagement/${ad.id}`}>
                               <Eye className="mr-1 h-3 w-3" />

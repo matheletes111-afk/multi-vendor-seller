@@ -69,12 +69,14 @@ export async function POST(request: NextRequest) {
   const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
   const snapshot = createPlanSnapshot(plan)
 
-  if (testMode) {
+  if (testMode || finalPaidPrice === 0) {
     const sub = await prisma.subscription.upsert({
       where: { sellerId: seller.id },
       update: {
         planId: plan.id,
         paidPrice: finalPaidPrice,
+        paidAt: now,
+        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
         planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
@@ -85,6 +87,8 @@ export async function POST(request: NextRequest) {
         sellerId: seller.id,
         planId: plan.id,
         paidPrice: finalPaidPrice,
+        paidAt: now,
+        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
         planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,

@@ -69,6 +69,8 @@ export async function POST(request: NextRequest) {
       update: {
         planId: plan.id,
         paidPrice: finalPaidPrice,
+        paidAt: now,
+        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
         planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,
@@ -78,6 +80,8 @@ export async function POST(request: NextRequest) {
         restaurantSellerId: seller.id,
         planId: plan.id,
         paidPrice: finalPaidPrice,
+        paidAt: now,
+        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
         planSnapshot: snapshot,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: now,

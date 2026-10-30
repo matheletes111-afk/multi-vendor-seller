@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/ui/card"
 import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
-import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor, Trash2, Pencil } from "lucide-react"
+import { ArrowLeft, Megaphone, Target, Clock, BarChart3, Presentation, Smartphone, Monitor, Trash2, Pencil, CreditCard, CheckCircle2, AlertCircle } from "lucide-react"
+import { PayNowButton } from "@/components/ads/pay-now-button"
 import { formatCurrency } from "@/lib/utils"
 import { getYoutubeEmbedUrl } from "@/lib/youtube"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -31,6 +32,16 @@ type DashboardAd = {
   _count: { adClicks: number }
   product?: { id: string; name: string } | null
   service?: { id: string; name: string } | null
+  paymentStatus?: string | null
+  paymentMethod?: string | null
+  payableAmount?: number | null
+  paidAt?: string | null
+  afriTxnId?: string | null
+  afriFtxnId?: string | null
+  afriMsisdn?: string | null
+  flotOrderId?: string | null
+  flotInternalOrderId?: string | null
+  flotPaymentLink?: string | null
 }
 
 export function AdDashboardDetail({
@@ -279,6 +290,149 @@ export function AdDashboardDetail({
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  Payment & Billing
+                </CardTitle>
+                {(() => {
+                  const isPaid = ad.paymentStatus === "COMPLETED";
+                  const isFailed = ad.paymentStatus === "FAILED";
+                  if (isPaid) {
+                    return (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 text-xs">
+                        <CheckCircle2 className="h-3 w-3" /> Paid
+                      </Badge>
+                    );
+                  }
+                  if (isFailed) {
+                    return (
+                      <Badge variant="destructive" className="flex items-center gap-1 text-xs">
+                        <AlertCircle className="h-3 w-3" /> Failed
+                      </Badge>
+                    );
+                  }
+                  return (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-700 flex items-center gap-1 text-xs">
+                      <Clock className="h-3 w-3" /> Pending
+                    </Badge>
+                  );
+                })()}
+              </div>
+              <CardDescription className="text-xs">
+                Transaction settlement & gateway records
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between items-center border-b pb-2">
+                <span className="text-sm text-muted-foreground">Payable Amount</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {formatCurrency(ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget))}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center border-b pb-2">
+                <span className="text-sm text-muted-foreground">Payment Method</span>
+                <div>
+                  {(() => {
+                    const method = (ad.paymentMethod || "").toUpperCase();
+                    const isAfri = method === "AFRIMONEY" || Boolean(ad.afriTxnId) || Boolean(ad.afriMsisdn);
+                    const isFlot = method === "FLOAT" || Boolean(ad.flotOrderId);
+                    const isCoupon = method === "COUPON_100_PERCENT";
+
+                    if (isAfri) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <span>📱</span> AfriMoney
+                        </span>
+                      );
+                    }
+                    if (isFlot) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <span>💳</span> Float (Card)
+                        </span>
+                      );
+                    }
+                    if (isCoupon) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <span>🎟️</span> 100% Coupon
+                        </span>
+                      );
+                    }
+                    return <span className="text-xs text-muted-foreground">Unpaid</span>;
+                  })()}
+                </div>
+              </div>
+
+              {ad.paidAt && (
+                <div className="flex justify-between items-center border-b pb-2 text-xs">
+                  <span className="text-muted-foreground">Settled On</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {new Date(ad.paidAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              {ad.afriMsisdn && (
+                <div className="flex justify-between items-center border-b pb-2 text-xs">
+                  <span className="text-muted-foreground">AfriMoney Number</span>
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">
+                    {ad.afriMsisdn}
+                  </span>
+                </div>
+              )}
+
+              {(ad.afriTxnId || ad.afriFtxnId) && (
+                <div className="flex flex-col gap-1 border-b pb-2 text-xs">
+                  <span className="text-muted-foreground">AfriMoney Txn ID</span>
+                  <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all bg-muted/40 p-1.5 rounded">
+                    {ad.afriTxnId || ad.afriFtxnId}
+                  </span>
+                </div>
+              )}
+
+              {ad.flotOrderId && (
+                <div className="flex flex-col gap-1 border-b pb-2 text-xs">
+                  <span className="text-muted-foreground">Float Order ID</span>
+                  <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all bg-muted/40 p-1.5 rounded">
+                    {ad.flotOrderId}
+                  </span>
+                </div>
+              )}
+
+              {ad.paymentStatus !== "COMPLETED" && (
+                <div className="pt-2">
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>Action Required: Complete Payment</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      This ad will only be approved and displayed once the payment is completed.
+                    </p>
+                    <div className="pt-1">
+                      <PayNowButton
+                        adId={ad.id}
+                        adTitle={ad.title}
+                        amount={ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget)}
+                        paymentStatus={ad.paymentStatus}
+                        flotPaymentLink={ad.flotPaymentLink}
+                        onStatusChanged={() => {
+                          window.location.reload();
+                        }}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -40,6 +40,7 @@ export async function GET(
     totalBudget: Number(ad.totalBudget),
     spentAmount: Number(ad.spentAmount),
     maxCpc: Number(ad.maxCpc),
+    payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
     targetCountries: ad.targetCountries as string[] | null,
   })
 }

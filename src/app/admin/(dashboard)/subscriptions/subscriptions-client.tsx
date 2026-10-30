@@ -646,15 +646,80 @@ export function SubscriptionsClient() {
                         <span className="font-medium text-primary">
                           {subscription.plan?.displayName}
                         </span>
-                        {subscription.provider === "apple_iap" ? (
-                          <span className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
-                             Apple IAP
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
-                            Other
-                          </span>
-                        )}
+                        {(() => {
+                          const method = (subscription.paymentMethod || "").toUpperCase();
+                          const provider = (subscription.provider || "").toLowerCase();
+                          const isAfri = method === "AFRIMONEY" || provider === "afrimoney" || Boolean(subscription.afriTxnId) || Boolean(subscription.afriFtxnId) || Boolean(subscription.afriMsisdn);
+                          const isFlot = method === "FLOAT" || provider === "flot" || provider === "float" || Boolean(subscription.flotOrderId);
+                          const isApple = provider === "apple_iap" || Boolean(subscription.latestTransactionId) || Boolean(subscription.originalTransactionId);
+                          const isStripe = provider === "stripe";
+                          const isCoupon = Boolean(subscription.couponCode) && (subscription.finalPaidAmount === 0 || subscription.paidPrice === 0);
+
+                          if (isAfri) {
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                                  <span>📱</span> AfriMoney
+                                </span>
+                                {subscription.afriMsisdn && (
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    {subscription.afriMsisdn}
+                                  </span>
+                                )}
+                                {(subscription.afriTxnId || subscription.afriFtxnId) && (
+                                  <span className="text-[9px] font-mono text-slate-400 truncate max-w-[130px]" title={subscription.afriTxnId || subscription.afriFtxnId || ""}>
+                                    Txn: {subscription.afriTxnId || subscription.afriFtxnId}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          if (isFlot) {
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                                  <span>💳</span> Float (Card)
+                                </span>
+                                {subscription.flotOrderId && (
+                                  <span className="text-[9px] font-mono text-slate-400 truncate max-w-[130px]" title={subscription.flotOrderId}>
+                                    {subscription.flotOrderId}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          if (isApple) {
+                            return (
+                              <span className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                                 Apple IAP
+                              </span>
+                            );
+                          }
+
+                          if (isStripe) {
+                            return (
+                              <span className="text-[10px] font-semibold text-purple-800 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                                💳 Stripe
+                              </span>
+                            );
+                          }
+
+                          if (isCoupon) {
+                            return (
+                              <span className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                                🎟️ 100% Coupon
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
+                              Standard
+                            </span>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell>

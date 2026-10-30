@@ -649,6 +649,7 @@ model HotelSubscription {
   planId            String
   status            SubscriptionStatus @default(TRIALING)
   provider          String?            @default("stripe")
+  paymentMethod     String?            @default("STRIPE")
   appleProductId    String?
   originalTransactionId String?        @unique
   latestTransactionId   String?
@@ -657,13 +658,25 @@ model HotelSubscription {
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   paidPrice          Float?
+  paidAt             DateTime?
   planSnapshot       Json?
+
+  // AfriMoney & Float Integration Fields
+  afriTxnId           String?
+  afriFtxnId          String?
+  afriMsisdn          String?
+  flotOrderId         String?
+  flotPaymentLink     String?
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   hotelSeller HotelSeller @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
   plan        Plan        @relation(fields: [planId], references: [id])
 
+  @@index([afriTxnId])
+  @@index([afriFtxnId])
+  @@index([flotOrderId])
   @@map("hotel_subscriptions")
 }
 
@@ -805,6 +818,7 @@ model RestaurantSubscription {
   planId            String
   status            SubscriptionStatus @default(TRIALING)
   provider          String?            @default("stripe")
+  paymentMethod     String?            @default("STRIPE")
   appleProductId    String?
   originalTransactionId String?        @unique
   latestTransactionId   String?
@@ -813,13 +827,25 @@ model RestaurantSubscription {
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   paidPrice          Float?
+  paidAt             DateTime?
   planSnapshot       Json?
+
+  // AfriMoney & Float Integration Fields
+  afriTxnId           String?
+  afriFtxnId          String?
+  afriMsisdn          String?
+  flotOrderId         String?
+  flotPaymentLink     String?
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   restaurantSeller RestaurantSeller @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
   plan             Plan             @relation(fields: [planId], references: [id])
 
+  @@index([afriTxnId])
+  @@index([afriFtxnId])
+  @@index([flotOrderId])
   @@map("restaurant_subscriptions")
 }
 
@@ -1004,6 +1030,7 @@ model Subscription {
   planId            String
   status            SubscriptionStatus @default(TRIALING)
   provider          String?            @default("stripe")
+  paymentMethod     String?            @default("STRIPE")
   appleProductId    String?
   originalTransactionId String?        @unique
   latestTransactionId   String?
@@ -1016,13 +1043,25 @@ model Subscription {
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean           @default(false)
   paidPrice          Float?
+  paidAt             DateTime?
   planSnapshot       Json?
+
+  // AfriMoney & Float Integration Fields
+  afriTxnId           String?
+  afriFtxnId          String?
+  afriMsisdn          String?
+  flotOrderId         String?
+  flotPaymentLink     String?
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   seller Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   plan   Plan             @relation(fields: [planId], references: [id])
 
+  @@index([afriTxnId])
+  @@index([afriFtxnId])
+  @@index([flotOrderId])
   @@map("subscriptions")
 }
 

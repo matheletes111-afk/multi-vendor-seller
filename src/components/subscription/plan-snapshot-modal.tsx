@@ -60,6 +60,16 @@ export interface PlanSnapshotModalProps {
     finalPaidAmount?: number
     seller?: any
     isCurrent?: boolean
+    paidAt?: string | Date | null
+    provider?: string | null
+    paymentMethod?: string | null
+    afriTxnId?: string | null
+    afriFtxnId?: string | null
+    afriMsisdn?: string | null
+    flotOrderId?: string | null
+    flotPaymentLink?: string | null
+    originalTransactionId?: string | null
+    latestTransactionId?: string | null
   } | null
 }
 
@@ -97,6 +107,27 @@ export function PlanSnapshotModal({ isOpen, onClose, subscription }: PlanSnapsho
         .map(([k, v]) => (typeof v === "string" ? `${k}: ${v}` : k))
     }
   }
+
+  // Payment gateway detection
+  const providerLower = (subscription.provider || "").toLowerCase();
+  const paymentMethodUpper = (subscription.paymentMethod || "").toUpperCase();
+  const isAfriMoney =
+    paymentMethodUpper === "AFRIMONEY" ||
+    providerLower === "afrimoney" ||
+    Boolean(subscription.afriTxnId) ||
+    Boolean(subscription.afriFtxnId) ||
+    Boolean(subscription.afriMsisdn);
+  const isFloat =
+    paymentMethodUpper === "FLOAT" ||
+    providerLower === "flot" ||
+    providerLower === "float" ||
+    Boolean(subscription.flotOrderId);
+  const isApple =
+    providerLower === "apple_iap" ||
+    Boolean(subscription.latestTransactionId) ||
+    Boolean(subscription.originalTransactionId);
+  const isStripe = providerLower === "stripe";
+  const isCoupon = Boolean(subscription.couponCode) && (subscription.finalPaidAmount === 0 || subscription.paidPrice === 0);
 
   const durationDays = snapshot.duration || 30
   const durationLabel =
@@ -188,6 +219,89 @@ export function PlanSnapshotModal({ isOpen, onClose, subscription }: PlanSnapsho
               </span>
             </div>
           )}
+
+          {/* Payment & Gateway Information */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
+              Payment & Gateway Details
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-slate-400">Payment Channel</span>
+                <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  {isAfriMoney ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <span>📱</span> AfriMoney (Push USSD)
+                    </span>
+                  ) : isFloat ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      <span>💳</span> Float (Card / Online)
+                    </span>
+                  ) : isApple ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700">
+                      <span></span> Apple Pay / StoreKit
+                    </span>
+                  ) : isStripe ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      <span>💳</span> Stripe
+                    </span>
+                  ) : isCoupon ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span>🎟️</span> Coupon (100% Free)
+                    </span>
+                  ) : (
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">Standard Subscription</span>
+                  )}
+                </span>
+              </div>
+
+              {subscription.paidAt && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-slate-400">Payment Timestamp</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {new Date(subscription.paidAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              {subscription.afriMsisdn && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-slate-400">AfriMoney Mobile Number</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {subscription.afriMsisdn}
+                  </span>
+                </div>
+              )}
+
+              {(subscription.afriTxnId || subscription.afriFtxnId) && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-slate-400">AfriMoney Transaction ID</span>
+                  <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 break-all">
+                    {subscription.afriTxnId || subscription.afriFtxnId}
+                  </span>
+                </div>
+              )}
+
+              {subscription.flotOrderId && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-slate-400">Float Order ID</span>
+                  <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 break-all">
+                    {subscription.flotOrderId}
+                  </span>
+                </div>
+              )}
+
+              {(subscription.latestTransactionId || subscription.originalTransactionId) && !subscription.afriTxnId && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-slate-400">Apple Transaction ID</span>
+                  <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200 break-all">
+                    {subscription.latestTransactionId || subscription.originalTransactionId}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Limits & Quotas */}
           <div>
