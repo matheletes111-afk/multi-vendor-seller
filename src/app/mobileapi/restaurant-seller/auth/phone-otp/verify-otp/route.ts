@@ -73,7 +73,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       },
     })
 
-    if (!user || !user.isEmailVerified) {
+    if (!user) {
       return NextResponse.json({ success: false, error: "Invalid phone number or OTP." }, { status: 400 })
     }
     if (!user.restaurantSeller) {
@@ -100,7 +100,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
+      data: {
+        isEmailVerified: true,
+        verifyEmailOtp: null,
+        emailVerificationExpires: null,
+        emailOtpSentAt: null,
+      },
     })
 
     const tokens = generateMobileTokens({ userId: user.id, email: user.email, phone: user.phone, role: user.role, passwordHash: user.password })
@@ -116,7 +121,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           sellerType: "restaurant",
           phone: user.phone,
           phoneCountryCode: user.phoneCountryCode,
-          isEmailVerified: user.isEmailVerified,
+          isEmailVerified: true,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           sellerInfo: {

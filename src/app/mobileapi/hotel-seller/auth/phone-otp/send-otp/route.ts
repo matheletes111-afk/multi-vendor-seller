@@ -9,15 +9,22 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000
 const RESEND_COOLDOWN_MS = 60 * 1000
 
 type ApiResponse =
-  | { success: true; message: string; data: { phone: string; expiresIn: number; resendCooldown: number } }
   | { 
-      success: false; 
-      error: string; 
-      waitTime?: number;
-      needsVerification?: boolean;
-      authStatus?: string;
-      verifyUrl?: string;
-      data?: { email?: string; phone?: string }
+      success: true
+      message: string
+      needsVerification?: boolean
+      authStatus?: string
+      verifyUrl?: string
+      data: { phone: string; expiresIn: number; resendCooldown: number } 
+    }
+  | { 
+      success: false 
+      error: string 
+      waitTime?: number
+      needsVerification?: boolean
+      authStatus?: string
+      verifyUrl?: string
+      data?: { email?: string; phone?: string; expiresIn?: number; resendCooldown?: number }
     }
 
 /** POST /mobileapi/hotel-seller/auth/phone-otp/send-otp — Body: { phone } */
@@ -48,26 +55,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
           })),
         ],
       },
-      select: { id: true, name: true, isEmailVerified: true, emailOtpSentAt: true },
+      select: { id: true, name: true, email: true, isEmailVerified: true, emailOtpSentAt: true },
     })
 
     if (!user) {
       return NextResponse.json(
         { success: false, error: "No hotel seller account found with this phone number." },
         { status: 404 }
-      )
-    }
-    if (!user.isEmailVerified) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "Please verify your email first.",
-          needsVerification: true,
-          authStatus: "PENDING_VERIFICATION",
-          verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp",
-          data: { phone: normalizedPhone }
-        }, 
-        { status: 403 }
       )
     }
 
@@ -89,6 +83,29 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         emailOtpSentAt: now,
       },
     })
+
+    if (!user.isEmailVerified) {
+      await sendSmsViaTwilio({
+        to: normalizedPhone,
+        body: `Your account verification OTP is ${otp}. It expires in 10 minutes.`,
+      })
+
+      return NextResponse.json(
+        { 
+          success: true, 
+          message: "Account verification OTP sent successfully",
+          needsVerification: true,
+          authStatus: "PENDING_VERIFICATION",
+          verifyUrl: "/mobileapi/hotel-seller/auth/verify-otp",
+          data: {
+            phone: normalizedPhone,
+            expiresIn: OTP_EXPIRY_MS / 1000,
+            resendCooldown: RESEND_COOLDOWN_MS / 1000,
+          }
+        }, 
+        { status: 200 }
+      )
+    }
 
     await sendSmsViaTwilio({
       to: normalizedPhone,
