@@ -905,6 +905,11 @@ model SellerAd {
   flotRequestId       String?
   paidAt              DateTime?
 
+  // AfriMoney Payment Integration Fields
+  afriTxnId           String?
+  afriFtxnId          String?
+  afriMsisdn          String?
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -925,6 +930,8 @@ model SellerAd {
   @@index([customerUserId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([afriTxnId])
+  @@index([afriFtxnId])
   @@index([startAt, endAt])
   @@map("seller_ads")
 }

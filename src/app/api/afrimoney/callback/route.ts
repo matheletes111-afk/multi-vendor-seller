@@ -147,14 +147,20 @@ export async function POST(request: NextRequest) {
         const ad = await prisma.sellerAd
           .findFirst({
             where: {
-              OR: [{ id: cleanId }, { flotOrderId: cleanId }, { flotOrderId: ftxnId }],
+              OR: [
+                { id: cleanId },
+                { afriTxnId: cleanId },
+                { afriFtxnId: ftxnId },
+                { flotOrderId: cleanId },
+                { flotOrderId: ftxnId },
+              ],
             },
           })
           .catch(() => null)
 
         if (ad) {
           matchedCategory = "SELLER_AD"
-          console.log(`[AfriMoney Callback] Matched SellerAd ${ad.id} (sellerId: ${ad.sellerId || ad.hotelSellerId || ad.restaurantSellerId || "customer"})`)
+          console.log(`[AfriMoney Callback] Matched SellerAd ${ad.id} (sellerId: ${ad.sellerId || ad.hotelSellerId || ad.restaurantSellerId || "customer"}, ftxnId: ${ftxnId})`)
 
           await prisma.sellerAd.update({
             where: { id: ad.id },
@@ -162,6 +168,8 @@ export async function POST(request: NextRequest) {
               paymentStatus: isSuccess ? "COMPLETED" : isFailed ? "FAILED" : ad.paymentStatus,
               paymentMethod: "AFRIMONEY",
               paidAt: isSuccess ? (ad.paidAt || new Date()) : ad.paidAt,
+              afriFtxnId: ftxnId || transactionId || ad.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || ad.afriMsisdn,
             },
           })
         }
