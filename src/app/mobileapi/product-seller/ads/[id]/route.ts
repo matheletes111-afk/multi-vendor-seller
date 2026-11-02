@@ -43,6 +43,15 @@ export async function GET(
         totalBudget: Number(ad.totalBudget),
         spentAmount: Number(ad.spentAmount),
         maxCpc: Number(ad.maxCpc),
+        payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
+        paymentStatus: ad.paymentStatus,
+        paymentMethod: ad.paymentMethod,
+        paidAt: ad.paidAt,
+        afriTxnId: ad.afriTxnId,
+        afriFtxnId: ad.afriFtxnId,
+        afriMsisdn: ad.afriMsisdn,
+        flotPaymentLink: ad.flotPaymentLink,
+        flotOrderId: ad.flotOrderId,
         targetCountries: ad.targetCountries as string[] | null,
         clickCount: ad._count.adClicks,
       }
@@ -103,7 +112,7 @@ export async function PATCH(
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData()
       const placements = formData.getAll("placements") as string[]
-      
+
       let creativeUrl = (formData.get("creativeUrl") as string) || ad.creativeUrl || ""
       const creativeFile = formData.get("creativeFile") as File | null
       if (creativeFile && creativeFile.size > 0) {
