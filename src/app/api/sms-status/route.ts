@@ -15,6 +15,7 @@ const TWILIO_ERROR_DESCRIPTIONS: Record<string, string> = {
   "30009": "Missing segment: Concatenated multi-part SMS failed to reassemble.",
   "30010": "Price exceeds max price: Twilio blocked due to route pricing.",
   "30023": "Daily cap reached: Twilio daily messaging limit exceeded.",
+  "30453": "Twilio SMS Pumping Protection: Flagged by Twilio fraud/anti-pumping detection due to repeated requests. Bypassed with RiskCheck=disable.",
 }
 
 /**
