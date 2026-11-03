@@ -1403,7 +1403,7 @@ export async function sendRiderWelcomeEmail({
     const success = await sendNotificationSms({
       to: toPhone,
       countryCode: phoneCountryCode,
-      body: `Hi ${name || "Rider"}, welcome to Meeem Delivery! Your password is: ${temporaryPassword}. Log in at ${loginUrl}`,
+      body: `Hi ${name || "Rider"}, welcome to Meeem Delivery! Your password is: ${temporaryPassword}. Please log in via the Meeem Rider app.`,
     })
     return { success }
   }
@@ -1711,7 +1711,7 @@ https://meeemsl.com
     const success = await sendNotificationSms({
       to: toPhone,
       countryCode: phoneCountryCode,
-      body: `Hi ${displayName}, please complete your Meeem seller onboarding to activate your store! Finish setup here: ${onboardingUrl}`,
+      body: `Hi ${displayName}, please complete your Meeem seller onboarding to activate your store. Log in to Meeem Seller to finish setup.`,
     })
     return { success }
   }

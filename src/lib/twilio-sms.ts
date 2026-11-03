@@ -186,12 +186,10 @@ export async function sendEmailVerificationSms({
 
   const greeting = name ? `Hi ${name}, ` : ""
   let body = ""
-  if (verificationLink && otp) {
+  if (otp) {
     body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
   } else if (verificationLink) {
-    body = `${greeting}Welcome to Meeem! Please verify your email by clicking: ${verificationLink}`
-  } else if (otp) {
-    body = `${greeting}Your Meeem email verification code is: ${otp}`
+    body = `${greeting}Please verify your email on Meeem. Check your inbox for details.`
   } else {
     return
   }
@@ -223,12 +221,10 @@ export async function sendAccountVerificationSms({
 
   const greeting = name ? `Hi ${name}, ` : ""
   let body = ""
-  if (verificationLink && otp) {
+  if (otp) {
     body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
   } else if (verificationLink) {
-    body = `${greeting}Welcome to Meeem! Please verify your account by clicking: ${verificationLink}`
-  } else if (otp) {
-    body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
+    body = `${greeting}Please verify your Meeem account. Check your email for details.`
   } else {
     return false
   }
