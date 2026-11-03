@@ -187,7 +187,7 @@ export async function sendEmailVerificationSms({
   const greeting = name ? `Hi ${name}, ` : ""
   let body = ""
   if (verificationLink && otp) {
-    body = `${greeting}Welcome to Meeem! Verify your email with OTP: ${otp} or click: ${verificationLink}`
+    body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
   } else if (verificationLink) {
     body = `${greeting}Welcome to Meeem! Please verify your email by clicking: ${verificationLink}`
   } else if (otp) {
@@ -224,7 +224,7 @@ export async function sendAccountVerificationSms({
   const greeting = name ? `Hi ${name}, ` : ""
   let body = ""
   if (verificationLink && otp) {
-    body = `${greeting}Welcome to Meeem! Your verification code is: ${otp}. Valid for 10 minutes. Or verify here: ${verificationLink}`
+    body = `${greeting}Your Meeem verification code is: ${otp}. Valid for 10 minutes.`
   } else if (verificationLink) {
     body = `${greeting}Welcome to Meeem! Please verify your account by clicking: ${verificationLink}`
   } else if (otp) {
