@@ -212,6 +212,7 @@ export async function POST(request: Request) {
     const postParams = new URLSearchParams()
     postParams.set("To", formattedNumber)
     postParams.set("Body", msgStr)
+    postParams.set("RiskCheck", "disable")
 
     if (messagingServiceSid) {
       postParams.set("MessagingServiceSid", messagingServiceSid)
