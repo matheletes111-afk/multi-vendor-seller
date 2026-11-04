@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
-import { createPlanSnapshot } from "@/lib/subscriptions"
+import { createPlanSnapshot, activateOrQueuePurchase } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,99 +52,53 @@ export async function POST(request: NextRequest) {
 
     let createdSubId = ""
 
+    const targetType = type === "HOTEL" ? PlanType.HOTEL : type === "RESTAURANT" ? PlanType.RESTAURANT : PlanType.PRODUCT_SERVICE
+
+    let effectiveSellerId = ""
     if (type === "HOTEL") {
-      const hotelSeller = await prisma.hotelSeller.findUnique({ where: { userId } })
-      if (!hotelSeller) return NextResponse.json({ error: "Hotel seller not found" }, { status: 404 })
-
-      const sub = await prisma.hotelSubscription.upsert({
-        where: { hotelSellerId: hotelSeller.id },
-        create: {
-          hotelSellerId: hotelSeller.id,
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-        update: {
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-      })
-      createdSubId = sub.id
+      const hSeller = await prisma.hotelSeller.findUnique({ where: { userId } })
+      if (!hSeller) return NextResponse.json({ error: "Hotel seller not found" }, { status: 404 })
+      effectiveSellerId = hSeller.id
     } else if (type === "RESTAURANT") {
-      const restSeller = await prisma.restaurantSeller.findUnique({ where: { userId } })
-      if (!restSeller) return NextResponse.json({ error: "Restaurant seller not found" }, { status: 404 })
-
-      const sub = await prisma.restaurantSubscription.upsert({
-        where: { restaurantSellerId: restSeller.id },
-        create: {
-          restaurantSellerId: restSeller.id,
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-        update: {
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-      })
-      createdSubId = sub.id
+      const rSeller = await prisma.restaurantSeller.findUnique({ where: { userId } })
+      if (!rSeller) return NextResponse.json({ error: "Restaurant seller not found" }, { status: 404 })
+      effectiveSellerId = rSeller.id
     } else {
-      const seller = await prisma.seller.findUnique({ where: { userId } })
-      if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
-
-      const sub = await prisma.subscription.upsert({
-        where: { sellerId: seller.id },
-        create: {
-          sellerId: seller.id,
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-        update: {
-          planId: plan.id,
-          paidPrice: finalAmount, // Store actual paid amount (after coupon discount)
-          planSnapshot: snapshot,
-          status: "ACTIVE",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-      })
-      createdSubId = sub.id
+      const pSeller = await prisma.seller.findUnique({ where: { userId } })
+      if (!pSeller) return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+      effectiveSellerId = pSeller.id
     }
 
-    // Record Coupon Usage if coupon applied
-    if (validatedCoupon && createdSubId) {
+    const purchaseResult = await activateOrQueuePurchase({
+      sellerType: targetType,
+      ...(targetType === PlanType.PRODUCT_SERVICE ? { sellerId: effectiveSellerId } : {}),
+      ...(targetType === PlanType.HOTEL ? { hotelSellerId: effectiveSellerId } : {}),
+      ...(targetType === PlanType.RESTAURANT ? { restaurantSellerId: effectiveSellerId } : {}),
+      planId: plan.id,
+      price: plan.price,
+      paidPrice: finalAmount,
+      discountAmount,
+      couponCode: validatedCoupon?.code || null,
+      paymentMethod: validatedCoupon && finalAmount === 0 ? "COUPON_100_PERCENT" : "MOBILE_DIRECT",
+      paidAt: now,
+    })
+
+    if (validatedCoupon) {
       await recordSellerCouponUsage({
         couponId: validatedCoupon.id,
         userId,
-        subscriptionId: createdSubId
+        subscriptionId: purchaseResult.purchase.id,
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: "Subscription activated successfully",
-      subscriptionId: createdSubId,
+      message: purchaseResult.status === "QUEUED" ? "Subscription scheduled and queued successfully" : "Subscription activated successfully",
+      status: purchaseResult.status,
+      subscriptionId: purchaseResult.purchase.id,
       paidAmount: finalAmount,
       discountAmount,
-      couponCode: validatedCoupon?.code || null
+      couponCode: validatedCoupon?.code || null,
     })
   } catch (error: any) {
     console.error("Mobile subscription checkout error:", error)

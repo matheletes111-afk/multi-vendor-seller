@@ -27,6 +27,10 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
       subscription: {
         include: { plan: true }
       },
+      subscriptionPurchases: {
+        include: { plan: true },
+        orderBy: { createdAt: "desc" }
+      },
       hotels: {
         where: { isDeleted: false },
         include: {
@@ -48,6 +52,10 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
         subscription: {
           include: { plan: true }
         },
+        subscriptionPurchases: {
+          include: { plan: true },
+          orderBy: { createdAt: "desc" }
+        },
         hotels: {
           where: { isDeleted: false },
           include: {
@@ -65,38 +73,20 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
     orderBy: { price: "asc" }
   })
 
-  // Pre-sign all private S3 document URLs
-  const [logo, banner, mainPhoto] = await Promise.all([
-    getPresignedUrlOrOriginal(seller.logo),
-    getPresignedUrlOrOriginal(seller.banner),
-    getPresignedUrlOrOriginal(seller.mainPhoto)
-  ])
-  seller.logo = logo
-  seller.banner = banner
-  seller.mainPhoto = mainPhoto
-
-  if (seller.businessInfo) {
-    const [busReg, cityCouncil, gstTin, addressProof] = await Promise.all([
-      getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
-    ])
-    seller.businessInfo.busRegCertUrl = busReg
-    seller.businessInfo.cityCouncilCertUrl = cityCouncil
-    seller.businessInfo.gstTinCertUrl = gstTin
-    seller.businessInfo.addressProofUrl = addressProof
+  // Pre-sign S3 URLs
+  if ((seller.businessInfo as any)?.busRegCertUrl) {
+    (seller.businessInfo as any).busRegCertUrl = await getPresignedUrlOrOriginal(
+      (seller.businessInfo as any).busRegCertUrl
+    )
   }
 
   if (seller.kyc) {
-    const [idFront, idBack, selfie] = await Promise.all([
+    const [front, back] = await Promise.all([
       getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
-      getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
-      getPresignedUrlOrOriginal(seller.kyc.selfieUrl)
+      getPresignedUrlOrOriginal(seller.kyc.idBackUrl)
     ])
-    seller.kyc.idFrontUrl = idFront
-    seller.kyc.idBackUrl = idBack
-    seller.kyc.selfieUrl = selfie
+    seller.kyc.idFrontUrl = front
+    seller.kyc.idBackUrl = back
   }
 
   if (seller.bankDetails) {
@@ -111,8 +101,6 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
   if ((seller.agreement as any)?.documentUrl) {
     (seller.agreement as any).documentUrl = await getPresignedUrlOrOriginal((seller.agreement as any).documentUrl)
   }
-
-
 
   if (seller.hotels) {
     seller.hotels = await Promise.all(

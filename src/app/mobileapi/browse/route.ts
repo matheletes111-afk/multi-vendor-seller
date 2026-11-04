@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma, ReturnPolicyType, SubscriptionPlan, ProductCondition } from "@prisma/client"
 import { shuffleArray, seededShuffle, fairMarketplaceInterleave } from "@/lib/utils"
 import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -231,10 +232,7 @@ export async function GET(request: NextRequest) {
     const productWhere: Prisma.ProductWhereInput = {
       isActive: true,
       isDeleted: false,
-      seller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      seller: activeProductSellerWhere(),
       ...(effectiveCategoryIds.length > 0 && { categoryId: { in: effectiveCategoryIds } }),
       ...(subcategoryId && { subcategoryId }),
       ...(conditionFilter.length > 0 && { condition: { in: conditionFilter } }),

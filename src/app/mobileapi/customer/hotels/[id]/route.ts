@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeHotelSellerWhere } from "@/lib/subscriptions"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,10 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         id,
         isActive: true,
         isDeleted: false,
-        hotelSeller: {
-          isApproved: true,
-          isSuspended: false,
-        }
+        hotelSeller: activeHotelSellerWhere(),
       },
       include: {
         rooms: {

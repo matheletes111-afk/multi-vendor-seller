@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 function extractImageUrls(images: unknown): string[] {
   if (Array.isArray(images)) return images.filter((value): value is string => typeof value === "string")
@@ -23,7 +24,7 @@ export async function GET(
   const { id } = await params
   const [product, ratingAgg, globalSetting] = await Promise.all([
     prisma.product.findFirst({
-      where: { id, isActive: true, isDeleted: false, seller: { isApproved: true, isSuspended: false } },
+      where: { id, isActive: true, isDeleted: false, seller: activeProductSellerWhere() },
       include: {
         category: true,
         seller: { include: { store: true } },

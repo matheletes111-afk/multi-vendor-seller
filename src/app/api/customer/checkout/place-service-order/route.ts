@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import { createServiceSlotIfAllowed } from "@/lib/service-slots"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 import { UserRole } from "@prisma/client"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
@@ -69,6 +71,11 @@ export async function POST(request: NextRequest) {
   })
   if (!service) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 })
+  }
+
+  const isSubActive = await isSellerSubscriptionActive(PlanType.PRODUCT_SERVICE, service.sellerId)
+  if (!isSubActive) {
+    return NextResponse.json({ error: "The provider of this service is currently unavailable or their subscription has expired." }, { status: 400 })
   }
 
   let serviceSlotId: string | null = null

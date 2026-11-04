@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { sendFoodOrderConfirmationEmail, sendRestaurantNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -123,6 +125,11 @@ export async function POST(request: NextRequest) {
     })
     if (!seller) {
       return NextResponse.json({ success: false, error: "Restaurant seller not found or inactive" }, { status: 404 })
+    }
+
+    const isSubActive = await isSellerSubscriptionActive(PlanType.RESTAURANT, restaurantSellerId)
+    if (!isSubActive) {
+      return NextResponse.json({ success: false, error: "This restaurant is currently not accepting new orders because its subscription has expired." }, { status: 400 })
     }
 
     const result = await prisma.$transaction(async (tx) => {

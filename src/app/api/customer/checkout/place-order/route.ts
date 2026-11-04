@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { allocateNextOrderNumberTx } from "@/lib/order-number"
-import { UserRole } from "@prisma/client"
+import { UserRole, PlanType } from "@prisma/client"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import type { PlaceOrderResponse } from "../types"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
@@ -131,6 +132,20 @@ export async function POST(request: NextRequest) {
     if (item.serviceId && (!item.service || item.service.isDeleted || !item.service.isActive)) {
       return NextResponse.json(
         { error: `Service "${item.service?.name || "Unknown"}" is no longer available.` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // ── Seller Subscription Validation ──────────────────────────────────────────
+  const checkoutSellerIds = [...new Set(items.map((i) => getSellerId(i)).filter(Boolean) as string[])]
+  for (const sId of checkoutSellerIds) {
+    const isSubActive = await isSellerSubscriptionActive(PlanType.PRODUCT_SERVICE, sId)
+    if (!isSubActive) {
+      const badItem = items.find((i) => getSellerId(i) === sId)
+      const name = badItem ? (badItem.product?.name || badItem.service?.name || "Item") : "An item"
+      return NextResponse.json(
+        { error: `The store selling "${name}" is currently unavailable or their subscription has expired. Please remove this item to proceed.` },
         { status: 400 }
       )
     }

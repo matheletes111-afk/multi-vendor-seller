@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { isRestaurantSeller } from "@/lib/rbac"
 import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
-import { createPlanSnapshot } from "@/lib/subscriptions"
+import { createPlanSnapshot, activateOrQueuePurchase } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {

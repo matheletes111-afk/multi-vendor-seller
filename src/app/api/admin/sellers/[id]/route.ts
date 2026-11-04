@@ -29,6 +29,10 @@ export async function GET(
             plan: true
           }
         },
+        subscriptionPurchases: {
+          include: { plan: true },
+          orderBy: { createdAt: "desc" }
+        },
         selectedCategories: true,
         selectedServiceCategories: true
       }

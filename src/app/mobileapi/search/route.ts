@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest) {
     const searchWhere: Prisma.ProductWhereInput = {
       isActive: true,
       isDeleted: false,
-      seller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      seller: activeProductSellerWhere(),
       ...(categoryId ? { categoryId } : {}),
       ...(subcategoryId ? { subcategoryId } : {}),
       ...(q

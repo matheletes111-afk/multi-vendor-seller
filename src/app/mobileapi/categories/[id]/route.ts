@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -176,10 +177,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         categoryId: id,
         isActive: true,
         isDeleted: false,
-        seller: {
-          isApproved: true,
-          isSuspended: false,
-        }
+        seller: activeProductSellerWhere(),
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],

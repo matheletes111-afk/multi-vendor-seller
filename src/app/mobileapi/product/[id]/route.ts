@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export async function GET(
   _request: NextRequest,
@@ -20,10 +21,7 @@ export async function GET(
         id, 
         isActive: true,
         isDeleted: false,
-        seller: {
-          isApproved: true,
-          isSuspended: false,
-        },
+        seller: activeProductSellerWhere(),
       },
       include: {
         category: true,

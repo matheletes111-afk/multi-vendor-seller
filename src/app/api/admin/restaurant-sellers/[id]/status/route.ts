@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { validateRestaurantSellerApproval } from "@/lib/seller-approval-validation"
 import { sendSellerApprovalEmail } from "@/lib/email"
+import { PlanType } from "@prisma/client"
+import { assignFreePlanOnApproval } from "@/lib/subscriptions"
 
 /** 
  * POST /api/admin/restaurant-sellers/[id]/status
@@ -76,6 +78,12 @@ export async function POST(
       where: { id },
       data: updateData
     })
+
+    if (action === "approve") {
+      await assignFreePlanOnApproval(PlanType.RESTAURANT, id).catch((err) => {
+        console.error("[restaurant/status] Failed to assign free plan on approval:", err)
+      })
+    }
 
     if (action === "approve" && (seller.user?.email || seller.user?.phone)) {
       try {

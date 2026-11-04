@@ -60,4 +60,6 @@ export type CartItemApi = {
   name: string
   image: string | null
   stock?: number | null
+  isAvailable?: boolean
+  unavailableReason?: string
 }

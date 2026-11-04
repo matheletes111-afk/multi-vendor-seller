@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { JsonValue } from "@prisma/client/runtime/library"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -216,10 +217,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       where: {
         isActive: true,
         isDeleted: false,
-        seller: {
-          isApproved: true,
-          isSuspended: false,
-        }
+        seller: activeProductSellerWhere(),
       },
       select: {
         id: true,

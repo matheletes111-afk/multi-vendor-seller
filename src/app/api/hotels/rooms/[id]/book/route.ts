@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
 import { sendHotelBookingConfirmationEmail, sendHotelNewBookingEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -49,6 +51,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (!room) {
       return NextResponse.json({ success: false, error: "Room not found or no longer active" }, { status: 404 })
+    }
+
+    const isSubActive = await isSellerSubscriptionActive(PlanType.HOTEL, room.hotel.hotelSellerId)
+    if (!isSubActive) {
+      return NextResponse.json({ success: false, error: "This hotel is currently not accepting new bookings because its subscription has expired." }, { status: 400 })
     }
 
     // Validate numberOfRooms within range

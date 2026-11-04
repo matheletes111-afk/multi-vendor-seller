@@ -47,6 +47,15 @@ enum SubscriptionStatus {
   REVOKED
 }
 
+enum SubscriptionLedgerStatus {
+  PENDING_PAYMENT
+  QUEUED
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
 enum ServiceType {
   APPOINTMENT
   FIXED_PRICE
@@ -303,6 +312,7 @@ model Seller {
   agreement    SellerAgreement?
   
   subscription Subscription?
+  subscriptionPurchases SubscriptionPurchase[]
   products     Product[]
   services     Service[]
   orders       Order[]
@@ -456,6 +466,7 @@ model HotelSeller {
   bankDetails         HotelBankDetails?
   agreement           HotelAgreement?
   subscription        HotelSubscription?
+  subscriptionPurchases SubscriptionPurchase[]
   hotels              Hotel[]
   sellerAds           SellerAd[]
 
@@ -677,6 +688,7 @@ model HotelSubscription {
   @@index([afriTxnId])
   @@index([afriFtxnId])
   @@index([flotOrderId])
+  @@index([status, currentPeriodEnd])
   @@map("hotel_subscriptions")
 }
 
@@ -716,6 +728,7 @@ model RestaurantSeller {
   bankDetails         RestaurantBankDetails?
   agreement           RestaurantAgreement?
   subscription        RestaurantSubscription?
+  subscriptionPurchases SubscriptionPurchase[]
   foods               FoodItem[]
   foodOrders          FoodOrder[]
   sellerAds           SellerAd[]
@@ -846,6 +859,7 @@ model RestaurantSubscription {
   @@index([afriTxnId])
   @@index([afriFtxnId])
   @@index([flotOrderId])
+  @@index([status, currentPeriodEnd])
   @@map("restaurant_subscriptions")
 }
 
@@ -1019,6 +1033,7 @@ model Plan {
   subscriptions Subscription[]
   hotelSubscriptions HotelSubscription[]
   restaurantSubscriptions RestaurantSubscription[]
+  subscriptionPurchases SubscriptionPurchase[]
 
   @@unique([name, type, duration])
   @@map("subscription_plans")
@@ -1062,7 +1077,77 @@ model Subscription {
   @@index([afriTxnId])
   @@index([afriFtxnId])
   @@index([flotOrderId])
+  @@index([status, currentPeriodEnd])
   @@map("subscriptions")
+}
+
+model SubscriptionPurchase {
+  id                   String                   @id @default(cuid())
+  sellerType           PlanType                 // PRODUCT_SERVICE | HOTEL | RESTAURANT
+  sellerId             String?                  // FK to Seller (Product / Service)
+  hotelSellerId        String?                  // FK to HotelSeller
+  restaurantSellerId   String?                  // FK to RestaurantSeller
+
+  planId               String
+  plan                 Plan                     @relation(fields: [planId], references: [id])
+  planSnapshot         Json?                    // Snapshot of Plan details at purchase time
+
+  durationDays         Int                      @default(30)
+  price                Float
+  paidPrice            Float
+  discountAmount       Float                    @default(0)
+  couponCode           String?
+
+  status               SubscriptionLedgerStatus @default(PENDING_PAYMENT)
+
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  activatedAt          DateTime?
+  expiredAt            DateTime?
+
+  // Payment Details
+  paymentMethod        String?                  // "AFRIMONEY" | "FLOT" | "STRIPE" | "FREE_TRIAL" | "GO_LIVE_FREE_PERIOD" | "ADMIN_GRANT"
+  afriTxnId            String?                  // Africell Transaction ID
+  afriFtxnId           String?                  // External Ref: SUB_PROD_{id}, SUB_HOTEL_{id}, SUB_REST_{id}
+  afriMsisdn           String?                  // Payer mobile phone number
+  flotOrderId          String?
+  paidAt               DateTime?
+
+  // Admin & Support Tracking
+  note                 String?                  @db.Text
+  adminGrantedBy       String?
+
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  seller               Seller?                  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  hotelSeller          HotelSeller?             @relation(fields: [hotelSellerId], references: [id], onDelete: Cascade)
+  restaurantSeller     RestaurantSeller?        @relation(fields: [restaurantSellerId], references: [id], onDelete: Cascade)
+  reminderLogs         SubscriptionReminderLog[]
+
+  @@index([sellerId, status])
+  @@index([hotelSellerId, status])
+  @@index([restaurantSellerId, status])
+  @@index([status, periodEnd])
+  @@index([afriFtxnId])
+  @@index([afriTxnId])
+  @@map("subscription_purchases")
+}
+
+model SubscriptionReminderLog {
+  id            String   @id @default(cuid())
+  purchaseId    String
+  daysLeft      Int      // 7,6,5,4,3,2,1,0 and -1 for expired
+  channel       String   // EMAIL | SMS | PUSH
+  status        String   // SENT | FAILED | SKIPPED
+  error         String?  @db.Text
+  sentAt        DateTime @default(now())
+
+  purchase      SubscriptionPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseId, daysLeft, channel])
+  @@index([purchaseId])
+  @@map("subscription_reminder_logs")
 }
 
 model Category {

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { allocateNextOrderNumberTx } from "@/lib/order-number"
 import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
-import { UserRole } from "@prisma/client"
+import { UserRole, PlanType } from "@prisma/client"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
 import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
@@ -100,6 +101,20 @@ export async function POST(request: NextRequest) {
     if (item.serviceId && (!item.service || (item.service as any).isDeleted)) {
       return NextResponse.json(
         { success: false, error: `Service "${item.service?.name || 'Unknown'}" is no longer available.` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Validate active subscription for product and service sellers
+  const checkoutSellerIds = [...new Set(items.map((i) => getSellerId(i)).filter(Boolean) as string[])]
+  for (const sId of checkoutSellerIds) {
+    const isSubActive = await isSellerSubscriptionActive(PlanType.PRODUCT_SERVICE, sId)
+    if (!isSubActive) {
+      const badItem = items.find((i) => getSellerId(i) === sId)
+      const name = badItem ? (badItem.product?.name || badItem.service?.name || "Item") : "An item"
+      return NextResponse.json(
+        { success: false, error: `The store selling "${name}" is currently unavailable or their subscription has expired. Please remove this item from your cart to proceed.` },
         { status: 400 }
       )
     }

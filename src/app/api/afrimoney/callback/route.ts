@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activateOrQueuePurchase } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -97,12 +98,15 @@ export async function POST(request: NextRequest) {
   } else if (
     ftxnId.startsWith("SUB_") ||
     ftxnId.startsWith("SUB_HOTEL_") ||
-    ftxnId.startsWith("SUB_REST_")
+    ftxnId.startsWith("SUB_REST_") ||
+    ftxnId.startsWith("SUB_PROD_")
   ) {
     targetCategory = "SUBSCRIPTION"
     cleanId = ftxnId
       .replace(/^SUB_HOTEL_/, "")
       .replace(/^SUB_REST_/, "")
+      .replace(/^SUB_PROD_/, "")
+      .replace(/^SUB_SERV_/, "")
       .replace(/^SUB_/, "")
   } else if (ftxnId.startsWith("ORD_") || ftxnId.startsWith("meeem")) {
     targetCategory = "PRODUCT_SERVICE"
@@ -210,73 +214,133 @@ export async function POST(request: NextRequest) {
       // 4. SELLER SUBSCRIPTIONS (Cross-checked across ALL 4 Sellers)
       // ──────────────────────────────────────────────────────────────────────────
       if (!matchedCategory && (targetCategory === "SUBSCRIPTION" || targetCategory === "AUTO")) {
-        // 4A. Product & Service Sellers (Subscription table)
-        const subConditions: any[] = [];
+        // 4A. Priority 1: Check modern SubscriptionPurchase ledger
+        const purchaseConditions: any[] = []
         if (cleanId) {
-          subConditions.push({ id: cleanId });
-          subConditions.push({ sellerId: cleanId });
-          subConditions.push({ afriFtxnId: cleanId });
+          purchaseConditions.push({ id: cleanId })
+          purchaseConditions.push({ afriFtxnId: cleanId })
         }
         if (ftxnId) {
-          subConditions.push({ afriFtxnId: ftxnId });
+          purchaseConditions.push({ id: ftxnId })
+          purchaseConditions.push({ afriFtxnId: ftxnId })
         }
         if (transactionId) {
-          subConditions.push({ afriTxnId: transactionId });
+          purchaseConditions.push({ afriTxnId: transactionId })
         }
 
-        const sub = subConditions.length > 0
-          ? await prisma.subscription.findFirst({ where: { OR: subConditions } }).catch(() => null)
-          : null;
+        const purchase = purchaseConditions.length > 0
+          ? await prisma.subscriptionPurchase.findFirst({
+              where: { OR: purchaseConditions },
+              include: { plan: true },
+            }).catch(() => null)
+          : null
 
-        if (sub) {
-          matchedCategory = "PRODUCT_OR_SERVICE_SELLER_SUBSCRIPTION"
-          console.log(`[AfriMoney Callback] Matched Product/Service Seller Subscription (id: ${sub.id})`)
+        if (purchase) {
+          matchedCategory = "SELLER_SUBSCRIPTION_PURCHASE"
+          console.log(`[AfriMoney Callback] Matched SubscriptionPurchase ${purchase.id} (sellerType: ${purchase.sellerType}, ftxnId: ${ftxnId})`)
 
-          const now = new Date()
-          const periodEnd = sub.currentPeriodEnd && sub.currentPeriodEnd > now
-            ? new Date(sub.currentPeriodEnd.getTime() + 30 * 24 * 60 * 60 * 1000)
-            : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-
-          await prisma.subscription.update({
-            where: { id: sub.id },
-            data: {
-              status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : sub.status,
-              provider: "afrimoney",
+          if (isSuccess) {
+            await activateOrQueuePurchase({
+              purchaseId: purchase.id,
+              sellerType: purchase.sellerType,
+              sellerId: purchase.sellerId,
+              hotelSellerId: purchase.hotelSellerId,
+              restaurantSellerId: purchase.restaurantSellerId,
+              planId: purchase.planId,
+              durationDays: purchase.durationDays,
+              price: purchase.price,
+              paidPrice: amount ? Number(amount) : purchase.paidPrice,
+              discountAmount: purchase.discountAmount,
+              couponCode: purchase.couponCode,
               paymentMethod: "AFRIMONEY",
-              latestTransactionId: transactionId || sub.latestTransactionId,
-              afriTxnId: transactionId || sub.afriTxnId,
-              afriFtxnId: ftxnId || sub.afriFtxnId,
-              afriMsisdn: payerMsisdn || body.msisdn || sub.afriMsisdn,
-              paidPrice: amount ? Number(amount) : sub.paidPrice,
-              paidAt: isSuccess ? (sub.paidAt || now) : sub.paidAt,
-              currentPeriodStart: isSuccess ? (sub.currentPeriodStart || now) : sub.currentPeriodStart,
-              currentPeriodEnd: isSuccess ? periodEnd : sub.currentPeriodEnd,
-            },
-          })
+              afriTxnId: transactionId || purchase.afriTxnId,
+              afriFtxnId: ftxnId || purchase.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || purchase.afriMsisdn,
+              paidAt: new Date(),
+            })
+          } else if (isFailed) {
+            // Safe failure update: Only update the pending purchase ledger, never cancel active subscriptions
+            await prisma.subscriptionPurchase.update({
+              where: { id: purchase.id },
+              data: {
+                status: "FAILED",
+                afriTxnId: transactionId || purchase.afriTxnId,
+                afriFtxnId: ftxnId || purchase.afriFtxnId,
+                afriMsisdn: payerMsisdn || body.msisdn || purchase.afriMsisdn,
+              },
+            })
+          }
         }
 
-        // 4B. Hotel Sellers (HotelSubscription table)
+        // 4B. Legacy Product & Service Sellers (Subscription table fallback)
         if (!matchedCategory) {
-          const hotelConditions: any[] = [];
+          const subConditions: any[] = []
           if (cleanId) {
-            hotelConditions.push({ id: cleanId });
-            hotelConditions.push({ hotelSellerId: cleanId });
-            hotelConditions.push({ afriFtxnId: cleanId });
+            subConditions.push({ id: cleanId })
+            subConditions.push({ sellerId: cleanId })
+            subConditions.push({ afriFtxnId: cleanId })
           }
           if (ftxnId) {
-            hotelConditions.push({ afriFtxnId: ftxnId });
+            subConditions.push({ afriFtxnId: ftxnId })
           }
           if (transactionId) {
-            hotelConditions.push({ afriTxnId: transactionId });
+            subConditions.push({ afriTxnId: transactionId })
+          }
+
+          const sub = subConditions.length > 0
+            ? await prisma.subscription.findFirst({ where: { OR: subConditions } }).catch(() => null)
+            : null
+
+          if (sub) {
+            matchedCategory = "PRODUCT_OR_SERVICE_SELLER_SUBSCRIPTION"
+            console.log(`[AfriMoney Callback] Matched Legacy Product/Service Subscription (id: ${sub.id})`)
+
+            const now = new Date()
+            const periodEnd = sub.currentPeriodEnd && sub.currentPeriodEnd > now
+              ? new Date(sub.currentPeriodEnd.getTime() + 30 * 24 * 60 * 60 * 1000)
+              : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+            await prisma.subscription.update({
+              where: { id: sub.id },
+              data: {
+                status: isSuccess ? "ACTIVE" : sub.status,
+                provider: "afrimoney",
+                paymentMethod: "AFRIMONEY",
+                latestTransactionId: transactionId || sub.latestTransactionId,
+                afriTxnId: transactionId || sub.afriTxnId,
+                afriFtxnId: ftxnId || sub.afriFtxnId,
+                afriMsisdn: payerMsisdn || body.msisdn || sub.afriMsisdn,
+                paidPrice: amount ? Number(amount) : sub.paidPrice,
+                paidAt: isSuccess ? (sub.paidAt || now) : sub.paidAt,
+                currentPeriodStart: isSuccess ? (sub.currentPeriodStart || now) : sub.currentPeriodStart,
+                currentPeriodEnd: isSuccess ? periodEnd : sub.currentPeriodEnd,
+              },
+            })
+          }
+        }
+
+        // 4C. Legacy Hotel Sellers (HotelSubscription table fallback)
+        if (!matchedCategory) {
+          const hotelConditions: any[] = []
+          if (cleanId) {
+            hotelConditions.push({ id: cleanId })
+            hotelConditions.push({ hotelSellerId: cleanId })
+            hotelConditions.push({ afriFtxnId: cleanId })
+          }
+          if (ftxnId) {
+            hotelConditions.push({ afriFtxnId: ftxnId })
+          }
+          if (transactionId) {
+            hotelConditions.push({ afriTxnId: transactionId })
           }
 
           const hotelSub = hotelConditions.length > 0
             ? await prisma.hotelSubscription.findFirst({ where: { OR: hotelConditions } }).catch(() => null)
-            : null;
+            : null
 
           if (hotelSub) {
             matchedCategory = "HOTEL_SELLER_SUBSCRIPTION"
-            console.log(`[AfriMoney Callback] Matched Hotel Seller Subscription (id: ${hotelSub.id})`)
+            console.log(`[AfriMoney Callback] Matched Legacy Hotel Subscription (id: ${hotelSub.id})`)
 
             const now = new Date()
             const periodEnd = hotelSub.currentPeriodEnd && hotelSub.currentPeriodEnd > now
@@ -286,7 +350,7 @@ export async function POST(request: NextRequest) {
             await prisma.hotelSubscription.update({
               where: { id: hotelSub.id },
               data: {
-                status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : hotelSub.status,
+                status: isSuccess ? "ACTIVE" : hotelSub.status,
                 provider: "afrimoney",
                 paymentMethod: "AFRIMONEY",
                 latestTransactionId: transactionId || hotelSub.latestTransactionId,
@@ -302,28 +366,28 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 4C. Restaurant Sellers (RestaurantSubscription table)
+        // 4D. Legacy Restaurant Sellers (RestaurantSubscription table fallback)
         if (!matchedCategory) {
-          const restConditions: any[] = [];
+          const restConditions: any[] = []
           if (cleanId) {
-            restConditions.push({ id: cleanId });
-            restConditions.push({ restaurantSellerId: cleanId });
-            restConditions.push({ afriFtxnId: cleanId });
+            restConditions.push({ id: cleanId })
+            restConditions.push({ restaurantSellerId: cleanId })
+            restConditions.push({ afriFtxnId: cleanId })
           }
           if (ftxnId) {
-            restConditions.push({ afriFtxnId: ftxnId });
+            restConditions.push({ afriFtxnId: ftxnId })
           }
           if (transactionId) {
-            restConditions.push({ afriTxnId: transactionId });
+            restConditions.push({ afriTxnId: transactionId })
           }
 
           const restSub = restConditions.length > 0
             ? await prisma.restaurantSubscription.findFirst({ where: { OR: restConditions } }).catch(() => null)
-            : null;
+            : null
 
           if (restSub) {
             matchedCategory = "RESTAURANT_SELLER_SUBSCRIPTION"
-            console.log(`[AfriMoney Callback] Matched Restaurant Seller Subscription (id: ${restSub.id})`)
+            console.log(`[AfriMoney Callback] Matched Legacy Restaurant Subscription (id: ${restSub.id})`)
 
             const now = new Date()
             const periodEnd = restSub.currentPeriodEnd && restSub.currentPeriodEnd > now
@@ -333,7 +397,7 @@ export async function POST(request: NextRequest) {
             await prisma.restaurantSubscription.update({
               where: { id: restSub.id },
               data: {
-                status: isSuccess ? "ACTIVE" : isFailed ? "CANCELED" : restSub.status,
+                status: isSuccess ? "ACTIVE" : restSub.status,
                 provider: "afrimoney",
                 paymentMethod: "AFRIMONEY",
                 latestTransactionId: transactionId || restSub.latestTransactionId,

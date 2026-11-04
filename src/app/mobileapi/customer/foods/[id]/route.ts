@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -16,10 +17,7 @@ export async function GET(
         id,
         isDeleted: false,
         isActive: true,
-        restaurantSeller: {
-          isApproved: true,
-          isSuspended: false
-        }
+        restaurantSeller: activeRestaurantSellerWhere()
       },
       include: {
         sellerAds: true,

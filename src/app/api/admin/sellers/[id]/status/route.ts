@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { validateProductOrServiceSellerApproval } from "@/lib/seller-approval-validation"
 import { sendSellerApprovalEmail } from "@/lib/email"
+import { PlanType } from "@prisma/client"
+import { assignFreePlanOnApproval } from "@/lib/subscriptions"
 
 /** POST to update seller onboarding status (APPROVE, REJECT, CORRECTION) */
 export async function POST(
@@ -64,6 +66,12 @@ export async function POST(
             where: { id },
             data: updateData
         })
+
+        if (action === "approve") {
+            await assignFreePlanOnApproval(PlanType.PRODUCT_SERVICE, id).catch((err) => {
+                console.error("[seller/status] Failed to assign free plan on approval:", err)
+            })
+        }
 
         if (action === "approve" && (seller.user?.email || seller.user?.phone)) {
             try {

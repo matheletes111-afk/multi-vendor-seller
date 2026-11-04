@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeHotelSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -13,10 +14,7 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isActive: true,
       isDeleted: false,
-      hotelSeller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      hotelSeller: activeHotelSellerWhere(),
     }
 
     if (cityParam && cityParam.trim().length > 0) {

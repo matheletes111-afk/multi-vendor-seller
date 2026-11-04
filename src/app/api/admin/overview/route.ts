@@ -44,6 +44,7 @@ export async function GET() {
       prodSubs,
       hotelSubs,
       restSubs,
+      subscriptionPurchases,
       recentOrders,
       recentFoodOrders,
       recentHotelBookings,
@@ -86,6 +87,13 @@ export async function GET() {
       prisma.subscription.findMany({ select: { id: true, paidPrice: true, createdAt: true, plan: { select: { price: true } } } }),
       prisma.hotelSubscription.findMany({ select: { id: true, paidPrice: true, createdAt: true, plan: { select: { price: true } } } }),
       prisma.restaurantSubscription.findMany({ select: { id: true, paidPrice: true, createdAt: true, plan: { select: { price: true } } } }),
+      prisma.subscriptionPurchase.findMany({
+        where: {
+          status: { in: ["ACTIVE", "QUEUED", "EXPIRED"] },
+          paidPrice: { gt: 0 },
+        },
+        select: { id: true, paidPrice: true, createdAt: true, paidAt: true },
+      }),
       prisma.order.findMany({ where: { createdAt: { gte: startMonth } }, select: { totalAmount: true, createdAt: true } }),
       prisma.foodOrder.findMany({ where: { createdAt: { gte: startMonth } }, select: { totalAmount: true, createdAt: true } }),
       prisma.hotelBooking.findMany({ where: { createdAt: { gte: startMonth } }, select: { totalPrice: true, createdAt: true } }),

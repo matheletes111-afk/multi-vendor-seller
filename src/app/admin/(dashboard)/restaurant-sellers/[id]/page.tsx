@@ -27,6 +27,10 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
       subscription: {
         include: { plan: true }
       },
+      subscriptionPurchases: {
+        include: { plan: true },
+        orderBy: { createdAt: "desc" }
+      },
     }
   })
 
@@ -41,6 +45,10 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
         agreement: true,
         subscription: {
           include: { plan: true }
+        },
+        subscriptionPurchases: {
+          include: { plan: true },
+          orderBy: { createdAt: "desc" }
         },
       }
     })
@@ -58,30 +66,19 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
   seller.banner = await getPresignedUrlOrOriginal(seller.banner)
   seller.mainPhoto = await getPresignedUrlOrOriginal(seller.mainPhoto)
 
-  if (seller.businessInfo) {
-    const [busReg, cityCouncil, gstTin, addrProof] = await Promise.all([
-      getPresignedUrlOrOriginal(seller.businessInfo.busRegCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.cityCouncilCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.gstTinCertUrl),
-      getPresignedUrlOrOriginal(seller.businessInfo.addressProofUrl)
-    ])
-    seller.businessInfo.busRegCertUrl = busReg
-    seller.businessInfo.cityCouncilCertUrl = cityCouncil
-    seller.businessInfo.gstTinCertUrl = gstTin
-    seller.businessInfo.addressProofUrl = addrProof
+  if ((seller.businessInfo as any)?.busRegCertUrl) {
+    (seller.businessInfo as any).busRegCertUrl = await getPresignedUrlOrOriginal(
+      (seller.businessInfo as any).busRegCertUrl
+    )
   }
 
   if (seller.kyc) {
-    const [front, back, selfie, license] = await Promise.all([
+    const [front, back] = await Promise.all([
       getPresignedUrlOrOriginal(seller.kyc.idFrontUrl),
-      getPresignedUrlOrOriginal(seller.kyc.idBackUrl),
-      getPresignedUrlOrOriginal(seller.kyc.selfieUrl),
-      getPresignedUrlOrOriginal(seller.kyc.foodLicenseUrl)
+      getPresignedUrlOrOriginal(seller.kyc.idBackUrl)
     ])
     seller.kyc.idFrontUrl = front
     seller.kyc.idBackUrl = back
-    seller.kyc.selfieUrl = selfie
-    seller.kyc.foodLicenseUrl = license
   }
 
   if (seller.bankDetails) {
@@ -97,12 +94,9 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
     (seller.agreement as any).documentUrl = await getPresignedUrlOrOriginal((seller.agreement as any).documentUrl)
   }
 
-  // Serialize to plain object for client component
-  const plainSeller = JSON.parse(JSON.stringify(seller))
-
   return (
     <Suspense fallback={<PageLoader />}>
-      <RestaurantSellerDetailClient seller={plainSeller} plans={JSON.parse(JSON.stringify(allPlans))} />
+      <RestaurantSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
     </Suspense>
   )
 }
