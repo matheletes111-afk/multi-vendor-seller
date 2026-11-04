@@ -219,6 +219,18 @@ export async function recordSellerCouponUsage(params: {
   const { couponId, userId, sellerAdId, subscriptionId, prismaTx } = params
   const client = prismaTx || prisma
 
+  if (subscriptionId) {
+    const existing = await client.couponUsage.findFirst({
+      where: { couponId, subscriptionId },
+    })
+    if (existing) return existing
+  } else if (sellerAdId) {
+    const existing = await client.couponUsage.findFirst({
+      where: { couponId, sellerAdId },
+    })
+    if (existing) return existing
+  }
+
   return await client.couponUsage.create({
     data: {
       couponId,

@@ -74,6 +74,7 @@ export function SubscriptionClient() {
   }, [loadData])
 
   const handleOpenPayment = (plan: Plan) => {
+    if (plan.price <= 0) return
     setSelectedPlanForPayment(plan)
   }
 
@@ -212,7 +213,11 @@ export function SubscriptionClient() {
                     )}
 
                     <div className="mt-6">
-                      {isCurrent ? (
+                      {plan.price <= 0 ? (
+                        <div className="w-full h-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px] flex items-center justify-center px-3 text-center select-none">
+                          {isCurrent ? "Active Free Trial (1-Time Only)" : "1-Time Trial (On Approval Only)"}
+                        </div>
+                      ) : isCurrent ? (
                         <Button
                           className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center justify-center gap-2"
                           onClick={() => handleOpenPayment(plan)}

@@ -53,13 +53,36 @@ export async function GET(request: NextRequest) {
       prisma.sellerAd.count({ where }),
     ])
 
-    const serialized = ads.map((ad) => ({
-      ...ad,
-      totalBudget: Number(ad.totalBudget),
-      spentAmount: Number(ad.spentAmount),
-      maxCpc: Number(ad.maxCpc),
-      targetCountries: ad.targetCountries as string[] | null,
-    }))
+    const adIds = ads.map((a) => a.id)
+    const usages = adIds.length > 0
+      ? await prisma.couponUsage.findMany({
+          where: { sellerAdId: { in: adIds } },
+          include: { coupon: true },
+        })
+      : []
+    const usageMap = Object.fromEntries(usages.filter((u) => u.sellerAdId).map((u) => [u.sellerAdId!, u]))
+
+    const serialized = ads.map((ad) => {
+      const usage = usageMap[ad.id]
+      let couponDiscount = 0
+      if (usage?.coupon) {
+        if (usage.coupon.discountType === "PERCENTAGE") {
+          couponDiscount = (Number(ad.totalBudget) * usage.coupon.discountValue) / 100
+        } else {
+          couponDiscount = Math.min(usage.coupon.discountValue, Number(ad.totalBudget))
+        }
+      }
+      return {
+        ...ad,
+        totalBudget: Number(ad.totalBudget),
+        spentAmount: Number(ad.spentAmount),
+        maxCpc: Number(ad.maxCpc),
+        payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
+        couponCode: usage?.coupon?.code || null,
+        couponDiscount,
+        targetCountries: ad.targetCountries as string[] | null,
+      }
+    })
 
     const totalPages = Math.ceil(totalCount / perPage) || 1
 
@@ -171,6 +194,7 @@ export async function POST(request: NextRequest) {
         targetAgeMin: (formData.get("targetAgeMin") as string) ? parseInt((formData.get("targetAgeMin") as string), 10) : undefined,
         targetAgeMax: (formData.get("targetAgeMax") as string) ? parseInt((formData.get("targetAgeMax") as string), 10) : undefined,
         expandAudience: (formData.get("expandAudience") as string) === "on" || (formData.get("expandAudience") as string) === "true",
+        couponCode: (formData.get("couponCode") as string) || undefined,
       }
     } else {
       body = await request.json().catch(() => ({}))
@@ -248,6 +272,23 @@ export async function POST(request: NextRequest) {
     const targetAgeMax = body.targetAgeMax != null && !isNaN(Number(body.targetAgeMax)) ? Number(body.targetAgeMax) : null
     const targetAudience = body.targetAudience != null && Number(body.targetAudience) >= 1 ? Number(body.targetAudience) : null
 
+    let couponDiscount = 0
+    let validatedCoupon: any = null
+    if (body.couponCode && String(body.couponCode).trim()) {
+      const { validateSellerCoupon } = await import("@/lib/coupons")
+      const val = await validateSellerCoupon({
+        code: String(body.couponCode).trim(),
+        amount: totalBudget,
+        userId,
+      })
+      if (!val.valid) {
+        return NextResponse.json({ success: false, error: val.error || "Invalid coupon code" }, { status: 400 })
+      }
+      couponDiscount = val.discountAmount || 0
+      validatedCoupon = val.coupon
+    }
+    const payableAmount = Math.max(0, totalBudget - couponDiscount)
+
     const createdAd = await prisma.sellerAd.create({
       data: {
         restaurantSellerId: seller.id,
@@ -262,6 +303,10 @@ export async function POST(request: NextRequest) {
         mobileCreativeUrl: mobileCreativeUrl || null,
         status: "PENDING_APPROVAL",
         totalBudget,
+        payableAmount,
+        paymentStatus: payableAmount <= 0 ? "COMPLETED" : "PENDING",
+        paymentMethod: payableAmount <= 0 ? "COUPON_100_PERCENT" : "AFRIMONEY",
+        paidAt: payableAmount <= 0 ? new Date() : null,
         spentAmount: 0,
         maxCpc,
         targetAudience,
@@ -274,7 +319,24 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ success: true, data: createdAd })
+    if (validatedCoupon) {
+      const { recordSellerCouponUsage } = await import("@/lib/coupons")
+      await recordSellerCouponUsage({
+        couponId: validatedCoupon.id,
+        userId,
+        sellerAdId: createdAd.id,
+      }).catch(() => {})
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...createdAd,
+        payableAmount,
+        couponDiscount,
+        couponCode: validatedCoupon?.code || null,
+      },
+    })
   } catch (error: any) {
     console.error("Mobile create ad error:", error)
     return NextResponse.json(

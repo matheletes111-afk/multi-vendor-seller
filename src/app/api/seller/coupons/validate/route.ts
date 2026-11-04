@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { validateSellerCoupon } from "@/lib/coupons"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
+    let authUserId = session?.user?.id || null
+    if (!authUserId) {
+      const mobileAuth = await getMobileUserAuth(request)
+      if (mobileAuth.ok && mobileAuth.user) {
+        authUserId = mobileAuth.user.id
+      }
+    }
+    if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -21,7 +29,7 @@ export async function POST(request: NextRequest) {
     const result = await validateSellerCoupon({
       code,
       amount: numAmount,
-      userId: session.user.id
+      userId: authUserId
     })
 
     if (!result.valid) {

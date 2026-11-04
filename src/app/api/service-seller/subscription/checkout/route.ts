@@ -41,6 +41,13 @@ export async function POST(request: NextRequest) {
 
   if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
+  if (plan.price <= 0) {
+    return NextResponse.json(
+      { error: "Free introductory plan is granted once upon admin approval and cannot be extended or repurchased." },
+      { status: 400 }
+    )
+  }
+
   let appliedCoupon: any = null
   let discountAmount = 0
   if (couponCode && couponCode.trim()) {

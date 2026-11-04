@@ -6,14 +6,16 @@ import {
   getValidHotelSubscription,
   getValidRestaurantSubscription,
 } from "@/lib/subscriptions"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
+    const mobileAuth = !session?.user?.id ? await getMobileUserAuth(request) : null
     const { searchParams } = new URL(request.url)
     const paramUserId = searchParams.get("userId")
 
-    const userId = session?.user?.id || paramUserId
+    const userId = session?.user?.id || mobileAuth?.user?.id || paramUserId
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized / Seller User ID required" }, { status: 401 })
@@ -39,13 +41,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ subscription: null })
     }
 
-    const usage = await prisma.couponUsage.findFirst({
-      where: { subscriptionId: subscription.id },
-      include: { coupon: true },
-    })
+    const [usage, activePurchase] = await Promise.all([
+      prisma.couponUsage.findFirst({
+        where: { subscriptionId: subscription.id },
+        include: { coupon: true },
+      }),
+      prisma.subscriptionPurchase.findFirst({
+        where: {
+          ...(prodSeller ? { sellerId: prodSeller.id } : {}),
+          ...(hotelSeller ? { hotelSellerId: hotelSeller.id } : {}),
+          ...(restSeller ? { restaurantSellerId: restSeller.id } : {}),
+          status: "ACTIVE",
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ])
 
     let appliedCoupon: any = null
-    if (usage?.coupon) {
+    if (activePurchase?.couponCode) {
+      appliedCoupon = {
+        code: activePurchase.couponCode,
+        discountAmount: activePurchase.discountAmount || 0,
+        finalPaidAmount: activePurchase.paidPrice,
+      }
+    } else if (usage?.coupon) {
       const planPrice = subscription.plan?.price ?? 0
       let discountAmount = 0
       if (usage.coupon.discountType === "PERCENTAGE") {

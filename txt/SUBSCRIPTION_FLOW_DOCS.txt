@@ -103,28 +103,34 @@ TABLE OF CONTENTS
   Command: npx prisma db seed
 
 ================================================================================
-4. FREE PLAN AUTO-ACTIVATION FLOW
+4. FREE PLAN AUTO-ACTIVATION FLOW (1-TIME ONLY ON ADMIN APPROVAL)
 ================================================================================
 
-  When a seller registers (web, mobile, or OAuth social login), the FREE plan
-  for their seller type is automatically activated.
+  IMPORTANT RULE:
+  ---------------
+  The FREE plan (price = 0, 90-day / 3-month introductory trial) is granted
+  STRICTLY ONCE when an Admin approves the seller account (`assignFreePlanOnApproval`).
+  - It is NOT activated before Admin approval (`isApproved === true`).
+  - Sellers CANNOT extend, queue, switch back to, or purchase the FREE plan
+    on either Web UI or Mobile APIs (`400 Bad Request` if `plan.price <= 0`
+    is submitted to any checkout / switch endpoint).
+  - On Web Seller Subscription pages, the FREE card displays a non-clickable
+    status label ("Active Free Trial (1-Time Only)" / "1-Time Trial (On Approval Only)")
+    with NO Extend / Queue / Switch button.
+  - On Paid plans (`price > 0`), `Extend / Queue Pack` and `Switch / Recharge`
+    remain active as normal, with Seller Coupon (`couponCode`) support.
 
   Helper Functions in: src/lib/subscriptions.ts
   -----------------------------------------------
-    activateFreePlan(sellerId)
-      → Finds FREE plan WHERE type = PRODUCT_SERVICE
-      → Upserts Subscription for sellerId (ACTIVE, 1 month period)
-      → Used for: Product Seller + Service Seller
+    assignFreePlanOnApproval(sellerType, sellerId)
+      → Checks both `SubscriptionPurchase` ledger AND cache table to guarantee
+        a seller NEVER receives a second free trial.
+      → Creates `SubscriptionPurchase` (`paymentMethod: "FREE_TRIAL"`, 90 days)
+        and syncs `Subscription` / `HotelSubscription` / `RestaurantSubscription`.
 
-    activateHotelFreePlan(hotelSellerId)
-      → Finds FREE plan WHERE type = HOTEL
-      → Upserts HotelSubscription for hotelSellerId (ACTIVE, 1 month period)
-      → Used for: Hotel Seller
-
-    activateRestaurantFreePlan(restaurantSellerId)
-      → Finds FREE plan WHERE type = RESTAURANT
-      → Upserts RestaurantSubscription for restaurantSellerId (ACTIVE, 1 month)
-      → Used for: Restaurant Seller
+    activateFreePlan(sellerId) / activateHotelFreePlan / activateRestaurantFreePlan
+      → Verifies `seller.isApproved === true` first, then delegates idempotently
+        to `assignFreePlanOnApproval`.
 
   WHERE is it called?
   -------------------
@@ -168,21 +174,26 @@ TABLE OF CONTENTS
     Auth:       Session-based (NextAuth), role: SELLER_PRODUCT / SELLER_SERVICE
     Response:   { id, planId, status, currentPeriodEnd, plan: { ... } } | null
 
-  Switch / Upgrade Plan (Checkout)
-  ----------------------------------
-    Endpoint:   POST /api/product-seller/subscription/checkout
-                POST /api/service-seller/subscription/checkout
-    Auth:       Session-based
-    Body:       { planName: "STANDARD" | "PREMIUM" | "FREE", test: true }
-    Plan Query: prisma.plan.findUnique({ where: { name_type: { name: planName, type: "PRODUCT_SERVICE" } } })
+  Switch / Upgrade / Queue Paid Plan (AfriMoney & Checkout)
+  ---------------------------------------------------------
+    Primary AfriMoney Endpoint (All 4 Seller Types):
+      POST /api/seller/subscription/pay-afrimoney
+      Body: { planId: string, phone?: string, couponCode?: string }
+      - Rejects FREE plan (`plan.price <= 0`) with 400.
+      - Validates `couponCode` (type = SELLER). If 100% coupon (`payableAmount === 0`),
+        activates/queues immediately without requiring `phone`.
+      - If seller is on active FREE trial, remaining free days are carried forward
+        and added to the paid pack duration.
+      - If seller is on an active PAID plan, new pack is saved as `QUEUED` and
+        auto-activates on expiry via cron / lazy check.
 
-    Test Mode (test: true):
-      → Directly upserts Subscription with ACTIVE status (30-day period)
-      → Returns: { url: null }
-
-    Production Mode (test: false):
-      → Creates Stripe checkout session
-      → Returns: { url: "https://checkout.stripe.com/..." }
+    Direct / Checkout Endpoints:
+      POST /api/product-seller/subscription/checkout
+      POST /api/service-seller/subscription/checkout
+      POST /api/hotel-seller/subscription/checkout
+      POST /api/restaurant-seller/subscription/checkout
+      Body: { planId?: string, planName: "STANDARD" | "PREMIUM", couponCode?: string, test?: boolean }
+      Note: Passing "FREE" (or any `price <= 0` plan) returns 400 Bad Request.
 
   Frontend Page:
     URL:       /product-seller/subscription  (or /service-seller/subscription)

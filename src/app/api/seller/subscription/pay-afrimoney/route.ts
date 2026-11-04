@@ -3,11 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneySubscriptionPayment } from "@/lib/subscriptions"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export const dynamic = "force-dynamic"
 
 /**
- * Universal AfriMoney Subscription Payment initiation for ALL 4 Seller Types:
+ * Universal AfriMoney Subscription Payment initiation for ALL 4 Seller Types (Web Session + Mobile Bearer JWT):
  * - Product Seller
  * - Service Seller
  * - Hotel Seller
@@ -16,7 +17,14 @@ export const dynamic = "force-dynamic"
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
+    let authUserId = session?.user?.id || null
+    if (!authUserId) {
+      const mobileAuth = await getMobileUserAuth(request)
+      if (mobileAuth.ok && mobileAuth.user) {
+        authUserId = mobileAuth.user.id
+      }
+    }
+    if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -28,18 +36,18 @@ export async function POST(request: NextRequest) {
     }
 
     const payerMsisdn = (phone || "").toString().trim()
-    if (!payerMsisdn) {
+    if (!payerMsisdn && !(couponCode && String(couponCode).trim())) {
       return NextResponse.json(
         { error: "Africell mobile number is required to receive Push USSD" },
         { status: 400 }
       )
     }
 
-    // Resolve seller type & id from session.user.id
+    // Resolve seller type & id from authUserId
     const [productSeller, hotelSeller, restaurantSeller] = await Promise.all([
-      prisma.seller.findUnique({ where: { userId: session.user.id } }),
-      prisma.hotelSeller.findUnique({ where: { userId: session.user.id } }),
-      prisma.restaurantSeller.findUnique({ where: { userId: session.user.id } }),
+      prisma.seller.findUnique({ where: { userId: authUserId } }),
+      prisma.hotelSeller.findUnique({ where: { userId: authUserId } }),
+      prisma.restaurantSeller.findUnique({ where: { userId: authUserId } }),
     ])
 
     let sellerType: PlanType = PlanType.PRODUCT_SERVICE
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
       planId,
       payerMsisdn,
       couponCode,
-      userId: session.user.id,
+      userId: authUserId,
     })
 
     if (!result.success) {

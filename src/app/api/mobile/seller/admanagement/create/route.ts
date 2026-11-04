@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
+    const mobileAuth = !session?.user?.id ? await getMobileUserAuth(request) : null
     const body = await request.json().catch(() => ({}))
     const {
       title,
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
       userId: bodyUserId
     } = body
 
-    const userId = session?.user?.id || bodyUserId
+    const userId = session?.user?.id || mobileAuth?.user?.id || bodyUserId
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized / Seller User ID required" }, { status: 401 })

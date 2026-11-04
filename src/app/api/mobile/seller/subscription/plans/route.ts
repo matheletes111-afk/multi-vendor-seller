@@ -13,7 +13,14 @@ export async function GET(request: NextRequest) {
       orderBy: { price: "asc" }
     })
 
-    return NextResponse.json({ plans })
+    const enrichedPlans = plans.map((p) => ({
+      ...p,
+      isFreeTrial: p.price <= 0,
+      isPurchasable: p.price > 0,
+      canExtend: p.price > 0,
+    }))
+
+    return NextResponse.json({ plans: enrichedPlans })
   } catch (error: any) {
     console.error("Mobile get subscription plans error:", error)
     return NextResponse.json(

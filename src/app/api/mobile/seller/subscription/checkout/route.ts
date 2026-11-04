@@ -4,14 +4,16 @@ import { prisma } from "@/lib/prisma"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
 import { createPlanSnapshot, activateOrQueuePurchase } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
+    const mobileAuth = !session?.user?.id ? await getMobileUserAuth(request) : null
     const body = await request.json().catch(() => ({}))
     const { planId, couponCode, sellerType, userId: bodyUserId } = body
 
-    const userId = session?.user?.id || bodyUserId
+    const userId = session?.user?.id || mobileAuth?.user?.id || bodyUserId
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized / Seller User ID required" }, { status: 401 })
@@ -24,6 +26,13 @@ export async function POST(request: NextRequest) {
     const plan = await prisma.plan.findUnique({ where: { id: planId } })
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+    }
+
+    if (plan.price <= 0) {
+      return NextResponse.json(
+        { error: "Free introductory plan is granted once upon admin approval and cannot be extended or repurchased." },
+        { status: 400 }
+      )
     }
 
     const type = sellerType || plan.type // "PRODUCT_SERVICE", "HOTEL", "RESTAURANT"
