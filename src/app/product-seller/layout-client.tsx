@@ -1,6 +1,6 @@
-import { SellerSubscriptionBanner } from "@/components/subscription/seller-subscription-banner"
 "use client"
 
+import { SellerSubscriptionBanner } from "@/components/subscription/seller-subscription-banner"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
