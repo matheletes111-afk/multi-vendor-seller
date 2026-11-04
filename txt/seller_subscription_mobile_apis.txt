@@ -46,6 +46,10 @@ Retrieves the current active subscription and all available plans for the authen
       "name": "FREE",
       "displayName": "Free Plan",
       "price": 0,
+      "duration": 90,
+      "isFreeTrial": true,
+      "isPurchasable": false,
+      "canExtend": false,
       "maxProducts": 5,
       "maxOrders": 10,
       "features": { ... }
@@ -55,6 +59,10 @@ Retrieves the current active subscription and all available plans for the authen
       "name": "STANDARD",
       "displayName": "Standard Plan",
       "price": 499,
+      "duration": 30,
+      "isFreeTrial": false,
+      "isPurchasable": true,
+      "canExtend": true,
       "maxProducts": 50,
       "maxOrders": null,
       "features": { ... }
@@ -88,20 +96,28 @@ Updates or switches the seller's current subscription plan.
 ### Request Body:
 ```json
 {
-  "planName": "PREMIUM"
+  "planId": "plan_id_2",
+  "planName": "PREMIUM",
+  "couponCode": "SAVE20"
 }
 ```
+> **Important Rule:** Only **Paid Plans** (`price > 0`, `isPurchasable: true`) can be activated, extended, or queued. Passing `FREE` (`price <= 0`) returns `400 Bad Request` (`"Free introductory plan is granted once upon admin approval and cannot be extended or repurchased."`). Mobile apps must hide the Extend/Queue/Purchase button whenever `plan.isPurchasable === false` or `plan.canExtend === false`.
 
 ### Response Structure:
 ```json
 {
   "success": true,
   "message": "Subscription updated successfully",
+  "status": "ACTIVE",
   "subscription": {
     "id": "...",
     "planId": "...",
     "status": "ACTIVE",
-    "currentPeriodEnd": "2026-06-05T11:51:40.000Z",
+    "periodStart": "2026-05-06T11:51:40.000Z",
+    "periodEnd": "2026-06-05T11:51:40.000Z",
+    "couponCode": "SAVE20",
+    "discountAmount": 100,
+    "paidPrice": 899,
     "plan": {
       "name": "PREMIUM",
       "displayName": "Premium Plan",
@@ -111,22 +127,19 @@ Updates or switches the seller's current subscription plan.
   "url": null
 }
 ```
-**Note**: `url: null` indicates that the subscription was updated directly in the database (Syncing with the web panel's current "test/direct" update behavior).
 
 ---
 
-## 3. Auto-Renewal & Expiration Logic
-The subscription system includes automated logic that ensures sellers are always in sync with their plan's lifecycle.
+## 3. Lifecycle, Carry-Forward & Queueing Logic
 
-### Free Plan (3-Month Limit)
-- **Initial Registration**: When a seller registers, they are automatically placed on the **FREE** plan.
-- **Duration**: The free plan is valid for **3 months** total from the registration date.
-- **Auto-Renewal**: The system auto-renews the free plan monthly (1 month at a time) for up to 3 months.
-- **Automatic Block**: After 3 months, the `status` will change to `CANCELED`, and the seller will be blocked from listing new products or services.
+### Free Plan (Strictly 1-Time on Admin Approval)
+- **Assigned Once on Approval**: A 90-day (3-month) **FREE** introductory trial is automatically assigned **only once** when an Admin approves the seller account (`isApproved = true`).
+- **Cannot Extend or Repurchase**: Sellers cannot extend, queue, or switch back to the Free plan. Mobile UI must check `isPurchasable` / `canExtend` (`false` for Free plan) and hide any Extend/Queue action button on the Free card.
+- **Carry-Forward on Early Upgrade**: If a seller upgrades to a Paid plan before their 90-day Free trial ends, all remaining Free days are automatically added onto their new Paid pack!
 
-### Paid Plans
-- **Monthly Auto-Renew**: Paid plans auto-renew every month (1 month at a time).
-- **Graceful Checking**: The system checks for expiration every time a seller views their subscription or performs a dashboard action. If a month has passed, the `currentPeriodEnd` date will automatically update to the next month in the API response.
+### Paid Plans (Prepaid Packs & Queueing)
+- **Active Paid Pack Queueing**: Recharging while a Paid pack is already `ACTIVE` schedules the new purchase with `status: "QUEUED"` (returned in `queuedPacks`), starting automatically when the current pack expires.
+- **Expiration**: When a pack reaches `currentPeriodEnd` with no `QUEUED` pack waiting, status transitions to `EXPIRED` and the seller must recharge a Paid pack.
 
 ### Important Fields for Frontend
 - **`status`**: If this is `CANCELED`, the seller should be prompted to upgrade/subscribe.

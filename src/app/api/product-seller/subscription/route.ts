@@ -25,13 +25,25 @@ export async function GET() {
 
   if (!subscription) return NextResponse.json(null)
 
-  const usage = await prisma.couponUsage.findFirst({
-    where: { subscriptionId: subscription.id },
-    include: { coupon: true }
-  })
+  const [usage, activePurchase] = await Promise.all([
+    prisma.couponUsage.findFirst({
+      where: { subscriptionId: subscription.id },
+      include: { coupon: true },
+    }),
+    prisma.subscriptionPurchase.findFirst({
+      where: { sellerId: seller.id, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+    }),
+  ])
 
   let appliedCoupon: any = null
-  if (usage?.coupon) {
+  if (activePurchase?.couponCode) {
+    appliedCoupon = {
+      code: activePurchase.couponCode,
+      discountAmount: activePurchase.discountAmount || 0,
+      finalPaidAmount: activePurchase.paidPrice,
+    }
+  } else if (usage?.coupon) {
     const planPrice = subscription.plan?.price ?? 0
     let discountAmount = 0
     if (usage.coupon.discountType === "PERCENTAGE") {

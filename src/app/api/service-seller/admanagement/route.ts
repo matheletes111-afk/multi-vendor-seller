@@ -349,6 +349,14 @@ export async function POST(request: NextRequest) {
           payableAmount,
         },
       });
+      if (appliedCoupon) {
+        const { recordSellerCouponUsage } = await import("@/lib/coupons");
+        await recordSellerCouponUsage({
+          couponId: appliedCoupon.id,
+          userId: session.user.id,
+          sellerAdId: createdAd.id,
+        }).catch(() => {});
+      }
 
       return NextResponse.json({
         success: true,

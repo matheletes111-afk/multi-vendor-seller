@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
 
     if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 })
 
+    if (plan.price <= 0) {
+      return NextResponse.json(
+        { error: "Free introductory plan is granted once upon admin approval and cannot be extended or repurchased." },
+        { status: 400 }
+      )
+    }
+
     let appliedCoupon: any = null
     let discountAmount = 0
     if (couponCode && couponCode.trim()) {
@@ -60,45 +67,29 @@ export async function POST(request: NextRequest) {
 
     const finalPaidPrice = Math.max(0, plan.price - discountAmount)
     const now = new Date()
-    const durationDays = plan.duration || 30
-    const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
-    const snapshot = createPlanSnapshot(plan)
 
-    // Local / Test mode upsert subscription directly
-    const sub = await prisma.restaurantSubscription.upsert({
-      where: { restaurantSellerId: seller.id },
-      update: {
-        planId: plan.id,
-        paidPrice: finalPaidPrice,
-        paidAt: now,
-        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-      },
-      create: {
-        restaurantSellerId: seller.id,
-        planId: plan.id,
-        paidPrice: finalPaidPrice,
-        paidAt: now,
-        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-      },
+    const purchaseResult = await activateOrQueuePurchase({
+      sellerType: PlanType.RESTAURANT,
+      restaurantSellerId: seller.id,
+      planId: plan.id,
+      price: plan.price,
+      paidPrice: finalPaidPrice,
+      discountAmount,
+      couponCode: appliedCoupon?.code || null,
+      durationDays: plan.duration || 30,
+      paymentMethod: appliedCoupon && finalPaidPrice === 0 ? "COUPON_100_PERCENT" : "TEST_DIRECT",
+      paidAt: now,
     })
 
     if (appliedCoupon) {
       await recordSellerCouponUsage({
         couponId: appliedCoupon.id,
         userId: session.user.id,
-        subscriptionId: sub.id
+        subscriptionId: purchaseResult.purchase.id,
       })
     }
 
-    return NextResponse.json({ url: null })
+    return NextResponse.json({ url: null, status: purchaseResult.status })
   } catch (error) {
     console.error("Restaurant subscription checkout error:", error)
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 })

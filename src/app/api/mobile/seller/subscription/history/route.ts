@@ -8,14 +8,16 @@ import {
   createPlanSnapshot,
 } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
+    const mobileAuth = !session?.user?.id ? await getMobileUserAuth(request) : null
     const { searchParams } = new URL(request.url)
     const paramUserId = searchParams.get("userId")
 
-    const userId = session?.user?.id || paramUserId
+    const userId = session?.user?.id || mobileAuth?.user?.id || paramUserId
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized / Seller User ID required" }, { status: 401 })
@@ -163,7 +165,10 @@ export async function GET(request: NextRequest) {
         periodStart: q.periodStart,
         periodEnd: q.periodEnd,
         durationDays: q.durationDays,
+        price: q.price,
         paidPrice: q.paidPrice,
+        couponCode: q.couponCode || null,
+        couponDiscount: q.discountAmount || 0,
         paymentMethod: q.paymentMethod,
         afriTxnId: q.afriTxnId,
       })),

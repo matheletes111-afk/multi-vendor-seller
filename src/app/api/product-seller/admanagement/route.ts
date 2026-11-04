@@ -287,23 +287,16 @@ export async function POST(request: NextRequest) {
 
     const requestedMethod = String(body.paymentMethod || "AFRIMONEY").toUpperCase()
 
-    // 1. Process coupon if provided
-    let payableAmount = totalBudget
+    // 1. Compute discount from pre-validated coupon
     let couponDiscount = 0
-    let appliedCoupon: any = null
-
-    if (body.couponCode && String(body.couponCode).trim()) {
-      const couponVal = await validateSellerCoupon({
-        code: String(body.couponCode).trim(),
-        amount: totalBudget,
-        userId: session.user.id,
-      })
-      if (couponVal.valid) {
-        couponDiscount = couponVal.discountAmount || 0
-        payableAmount = couponVal.finalAmount != null ? couponVal.finalAmount : Math.max(0, totalBudget - couponDiscount)
-        appliedCoupon = couponVal.coupon
+    if (appliedCoupon) {
+      if (appliedCoupon.discountType === "PERCENTAGE") {
+        couponDiscount = (totalBudget * appliedCoupon.discountValue) / 100
+      } else {
+        couponDiscount = Math.min(appliedCoupon.discountValue, totalBudget)
       }
     }
+    const payableAmount = Math.max(0, totalBudget - couponDiscount)
 
     // 2. 100% coupon discount / Zero payable amount
     if (payableAmount <= 0) {
@@ -364,6 +357,13 @@ export async function POST(request: NextRequest) {
           payableAmount,
         },
       })
+      if (appliedCoupon) {
+        await recordSellerCouponUsage({
+          couponId: appliedCoupon.id,
+          userId: session.user.id,
+          sellerAdId: createdAd.id,
+        }).catch(() => {})
+      }
 
       return NextResponse.json({
         success: true,

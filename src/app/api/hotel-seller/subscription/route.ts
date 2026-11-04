@@ -23,12 +23,24 @@ export async function GET() {
     }
 
     let appliedCoupon: any = null
-    if (subscription) {
-      const usage = await prisma.couponUsage.findFirst({
-        where: { subscriptionId: subscription.id },
-        include: { coupon: true }
-      })
-      if (usage?.coupon) {
+    if (subscription && seller) {
+      const [usage, activePurchase] = await Promise.all([
+        prisma.couponUsage.findFirst({
+          where: { subscriptionId: subscription.id },
+          include: { coupon: true },
+        }),
+        prisma.subscriptionPurchase.findFirst({
+          where: { hotelSellerId: seller.id, status: "ACTIVE" },
+          orderBy: { createdAt: "desc" },
+        }),
+      ])
+      if (activePurchase?.couponCode) {
+        appliedCoupon = {
+          code: activePurchase.couponCode,
+          discountAmount: activePurchase.discountAmount || 0,
+          finalPaidAmount: activePurchase.paidPrice,
+        }
+      } else if (usage?.coupon) {
         let discountAmount = 0
         if (usage.coupon.discountType === "PERCENTAGE") {
           discountAmount = (subscription.plan.price * usage.coupon.discountValue) / 100

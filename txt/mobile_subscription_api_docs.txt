@@ -1,182 +1,447 @@
 ================================================================================
-MOBILE SUBSCRIPTION APIS DOCUMENTATION FOR MOBILE DEVELOPERS
+MOBILE SUBSCRIPTION, COUPONS & SELLER ADS API DOCUMENTATION FOR MOBILE DEVELOPERS
+Last Updated: 2026-11-04
 ================================================================================
 
-This document details the request payloads, response payloads, headers, and endpoints
-for retrieving and switching subscription plans for all 4 types of sellers:
-1. Product Sellers (SELLER_PRODUCT)
-2. Service Sellers (SELLER_SERVICE)
-3. Hotel Sellers (SELLER_HOTEL)
-4. Restaurant Sellers (SELLER_RESTAURANT)
+This document covers ALL backend updates and exact Mobile App changes required for:
+  1. Product Sellers    (SELLER_PRODUCT)
+  2. Service Sellers    (SELLER_SERVICE)
+  3. Hotel Sellers      (SELLER_HOTEL)
+  4. Restaurant Sellers (SELLER_RESTAURANT)
 
---------------------------------------------------------------------------------
+================================================================================
+0. MOBILE DEVELOPER ACTION CHECKLIST (WHAT MOBILE DEV MUST CHANGE IN UI / APP)
+================================================================================
+
+[ ] 1. REMOVE "EXTEND / QUEUE / SELECT" BUTTON FROM FREE PLAN CARD ONLY:
+       - The Free Plan (`price == 0`) is strictly a **1-time 90-day trial** assigned
+         automatically ONLY ONCE when Admin approves the seller (`isApproved = true`).
+       - Sellers CANNOT extend, queue, switch back to, or purchase the Free Plan.
+       - Every plan object in `availablePlans` / `plans` now includes:
+           "isFreeTrial": true | false,
+           "isPurchasable": false | true,
+           "canExtend": false | true
+         And `currentSubscription` also includes `"canExtend": false | true`.
+       - UI RULE:
+         * When `plan.price <= 0` (or `plan.isPurchasable === false` / `plan.canExtend === false`):
+           DO NOT render any "Extend / Queue Pack", "Switch / Recharge", or "Buy" button!
+           Show a static, non-clickable badge instead:
+             - If current active plan: "Active Free Trial (1-Time Only)"
+             - Otherwise:              "1-Time Trial (On Approval Only)"
+         * When `plan.price > 0` (`plan.isPurchasable === true`):
+           Render the normal button:
+             - If current active plan: "Extend / Queue Pack"
+             - Otherwise:              "Switch / Recharge" (or "Recharge Now")
+         * On Dashboard Expiring-Soon Banner (<= 7 days left):
+           If `currentSubscription.plan.price === 0`, show button label "Upgrade to Paid Pack"
+           instead of "Extend / Queue Pack".
+
+[ ] 2. ADD SELLER COUPON INPUT ON PAID SUBSCRIPTION PACKS (`price > 0`):
+       - Only show Coupon Input on PAID plans (`plan.price > 0`).
+       - Optional available coupons list: `GET /api/customer/coupons?type=SELLER`
+       - Validate coupon before payment:  `POST /api/mobile/seller/coupons/validate`
+         (or `POST /api/seller/coupons/validate`) with `{ "code": "SAVE50", "amount": plan.price }`.
+       - Show original price crossed out + discounted `finalAmount` + savings badge.
+       - If `finalAmount === 0` (100% discount coupon):
+         * Hide the Africell phone number input!
+         * Change button text to `"Activate Now (Free with Coupon)"`.
+         * Call `POST /api/seller/subscription/pay-afrimoney` with `{ "planId": plan.id, "couponCode": code }`
+           (no `phone` required when 100% coupon makes payableAmount = 0).
+
+[ ] 3. USE AFRIMONEY PUSH USSD FLOW FOR PAID SUBSCRIPTION RECHARGES:
+       - Initiate payment: `POST /api/seller/subscription/pay-afrimoney`
+         Body: `{ "planId": "...", "phone": "033600171", "couponCode": "OPTIONAL" }`
+       - Poll status every 3s (up to 90s):
+         `GET /api/seller/subscription/verify-payment?purchaseId=<purchaseId>`
+         Stop polling when `isReady === true` (`status` is `"ACTIVE"` or `"QUEUED"`) or `isFailed === true`.
+       - Show Carry-Forward / Queue Notice in Payment Sheet:
+         * If seller is currently on an ACTIVE Free Plan (`currentSubscription.plan.price === 0`),
+           inform seller: remaining free days will be added onto the new paid pack!
+         * If seller is currently on an ACTIVE Paid Plan (`currentSubscription.plan.price > 0`),
+           inform seller: new pack will be `QUEUED` and start automatically after `currentPeriodEnd`.
+
+[ ] 4. SHOW QUEUED PACKS & SUBSCRIPTION PAYMENT HISTORY (WITH COUPON DISCOUNT):
+       - Display `queuedPacks` returned by `GET /mobileapi/<role>/subscription` or
+         `GET /api/mobile/seller/subscription/history`.
+       - Display applied coupon badge on Current Plan card if `currentSubscription.appliedCoupon` is non-null.
+       - Add a "History" tab calling `GET /api/mobile/seller/subscription/history` and show:
+         Plan Name, Status (`ACTIVE`, `QUEUED`, `EXPIRED`, `PENDING_PAYMENT`, `FAILED`),
+         Catalog `price`, `couponCode` & `couponDiscount` (`-NLe X.XX`), `finalPaidAmount`,
+         `paymentMethod` (`AFRIMONEY`, `COUPON_100_PERCENT`, `FREE_TRIAL`, `ADMIN_GRANT`),
+         and Validity (`periodStart` -> `periodEnd`).
+
+[ ] 5. ADD SELLER COUPON SUPPORT & DISPLAY IN SELLER ADS SECTION:
+       - On Ad Create (`POST /mobileapi/product-seller/ads`, `/mobileapi/service-seller/ads`,
+         `/mobileapi/hotel-seller/admanagement`, `/mobileapi/restaurant-seller/admanagement`,
+         or `POST /api/mobile/seller/admanagement/create`), pass optional `couponCode`.
+       - If 100% coupon (`payableAmount === 0`), ad `paymentStatus` becomes `"COMPLETED"` immediately
+         with `paymentMethod: "COUPON_100_PERCENT"` — skip AfriMoney payment prompt!
+       - If partial coupon (`payableAmount > 0`), charge `payableAmount` via
+         `POST /mobileapi/seller/ads/<adId>/pay-afrimoney`.
+       - On Ad List (`GET` on the 4 mobile ad endpoints above), each ad now returns
+         `payableAmount`, `couponCode`, and `couponDiscount` — display coupon badge & discount
+         under Budget/Spend in the Seller Ads list!
+
+================================================================================
 1. AUTHENTICATION HEADERS
---------------------------------------------------------------------------------
-All mobile subscription APIs require a Bearer token in the Authorization header.
+================================================================================
 
-Header Format:
-Authorization: Bearer <MOBILE_JWT_TOKEN>
+All Mobile APIs below accept the standard Mobile JWT Bearer token:
 
-Note: 
-- Product and Service sellers use their respective token.
-- Hotel and Restaurant sellers must use their respective token.
-- Role mismatch will result in a 403 Forbidden error.
+  Authorization: Bearer <MOBILE_JWT_TOKEN>
+  Content-Type: application/json
 
---------------------------------------------------------------------------------
-2. ENDPOINTS SUMMARY
---------------------------------------------------------------------------------
+- Role-specific endpoints (`/mobileapi/<role>/...`) enforce the matching seller role
+  (`SELLER_PRODUCT`, `SELLER_SERVICE`, `SELLER_HOTEL`, `SELLER_RESTAURANT`).
+- Universal seller endpoints (`/api/seller/...` and `/api/mobile/seller/...`) accept
+  `Authorization: Bearer <MOBILE_JWT_TOKEN>` for ANY of the 4 seller roles and
+  automatically resolve the seller profile from the token!
 
-A. GET CURRENT SUBSCRIPTION & AVAILABLE PLANS
-   Retrieve the current active plan, duration, and list of all available plans.
+================================================================================
+2. GET CURRENT SUBSCRIPTION, QUEUED PACKS & AVAILABLE PLANS
+================================================================================
 
-   - PRODUCT & SERVICE SELLER:
-     GET /mobileapi/product-seller/subscription
+Endpoints:
+  - Product Seller:    GET /mobileapi/product-seller/subscription
+  - Service Seller:    GET /mobileapi/service-seller/subscription
+  - Hotel Seller:      GET /mobileapi/hotel-seller/subscription
+  - Restaurant Seller: GET /mobileapi/restaurant-seller/subscription
 
-   - HOTEL SELLER:
-     GET /mobileapi/hotel-seller/subscription
+  (Also available universally:
+   - GET /api/mobile/seller/subscription
+   - GET /api/mobile/seller/subscription/plans?type=PRODUCT_SERVICE|HOTEL|RESTAURANT)
 
-   - RESTAURANT SELLER:
-     GET /mobileapi/restaurant-seller/subscription
-
-B. UPDATE / SWITCH SUBSCRIPTION PLAN
-   Switch or upgrade the plan using the plan's name.
-
-   - PRODUCT & SERVICE SELLER:
-     POST /mobileapi/product-seller/subscription
-
-   - HOTEL SELLER:
-     POST /mobileapi/hotel-seller/subscription
-
-   - RESTAURANT SELLER:
-     POST /mobileapi/restaurant-seller/subscription
-
---------------------------------------------------------------------------------
-3. GET CURRENT SUBSCRIPTION & AVAILABLE PLANS (GET)
---------------------------------------------------------------------------------
-
-RESPONSE PAYLOAD (JSON) - Status: 200 OK
+Response (200 OK):
 {
   "currentSubscription": {
-    "id": "subscription_id_123",
-    "hotelSellerId": "hotel_seller_id_xyz", // or restaurantSellerId / sellerId
-    "planId": "plan_id_abc",
-    "status": "ACTIVE", // ACTIVE, CANCELED, PAST_DUE, TRIALING
-    "currentPeriodStart": "2026-05-26T13:00:00.000Z",
-    "currentPeriodEnd": "2026-06-26T13:00:00.000Z",
-    "createdAt": "2026-05-26T13:00:00.000Z",
-    "updatedAt": "2026-05-26T13:00:00.000Z",
+    "id": "sub_123",
+    "sellerId": "seller_xyz", // or hotelSellerId / restaurantSellerId
+    "planId": "plan_free_1",
+    "status": "ACTIVE",       // ACTIVE | EXPIRED | CANCELED | IN_GRACE_PERIOD | TRIALING
+    "currentPeriodStart": "2026-11-04T12:00:00.000Z",
+    "currentPeriodEnd": "2027-02-02T12:00:00.000Z",
+    "canExtend": false,       // FALSE for Free plan (price <= 0), TRUE for Paid plans (price > 0)
+    "appliedCoupon": {        // Present if active pack used a seller coupon, otherwise null
+      "code": "SAVE50",
+      "discountAmount": 250,
+      "finalPaidAmount": 249
+    },
     "plan": {
-      "id": "plan_id_abc",
-      "name": "FREE", // FREE, STANDARD, PREMIUM
-      "type": "HOTEL", // PRODUCT_SERVICE, HOTEL, RESTAURANT
-      "displayName": "Free Hotel Plan",
-      "description": "Start with 0 cost",
+      "id": "plan_free_1",
+      "name": "FREE",
+      "type": "PRODUCT_SERVICE", // PRODUCT_SERVICE | HOTEL | RESTAURANT
+      "displayName": "Free",
+      "description": "Perfect for getting started",
       "price": 0,
-      "duration": 30, // duration in days (e.g. 30, 90, 180, 365)
-      "maxProducts": null,
-      "maxOrders": null,
-      "features": ["Feature 1", "Feature 2"],
-      "createdAt": "2026-05-26T12:00:00.000Z",
-      "updatedAt": "2026-05-26T12:00:00.000Z"
+      "duration": 90,
+      "maxProducts": 10000,
+      "maxOrders": 500,
+      "maxRooms": null,
+      "features": {}
     }
-  } | null, // null if no subscription exists yet
+  },
+  "queuedPacks": [
+    {
+      "id": "purchase_q1",
+      "planId": "plan_std_1",
+      "planName": "Standard Plan",
+      "status": "QUEUED",
+      "periodStart": "2027-02-02T12:00:00.000Z",
+      "periodEnd": "2027-03-04T12:00:00.000Z",
+      "durationDays": 30,
+      "price": 499,
+      "paidPrice": 399,
+      "couponCode": "SAVE100",
+      "discountAmount": 100,
+      "paymentMethod": "AFRIMONEY"
+    }
+  ],
   "availablePlans": [
     {
-      "id": "plan_id_abc",
+      "id": "plan_free_1",
       "name": "FREE",
-      "type": "HOTEL",
-      "displayName": "Free Hotel Plan",
-      "description": "Start with 0 cost",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Free",
       "price": 0,
-      "duration": 30, // duration in days
-      "maxProducts": null,
-      "maxOrders": null,
-      "features": ["Feature 1"],
-      "createdAt": "2026-05-26T12:00:00.000Z",
-      "updatedAt": "2026-05-26T12:00:00.000Z"
+      "duration": 90,
+      "isFreeTrial": true,
+      "isPurchasable": false, // <-- DO NOT SHOW EXTEND / QUEUE / BUY BUTTON!
+      "canExtend": false,     // <-- DO NOT SHOW EXTEND / QUEUE / BUY BUTTON!
+      "maxProducts": 10000,
+      "maxOrders": 500
     },
     {
-      "id": "plan_id_def",
+      "id": "plan_std_1",
       "name": "STANDARD",
-      "type": "HOTEL",
-      "displayName": "Standard Hotel Plan",
-      "description": "Pro features",
+      "type": "PRODUCT_SERVICE",
+      "displayName": "Standard",
       "price": 499,
       "duration": 30,
-      "maxProducts": null,
-      "maxOrders": null,
-      "features": ["Feature 1", "Feature 2"],
-      "createdAt": "2026-05-26T12:00:00.000Z",
-      "updatedAt": "2026-05-26T12:00:00.000Z"
+      "isFreeTrial": false,
+      "isPurchasable": true,  // <-- SHOW RECHARGE / EXTEND / QUEUE BUTTON
+      "canExtend": true,
+      "maxProducts": 50,
+      "maxOrders": null
     }
   ]
 }
 
---------------------------------------------------------------------------------
-4. UPDATE / SWITCH SUBSCRIPTION PLAN (POST)
---------------------------------------------------------------------------------
+================================================================================
+3. SELLER COUPON LISTING & VALIDATION APIS
+================================================================================
 
-REQUEST PAYLOAD (JSON)
+A. List Active Seller Coupons (Optional UI Helper)
+   Endpoint: GET /api/customer/coupons?type=SELLER
+   Auth:     Public (no token required, or Bearer token)
+   Response (200 OK):
+   [
+     {
+       "id": "coupon_1",
+       "code": "SELLER50",
+       "discountType": "PERCENTAGE", // "PERCENTAGE" | "FIXED"
+       "discountValue": 50,
+       "type": "SELLER",
+       "minOrderValue": 100,
+       "endDate": "2026-12-31T23:59:59.000Z",
+       "categoryId": null
+     }
+   ]
+
+B. Validate Seller Coupon Before Subscription or Ad Payment
+   Endpoint: POST /api/mobile/seller/coupons/validate
+             (or POST /api/seller/coupons/validate)
+   Auth:     Authorization: Bearer <MOBILE_JWT_TOKEN>
+   Request Body:
+   {
+     "code": "SELLER50",
+     "amount": 499
+   }
+
+   Success Response (200 OK):
+   {
+     "valid": true,
+     "coupon": {
+       "id": "coupon_1",
+       "code": "SELLER50",
+       "discountType": "PERCENTAGE",
+       "discountValue": 50
+     },
+     "discountAmount": 249.5,
+     "finalAmount": 249.5
+   }
+
+   Invalid / Limit Reached Response (400 Bad Request):
+   {
+     "valid": false,
+     "error": "Minimum amount of NLe 100.00 required for this coupon"
+   }
+
+================================================================================
+4. PAID SUBSCRIPTION PAYMENT — AFRIMONEY PUSH USSD + 100% COUPON (RECOMMENDED)
+================================================================================
+
+A. Initiate AfriMoney Subscription Payment (Universal for All 4 Seller Types)
+   Endpoint: POST /api/seller/subscription/pay-afrimoney
+   Auth:     Authorization: Bearer <MOBILE_JWT_TOKEN>
+   Request Body:
+   {
+     "planId": "plan_std_1",        // MUST be a paid plan (price > 0). Free plan returns 400!
+     "phone": "033600171",          // Required when payableAmount > 0; omit/empty allowed for 100% coupon
+     "couponCode": "SELLER50"       // Optional seller coupon code
+   }
+
+   Case 1 — Normal / Partial-Coupon Payment (`payableAmount > 0`):
+   Response (200 OK):
+   {
+     "success": true,
+     "purchaseId": "cm_purchase_123",
+     "ftxnId": "SUB_PROD_cm_purchase_123",
+     "txnId": "afri_txn_999",
+     "payableAmount": 249.5,
+     "planName": "Standard",
+     "message": "Payment prompt sent to your phone! Please enter your AfriMoney PIN to confirm."
+   }
+
+   Case 2 — 100% Discount Coupon (`payableAmount === 0`):
+   (Activates or queues immediately — NO USSD prompt, NO polling needed!)
+   Response (200 OK):
+   {
+     "success": true,
+     "purchaseId": "cm_purchase_124",
+     "status": "ACTIVE",            // "ACTIVE" or "QUEUED"
+     "payableAmount": 0,
+     "planName": "Standard",
+     "message": "100% coupon applied! Your plan is activated successfully."
+   }
+
+   Case 3 — Attempting to Recharge/Extend Free Plan (`plan.price <= 0`):
+   Response (400 Bad Request):
+   {
+     "success": false,
+     "payableAmount": 0,
+     "error": "The free trial plan cannot be repurchased.",
+     "message": "The free introductory trial plan cannot be repurchased. Please select a paid package."
+   }
+
+B. Verify / Poll AfriMoney Subscription Payment Status
+   Endpoint: GET /api/seller/subscription/verify-payment?purchaseId=<purchaseId>
+   Auth:     Authorization: Bearer <MOBILE_JWT_TOKEN>
+   Poll every 3 seconds (up to 90 seconds) + wire to a manual "Verify Now" button.
+
+   Response (200 OK):
+   {
+     "success": true,
+     "purchaseId": "cm_purchase_123",
+     "status": "ACTIVE",            // "PENDING_PAYMENT" | "ACTIVE" | "QUEUED" | "FAILED"
+     "isReady": true,               // TRUE when status is "ACTIVE" or "QUEUED" -> payment succeeded!
+     "isFailed": false,             // TRUE when status is "FAILED" -> stop polling & show error
+     "message": "Payment confirmed and subscription activated!"
+   }
+
+C. Direct Mobile Plan Switch / Checkout Endpoints (Test / Direct Mode & 100% Coupon)
+   Endpoints:
+     - POST /mobileapi/product-seller/subscription
+     - POST /mobileapi/service-seller/subscription
+     - POST /mobileapi/hotel-seller/subscription
+     - POST /mobileapi/restaurant-seller/subscription
+     - POST /api/mobile/seller/subscription/checkout
+
+   Request Body:
+   {
+     "planId": "plan_std_1",        // Paid plan ID (price > 0). Free plan is rejected with 400!
+     "planName": "STANDARD",        // Optional fallback ("STANDARD" | "PREMIUM" — "FREE" returns 400!)
+     "couponCode": "SELLER50"       // Optional seller coupon code
+   }
+
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Subscription updated successfully", // or "Subscription queued successfully"
+     "status": "ACTIVE",            // "ACTIVE" or "QUEUED"
+     "subscription": { ... },       // SubscriptionPurchase ledger record with couponCode & discountAmount
+     "url": null
+   }
+
+================================================================================
+5. SUBSCRIPTION RECHARGE & PAYMENT HISTORY API (WITH COUPON DETAILS)
+================================================================================
+
+Endpoint: GET /api/mobile/seller/subscription/history
+          (or GET /api/seller/subscription/history)
+Auth:     Authorization: Bearer <MOBILE_JWT_TOKEN>
+
+Response (200 OK):
 {
-  "planId": "plan_id_def", // Preferred: Unique ID of the plan
-  "planName": "STANDARD" // Fallback: Enum values: "FREE", "STANDARD", "PREMIUM"
-}
-
-Note: Either planId or planName is required.
-
-RESPONSE PAYLOAD (JSON) - Status: 200 OK
-{
-  "success": true,
-  "message": "Subscription updated successfully",
-  "subscription": {
-    "id": "subscription_id_123",
-    "hotelSellerId": "hotel_seller_id_xyz", // or restaurantSellerId / sellerId
-    "planId": "plan_id_def",
-    "status": "ACTIVE",
-    "currentPeriodStart": "2026-05-26T13:00:00.000Z",
-    "currentPeriodEnd": "2026-06-26T13:00:00.000Z",
-    "createdAt": "2026-05-26T13:00:00.000Z",
-    "updatedAt": "2026-05-26T13:10:00.000Z",
-    "plan": {
-      "id": "plan_id_def",
-      "name": "STANDARD",
-      "type": "HOTEL",
-      "displayName": "Standard Hotel Plan",
-      "description": "Pro features",
-      "price": 499,
-      "duration": 30, // duration in days
-      "maxProducts": null,
-      "maxOrders": null,
-      "features": ["Feature 1", "Feature 2"],
-      "createdAt": "2026-05-26T12:00:00.000Z",
-      "updatedAt": "2026-05-26T12:00:00.000Z"
+  "history": [
+    {
+      "id": "cm_purchase_123",
+      "planName": "Standard",
+      "planType": "STANDARD",
+      "price": 499,                 // Original catalog price
+      "paidPrice": 249.5,           // Actual amount paid after discount
+      "couponCode": "SELLER50",     // Applied coupon code (or null)
+      "couponDiscount": 249.5,      // Discount amount saved (0 if none)
+      "finalPaidAmount": 249.5,
+      "status": "ACTIVE",           // ACTIVE | QUEUED | EXPIRED | PENDING_PAYMENT | FAILED | CANCELLED
+      "paymentMethod": "AFRIMONEY", // AFRIMONEY | COUPON_100_PERCENT | FREE_TRIAL | ADMIN_GRANT | FLOAT
+      "afriTxnId": "afri_txn_999",
+      "afriMsisdn": "033600171",
+      "paidAt": "2026-11-04T13:00:00.000Z",
+      "periodStart": "2026-11-04T13:00:00.000Z",
+      "periodEnd": "2026-12-04T13:00:00.000Z",
+      "createdAt": "2026-11-04T12:59:00.000Z",
+      "isCurrent": true
     }
-  },
-  "url": null // null indicates direct update (no payment gateway redirect needed in test/free flow)
+  ],
+  "queuedPacks": [
+    {
+      "id": "cm_purchase_125",
+      "planName": "Premium",
+      "status": "QUEUED",
+      "periodStart": "2026-12-04T13:00:00.000Z",
+      "periodEnd": "2027-01-03T13:00:00.000Z",
+      "durationDays": 30,
+      "price": 999,
+      "paidPrice": 799,
+      "couponCode": "VIP200",
+      "couponDiscount": 200,
+      "paymentMethod": "AFRIMONEY",
+      "afriTxnId": "afri_txn_1005"
+    }
+  ],
+  "currentSubscription": { ... }
 }
 
---------------------------------------------------------------------------------
-5. COMMON ERROR RESPONSES
---------------------------------------------------------------------------------
+================================================================================
+6. SELLER ADS — MOBILE COUPON USAGE, AFRIMONEY & AD LIST DISPLAY
+================================================================================
 
-A. Unauthorized / Missing token (401 Unauthorized)
-{
-  "success": false,
-  "error": "Missing or invalid authorization header" // or "Unauthorized or expired token"
-}
+A. Create Seller Ad (Supports `couponCode` in JSON or `multipart/form-data`)
+   Endpoints:
+     - Product Seller:    POST /mobileapi/product-seller/ads
+     - Service Seller:    POST /mobileapi/service-seller/ads
+     - Hotel Seller:      POST /mobileapi/hotel-seller/admanagement
+     - Restaurant Seller: POST /mobileapi/restaurant-seller/admanagement
+     - Universal JSON:    POST /api/mobile/seller/admanagement/create
 
-B. Forbidden / Role mismatch (403 Forbidden)
-{
-  "success": false,
-  "error": "Forbidden: Insufficient permissions"
-}
+   Additional Field in Request Body / FormData:
+     - `couponCode`: string (optional, e.g. `"SELLER50"`)
 
-C. Missing fields (400 Bad Request)
-{
-  "error": "planId or planName is required"
-}
+   Create Response Behavior:
+     - Validates `couponCode` against `totalBudget`. Invalid coupon returns `400 Bad Request`.
+     - Computes `couponDiscount` and `payableAmount = max(0, totalBudget - couponDiscount)`.
+     - If `payableAmount === 0` (100% coupon):
+         `paymentStatus` is automatically `"COMPLETED"`, `paymentMethod` is `"COUPON_100_PERCENT"`.
+         Mobile app MUST NOT prompt for AfriMoney payment — ad goes straight to admin review!
+     - If `payableAmount > 0`:
+         `paymentStatus` is `"PENDING"`. Initiate AfriMoney Push USSD for `payableAmount` via:
+         `POST /mobileapi/seller/ads/<adId>/pay-afrimoney` with `{ "phone": "033600171" }`
+         and poll `GET /mobileapi/seller/ads/<adId>/pay-afrimoney`.
 
-D. Plan not found (404 Not Found)
-{
-  "error": "Plan not found"
-}
+B. List Seller Ads (Returns Coupon Discount Info for UI Display)
+   Endpoints:
+     - Product Seller:    GET /mobileapi/product-seller/ads
+     - Service Seller:    GET /mobileapi/service-seller/ads
+     - Hotel Seller:      GET /mobileapi/hotel-seller/admanagement
+     - Restaurant Seller: GET /mobileapi/restaurant-seller/admanagement
+
+   Each ad item in `data.ads[]` now includes:
+   {
+     "id": "ad_123",
+     "title": "Holiday Promo",
+     "totalBudget": 500,
+     "payableAmount": 400,          // Discounted amount paid/payable
+     "spentAmount": 120,
+     "couponCode": "AD100",         // Applied coupon code or null
+     "couponDiscount": 100,         // Discount amount saved (0 if none)
+     "paymentStatus": "COMPLETED",  // PENDING | COMPLETED | FAILED
+     "paymentMethod": "AFRIMONEY"   // AFRIMONEY | COUPON_100_PERCENT | FLOAT
+   }
+
+   Mobile UI Rule:
+   If `ad.couponCode` is non-null, render badge under Budget/Spend:
+     `Coupon: {ad.couponCode} (-NLe {ad.couponDiscount})`
+
+================================================================================
+7. BUSINESS RULES SUMMARY (WEB & MOBILE PARITY)
+================================================================================
+
+1. FREE PLAN = STRICTLY 1-TIME ON ADMIN APPROVAL:
+   - Assigned once (90 days) when Admin approves the seller (`isApproved = true`).
+   - Cannot be extended, queued, or repurchased from Web or Mobile (`400 Bad Request`).
+   - Mobile UI must hide the Extend/Queue/Purchase button whenever `plan.price <= 0`
+     (`plan.isPurchasable === false` / `plan.canExtend === false`).
+
+2. EARLY UPGRADE CARRY-FORWARD:
+   - Upgrading from an active Free Trial to a Paid Pack carries forward all remaining
+     free days (`newPeriodEnd = now + remainingFreeDays + paidPlanDurationDays`).
+
+3. ACTIVE PAID PACK QUEUEING:
+   - Recharging while a Paid Pack is already active saves the new purchase as `QUEUED`
+     and activates it automatically as soon as the current pack expires.
+
+4. STORE VISIBILITY WHEN EXPIRED:
+   - Expired sellers' products/services/hotels/foods are hidden from customer marketplace
+     discovery, while sellers retain full dashboard access to fulfill in-flight orders
+     and recharge a Paid Pack.
+================================================================================

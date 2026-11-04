@@ -300,11 +300,41 @@ export async function GET(request: NextRequest) {
 
     const usageMap = Object.fromEntries(usages.filter(u => u.subscriptionId).map((u) => [u.subscriptionId!, u]))
 
-    const enrichedSubscriptions = subscriptions.map((s) => {
+    const sellerIds = subscriptions.map((s: any) => s.sellerId || s.hotelSellerId || s.restaurantSellerId).filter(Boolean)
+    const purchases = sellerIds.length > 0
+      ? await prisma.subscriptionPurchase.findMany({
+          where: {
+            OR: [
+              { sellerId: { in: sellerIds } },
+              { hotelSellerId: { in: sellerIds } },
+              { restaurantSellerId: { in: sellerIds } },
+            ],
+            status: { in: ["ACTIVE", "EXPIRED", "CANCELLED"] },
+          },
+          orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        })
+      : []
+    const purchaseMap = new Map<string, any>()
+    for (const p of purchases) {
+      const sid = p.sellerId || p.hotelSellerId || p.restaurantSellerId
+      if (!sid) continue
+      const existing = purchaseMap.get(sid)
+      if (!existing || (existing.status !== "ACTIVE" && p.status === "ACTIVE")) {
+        purchaseMap.set(sid, p)
+      }
+    }
+
+    const enrichedSubscriptions = subscriptions.map((s: any) => {
       const usage = usageMap[s.id]
+      const sellerId = s.sellerId || s.hotelSellerId || s.restaurantSellerId
+      const matchedPurchase = sellerId ? purchaseMap.get(sellerId) : null
       const planSnapshot = (s.planSnapshot as any) || s.plan
       const catalogPrice = planSnapshot?.price ?? (s.plan?.price || 0)
       let couponDiscount = 0
+      const couponCode = usage?.coupon?.code || matchedPurchase?.couponCode || null
+      if (matchedPurchase && matchedPurchase.discountAmount > 0) {
+        couponDiscount = matchedPurchase.discountAmount
+      } else
       if (usage?.coupon) {
         if (usage.coupon.discountType === "PERCENTAGE") {
           couponDiscount = (catalogPrice * usage.coupon.discountValue) / 100
@@ -314,13 +344,13 @@ export async function GET(request: NextRequest) {
       }
       const finalPaidAmount = s.paidPrice !== null && s.paidPrice !== undefined
         ? s.paidPrice
-        : Math.max(0, catalogPrice - couponDiscount)
+        : (matchedPurchase?.paidPrice !== null && matchedPurchase?.paidPrice !== undefined ? matchedPurchase.paidPrice : Math.max(0, catalogPrice - couponDiscount))
 
       return {
         ...s,
         catalogPrice,
         paidPrice: s.paidPrice !== null && s.paidPrice !== undefined ? s.paidPrice : catalogPrice,
-        couponCode: usage?.coupon?.code || null,
+        couponCode,
         couponDiscount,
         finalPaidAmount,
       }

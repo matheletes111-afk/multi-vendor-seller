@@ -197,7 +197,7 @@ export function SubscriptionPaymentDialog({
       // If instant coupon activation (0 price)
       if (data.payableAmount === 0 || !data.ftxnId) {
         setState("success")
-        setActivatedStatus("ACTIVE")
+        setActivatedStatus(data.status === "QUEUED" ? "QUEUED" : "ACTIVE")
         if (onSuccess) onSuccess()
         return
       }
@@ -290,23 +290,25 @@ export function SubscriptionPaymentDialog({
         {/* State 1: IDLE / INITIATING */}
         {(state === "idle" || state === "initiating") && (
           <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Smartphone className="w-4 h-4 text-slate-500" />
-                Africell Mobile Number (AfriMoney)
-              </label>
-              <Input
-                type="tel"
-                placeholder="e.g. 033600171 or 077..."
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={state === "initiating"}
-                className="h-11 rounded-xl"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                AfriMoney Push USSD will prompt you on this phone to enter your PIN.
-              </p>
-            </div>
+            {payablePrice > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-slate-500" />
+                  Africell Mobile Number (AfriMoney)
+                </label>
+                <Input
+                  type="tel"
+                  placeholder="e.g. 033600171 or 077..."
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={state === "initiating"}
+                  className="h-11 rounded-xl"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  AfriMoney Push USSD will prompt you on this phone to enter your PIN.
+                </p>
+              </div>
+            )}
 
             {error && (
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">

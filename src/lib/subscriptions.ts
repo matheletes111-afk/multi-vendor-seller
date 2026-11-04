@@ -529,16 +529,23 @@ export interface ActivateOrQueuePurchaseInput {
  */
 export async function assignFreePlanOnApproval(sellerType: PlanType, sellerId: string) {
   try {
-    const existing = await prisma.subscriptionPurchase.findFirst({
-      where: {
-        sellerType,
-        ...(sellerType === PlanType.PRODUCT_SERVICE ? { sellerId } : {}),
-        ...(sellerType === PlanType.HOTEL ? { hotelSellerId: sellerId } : {}),
-        ...(sellerType === PlanType.RESTAURANT ? { restaurantSellerId: sellerId } : {}),
-      },
-    })
+    const [existing, existingCache] = await Promise.all([
+      prisma.subscriptionPurchase.findFirst({
+        where: {
+          sellerType,
+          ...(sellerType === PlanType.PRODUCT_SERVICE ? { sellerId } : {}),
+          ...(sellerType === PlanType.HOTEL ? { hotelSellerId: sellerId } : {}),
+          ...(sellerType === PlanType.RESTAURANT ? { restaurantSellerId: sellerId } : {}),
+        },
+      }),
+      sellerType === PlanType.PRODUCT_SERVICE
+        ? prisma.subscription.findUnique({ where: { sellerId } })
+        : sellerType === PlanType.HOTEL
+        ? prisma.hotelSubscription.findUnique({ where: { hotelSellerId: sellerId } })
+        : prisma.restaurantSubscription.findUnique({ where: { restaurantSellerId: sellerId } }),
+    ])
 
-    if (existing) {
+    if (existing || existingCache) {
       return null
     }
 
@@ -811,6 +818,14 @@ export async function activateOrQueuePurchase(input: ActivateOrQueuePurchaseInpu
   // 1. Fetch Plan details for snapshot
   const plan = await prisma.plan.findUnique({ where: { id: planId } })
   if (!plan) throw new Error(`Plan not found: ${planId}`)
+  if (
+    plan.price <= 0 &&
+    !["FREE_TRIAL", "GO_LIVE_FREE_PERIOD", "ADMIN_GRANT"].includes(paymentMethod)
+  ) {
+    throw new Error(
+      "Free introductory plan is only granted once upon admin approval and cannot be extended or purchased."
+    )
+  }
   const planSnapshot = createPlanSnapshot(plan)
   const effectiveDuration = durationDays || plan.duration || 30
 
@@ -985,6 +1000,56 @@ export async function activateOrQueuePurchase(input: ActivateOrQueuePurchaseInpu
       },
       include: { plan: true },
     })
+  }
+
+  // 4b. Record coupon usage idempotently if coupon was used
+  if (couponCode && typeof couponCode === "string" && couponCode.trim()) {
+    try {
+      const codeUpper = couponCode.trim().toUpperCase()
+      const coupon = await prisma.coupon.findFirst({
+        where: { code: codeUpper },
+      })
+      if (coupon) {
+        let subUserId: string | null = null
+        if (sellerType === PlanType.PRODUCT_SERVICE) {
+          const s = await prisma.seller.findUnique({
+            where: { id: effectiveSellerId },
+            select: { userId: true },
+          })
+          subUserId = s?.userId || null
+        } else if (sellerType === PlanType.HOTEL) {
+          const s = await prisma.hotelSeller.findUnique({
+            where: { id: effectiveSellerId },
+            select: { userId: true },
+          })
+          subUserId = s?.userId || null
+        } else if (sellerType === PlanType.RESTAURANT) {
+          const s = await prisma.restaurantSeller.findUnique({
+            where: { id: effectiveSellerId },
+            select: { userId: true },
+          })
+          subUserId = s?.userId || null
+        }
+
+        if (subUserId) {
+          const existingUsage = await prisma.couponUsage.findFirst({
+            where: {
+              couponId: coupon.id,
+              subscriptionId: purchase.id,
+            },
+          })
+          if (!existingUsage) {
+            await recordSellerCouponUsage({
+              couponId: coupon.id,
+              userId: subUserId,
+              subscriptionId: purchase.id,
+            })
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[activateOrQueuePurchase] Error recording coupon usage:", e)
+    }
   }
 
   // 5. If ACTIVE, sync to the corresponding cache table
@@ -1271,6 +1336,7 @@ export interface InitiateAfriMoneySubscriptionParams {
 export interface InitiateAfriMoneySubscriptionResult {
   success: boolean
   purchaseId?: string
+  status?: "ACTIVE" | "QUEUED"
   ftxnId?: string
   txnId?: string
   payableAmount: number
@@ -1321,20 +1387,8 @@ export async function initiateAfriMoneySubscriptionPayment(
     }
   }
 
-  // 2. Validate MSISDN (Africell Sierra Leone format)
-  const cleanMsisdn = payerMsisdn.replace(/[^0-9]/g, "")
-  if (!cleanMsisdn || cleanMsisdn.length < 8) {
-    return {
-      success: false,
-      payableAmount: plan.price,
-      message: "Please enter a valid Africell mobile number",
-      error: "Invalid phone number",
-    }
-  }
-
-  // 3. Process Coupon if provided
+  // 2. Process Coupon if provided (before MSISDN validation so 100% coupons work without phone)
   let discountAmount = 0
-  let appliedCoupon: any = null
   if (couponCode && couponCode.trim()) {
     const couponValidation = await validateSellerCoupon({
       code: couponCode.trim(),
@@ -1349,7 +1403,6 @@ export async function initiateAfriMoneySubscriptionPayment(
         error: couponValidation.error || "Invalid coupon code",
       }
     }
-    appliedCoupon = couponValidation.coupon
     discountAmount = couponValidation.discountAmount || 0
   }
 
@@ -1357,7 +1410,7 @@ export async function initiateAfriMoneySubscriptionPayment(
   const durationDays = plan.duration || 30
   const planSnapshot = createPlanSnapshot(plan)
 
-  // 4. Handle 100% Coupon (zero payable)
+  // 3. Handle 100% Coupon (zero payable)
   if (payableAmount === 0) {
     const activation = await activateOrQueuePurchase({
       sellerType,
@@ -1365,27 +1418,36 @@ export async function initiateAfriMoneySubscriptionPayment(
       hotelSellerId: sellerType === PlanType.HOTEL ? sellerId : undefined,
       restaurantSellerId: sellerType === PlanType.RESTAURANT ? sellerId : undefined,
       planId: plan.id,
+      durationDays,
       paymentMethod: "COUPON_100_PERCENT",
       price: plan.price,
       paidPrice: 0,
       discountAmount,
-      couponCode: couponCode?.trim() || null,
+      couponCode: couponCode?.trim().toUpperCase() || null,
       paidAt: new Date(),
     })
-
-    if (appliedCoupon && userId) {
-      await recordSellerCouponUsage({
-        couponId: appliedCoupon.id,
-        userId,
-      }).catch((e) => console.warn("[SubPayment] Error recording coupon usage:", e))
-    }
 
     return {
       success: true,
       purchaseId: activation.purchase.id,
+      status: activation.status,
       payableAmount: 0,
       planName: plan.displayName || plan.name,
-      message: "100% coupon applied! Your plan is activated successfully.",
+      message:
+        activation.status === "QUEUED"
+          ? "100% coupon applied! Your pack has been queued successfully."
+          : "100% coupon applied! Your plan is activated successfully.",
+    }
+  }
+
+  // 4. Validate MSISDN (Africell Sierra Leone format) for non-zero AfriMoney payments
+  const cleanMsisdn = (payerMsisdn || "").replace(/[^0-9]/g, "")
+  if (!cleanMsisdn || cleanMsisdn.length < 8) {
+    return {
+      success: false,
+      payableAmount,
+      message: "Please enter a valid Africell mobile number",
+      error: "Invalid phone number",
     }
   }
 
@@ -1403,14 +1465,29 @@ export async function initiateAfriMoneySubscriptionPayment(
     include: { plan: true },
   })
 
-  // 6. Create or reuse SubscriptionPurchase row
+  // 6. Create or update SubscriptionPurchase row
   let purchase: any
   let prefix = "PROD"
   if (sellerType === PlanType.HOTEL) prefix = "HOTEL"
   if (sellerType === PlanType.RESTAURANT) prefix = "REST"
 
   if (existingPending) {
-    purchase = existingPending
+    const ftxnId = existingPending.afriFtxnId || `SUB_${prefix}_${existingPending.id}`
+    purchase = await prisma.subscriptionPurchase.update({
+      where: { id: existingPending.id },
+      data: {
+        planId: plan.id,
+        planSnapshot: planSnapshot as any,
+        durationDays,
+        price: plan.price,
+        paidPrice: payableAmount,
+        discountAmount,
+        couponCode: couponCode?.trim().toUpperCase() || null,
+        afriMsisdn: payerMsisdn,
+        afriFtxnId: ftxnId,
+      },
+      include: { plan: true },
+    })
   } else {
     purchase = await prisma.subscriptionPurchase.create({
       data: {

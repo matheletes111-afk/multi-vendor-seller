@@ -69,6 +69,8 @@ export async function POST(request: NextRequest) {
             planId: purchase.planId,
             price: purchase.price,
             paidPrice: purchase.paidPrice,
+            discountAmount: purchase.discountAmount,
+            couponCode: purchase.couponCode,
             durationDays: purchase.durationDays,
             paymentMethod: "FLOAT",
             flotOrderId: orderId,

@@ -3,16 +3,28 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { verifySubscriptionPaymentStatus } from "@/lib/subscriptions"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export const dynamic = "force-dynamic"
 
 /**
- * Universal payment verification for all 4 seller types
+ * Universal payment verification for all 4 seller types (Web Session + Mobile Bearer JWT)
  */
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
+    let authUserId = session?.user?.id || null
+    let isUserAdmin = session?.user ? isAdmin(session.user) : false
+
+    if (!authUserId) {
+      const mobileAuth = await getMobileUserAuth(request)
+      if (mobileAuth.ok && mobileAuth.user) {
+        authUserId = mobileAuth.user.id
+        isUserAdmin = mobileAuth.user.role === "ADMIN"
+      }
+    }
+
+    if (!authUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -37,11 +49,11 @@ export async function GET(request: NextRequest) {
     }
 
     const isOwner =
-      purchase.seller?.userId === session.user.id ||
-      purchase.hotelSeller?.userId === session.user.id ||
-      purchase.restaurantSeller?.userId === session.user.id
+      purchase.seller?.userId === authUserId ||
+      purchase.hotelSeller?.userId === authUserId ||
+      purchase.restaurantSeller?.userId === authUserId
 
-    if (!isOwner && !isAdmin(session.user)) {
+    if (!isOwner && !isUserAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

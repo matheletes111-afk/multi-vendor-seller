@@ -114,7 +114,7 @@ export function SellerSubscriptionBanner({ sellerType }: SellerSubscriptionBanne
                 size="sm"
                 className="bg-slate-950 text-white hover:bg-slate-900 font-bold text-xs rounded-xl h-7"
               >
-                Extend / Queue Pack
+                {subscription.plan?.price === 0 ? "Upgrade to Paid Pack" : "Extend / Queue Pack"}
                 <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </Link>

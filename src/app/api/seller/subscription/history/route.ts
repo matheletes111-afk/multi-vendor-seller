@@ -8,15 +8,21 @@ import {
   createPlanSnapshot,
 } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
+import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    if (!session?.user) {
+    let userId = session?.user?.id || null
+    if (!userId) {
+      const mobileAuth = await getMobileUserAuth(request)
+      if (mobileAuth.ok && mobileAuth.user) {
+        userId = mobileAuth.user.id
+      }
+    }
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const userId = session.user.id
 
     // Fetch seller across types
     const [prodSeller, hotelSeller, restSeller] = await Promise.all([
@@ -160,7 +166,10 @@ export async function GET(request: NextRequest) {
         periodStart: q.periodStart,
         periodEnd: q.periodEnd,
         durationDays: q.durationDays,
+        price: q.price,
         paidPrice: q.paidPrice,
+        couponCode: q.couponCode || null,
+        couponDiscount: q.discountAmount || 0,
         paymentMethod: q.paymentMethod,
         afriTxnId: q.afriTxnId,
       })),

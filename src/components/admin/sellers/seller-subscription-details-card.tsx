@@ -34,6 +34,7 @@ import {
   PlusCircle,
   Loader2,
   CheckCircle2,
+  Tag,
 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 
@@ -75,6 +76,7 @@ export function SellerSubscriptionDetailsCard({
   const isActuallyActive = (status === "ACTIVE" || status === "TRIALING") && daysLeft > 0
 
   const queuedPurchases = (purchases || []).filter((p) => p.status === "QUEUED")
+  const activePurchase = (purchases || []).find((p) => p.status === "ACTIVE")
 
   const getLimitLabel = (p: any) => {
     if (sellerType === "HOTEL") {
@@ -209,8 +211,16 @@ export function SellerSubscriptionDetailsCard({
             </div>
             <div className="text-right">
               <span className="text-xl font-extrabold text-slate-900 dark:text-white">
-                {activePlan?.price === 0 ? "Free" : `$${activePlan?.price ?? 0}`}
+                {activePurchase?.paidPrice != null ? (activePurchase.paidPrice > 0 ? formatCurrency(activePurchase.paidPrice) : "Free") : (activePlan?.price === 0 ? "Free" : formatCurrency(activePlan?.price ?? 0))}
               </span>
+              {activePurchase?.couponCode && (
+                <div className="mt-1">
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 text-[10px] font-bold">
+                    <Tag className="h-2.5 w-2.5 mr-1 text-purple-600" />
+                    {activePurchase.couponCode} (-{formatCurrency(activePurchase.discountAmount || 0)})
+                  </Badge>
+                </div>
+              )}
               {activePlan?.duration && (
                 <span className="text-xs text-muted-foreground block">
                   / {activePlan.duration} Days
@@ -359,6 +369,7 @@ export function SellerSubscriptionDetailsCard({
                     <th className="p-2.5">Date</th>
                     <th className="p-2.5">Plan</th>
                     <th className="p-2.5">Duration</th>
+                    <th className="p-2.5">Coupon</th>
                     <th className="p-2.5">Paid</th>
                     <th className="p-2.5">Method</th>
                     <th className="p-2.5">Status</th>
@@ -375,6 +386,16 @@ export function SellerSubscriptionDetailsCard({
                       </td>
                       <td className="p-2.5 text-slate-600 dark:text-slate-400">
                         {pch.durationDays} days
+                      </td>
+                      <td className="p-2.5">
+                        {pch.couponCode ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full font-bold">
+                            <Tag className="h-2.5 w-2.5 text-purple-600" />
+                            {pch.couponCode} (-{formatCurrency(pch.discountAmount || 0)})
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
                       </td>
                       <td className="p-2.5 font-semibold text-slate-900 dark:text-white">
                         {pch.paidPrice > 0 ? formatCurrency(pch.paidPrice) : "Free"}
