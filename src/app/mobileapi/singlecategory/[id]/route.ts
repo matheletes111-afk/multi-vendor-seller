@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 // Define types
 interface ProductVariant {
@@ -134,10 +135,7 @@ export async function GET(
         categoryId: id,
         isActive: true,
         isDeleted: false,
-        seller: {
-          isApproved: true,
-          isSuspended: false,
-        }
+        seller: activeProductSellerWhere(),
       },
       take: limit,
       orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],

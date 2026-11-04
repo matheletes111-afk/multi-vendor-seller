@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -19,10 +20,7 @@ export async function GET(request: NextRequest) {
       where: {
         isActive: true,
         isDeleted: false,
-        seller: {
-          isApproved: true,
-          isSuspended: false,
-        },
+        seller: activeProductSellerWhere(),
         discount: { gt: 0 },
       },
       take: limit * 2,

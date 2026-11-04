@@ -387,8 +387,10 @@ export function HotelSellerDetailsView({
         {/* Subscription Package Details */}
         <SellerSubscriptionDetailsCard
           subscription={seller.subscription}
+          purchases={seller.subscriptionPurchases || []}
           plans={seller.plans || []}
           sellerType="HOTEL"
+          sellerId={seller.id}
         />
       </div>
 

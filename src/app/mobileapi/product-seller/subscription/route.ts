@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileSellerAuth } from "../../_helpers/seller-auth"
-import { UserRole, SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
-import { createPlanSnapshot, getValidSubscription } from "@/lib/subscriptions"
+import { UserRole, SubscriptionPlan, PlanType, SubscriptionStatus } from "@prisma/client"
+import { activateOrQueuePurchase, createPlanSnapshot, getValidSubscription } from "@/lib/subscriptions"
 
 /**
  * GET current subscription and available plans for product seller.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 import { shuffleArray } from "@/lib/utils"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -49,10 +50,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
       isDeleted: false,
       ...(activeOnly ? { isActive: true } : {}),
       ...(featuredOnly ? { isFeatured: true } : {}),
-      seller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      seller: activeProductSellerWhere(),
       ...(q ? {
         OR: [
           { name: { contains: q, mode: "insensitive" } },

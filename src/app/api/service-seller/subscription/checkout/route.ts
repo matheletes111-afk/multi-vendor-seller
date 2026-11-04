@@ -5,7 +5,8 @@ import { isServiceSeller } from "@/lib/rbac"
 import { createSubscriptionSession } from "@/lib/stripe"
 import { SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
-import { createPlanSnapshot } from "@/lib/subscriptions"
+import { createPlanSnapshot, activateOrQueuePurchase } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   const session = await auth()
@@ -63,42 +64,27 @@ export async function POST(request: NextRequest) {
   const snapshot = createPlanSnapshot(plan)
 
   if (testMode || finalPaidPrice === 0) {
-    const sub = await prisma.subscription.upsert({
-      where: { sellerId: seller.id },
-      update: {
-        planId: plan.id,
-        paidPrice: finalPaidPrice,
-        paidAt: now,
-        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-        cancelAtPeriodEnd: false,
-      },
-      create: {
-        sellerId: seller.id,
-        planId: plan.id,
-        paidPrice: finalPaidPrice,
-        paidAt: now,
-        paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "STRIPE"),
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-        cancelAtPeriodEnd: false,
-      },
+    const purchaseResult = await activateOrQueuePurchase({
+      sellerType: PlanType.PRODUCT_SERVICE,
+      sellerId: seller.id,
+      planId: plan.id,
+      price: plan.price,
+      paidPrice: finalPaidPrice,
+      discountAmount,
+      couponCode: appliedCoupon?.code || null,
+      paymentMethod: appliedCoupon ? "COUPON_100_PERCENT" : (finalPaidPrice === 0 ? "FREE" : "TEST_DIRECT"),
+      paidAt: now,
     })
 
     if (appliedCoupon) {
       await recordSellerCouponUsage({
         couponId: appliedCoupon.id,
         userId: session.user.id,
-        subscriptionId: sub.id
+        subscriptionId: purchaseResult.purchase.id,
       })
     }
 
-    return NextResponse.json({ url: null })
+    return NextResponse.json({ url: null, status: purchaseResult.status })
   }
 
   const baseUrl = process.env.NEXTAUTH_URL || ""

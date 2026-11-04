@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isServiceSeller } from "@/lib/rbac"
+import { isSellerSubscriptionActive } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 import { saveAdCreativeFile, validateAdCreativeFile } from "@/lib/ad-upload"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { sanitizeInput } from "@/lib/html-sanitization"
@@ -19,6 +21,11 @@ export async function GET(request: NextRequest) {
 
   if (!seller || seller.type !== "SERVICE") {
     return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+  }
+
+  const isSubActive = await isSellerSubscriptionActive(PlanType.PRODUCT_SERVICE, seller.id)
+  if (!isSubActive) {
+    return NextResponse.json({ error: "Your subscription has expired. Please recharge to create ads." }, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)

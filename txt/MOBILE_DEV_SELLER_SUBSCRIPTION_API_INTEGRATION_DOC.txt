@@ -1,0 +1,631 @@
+================================================================================
+MEEEM SL — MOBILE SELLER SUBSCRIPTION & RECHARGE API INTEGRATION GUIDE
+================================================================================
+Document Version: 2.0.0
+Date: November 2026
+Target Audience: Mobile App Developers (Flutter / React Native / Android / iOS)
+Feature: Prepaid Mobile Recharge Subscriptions, AfriMoney Push USSD & Expiry Gates
+Supported Panels: Product Seller, Service Seller, Hotel Seller, Restaurant Seller
+
+================================================================================
+1. EXECUTIVE BULLET-POINT SUMMARY: WHAT MOBILE DEVS NEED TO IMPLEMENT
+================================================================================
+This section is your quick-reference checklist. Cross-check your mobile app
+implementation against each bullet point below.
+
+--------------------------------------------------------------------------------
+PART A: MOBILE APP UI/UX SCREENS TO BUILD (ALL 4 SELLER PANELS)
+--------------------------------------------------------------------------------
+• 1. SUBSCRIPTION PLANS & RECHARGE SCREEN (`/subscription`):
+  [ ] Fetch `GET /mobileapi/<seller-type>/subscription` to retrieve the current plan
+      and available catalog plans.
+  [ ] Display current status: Plan Name, Price, Expiry Date (`currentPeriodEnd`),
+      and live Days Remaining counter (`Math.ceil((periodEnd - now) / 86400000)`).
+  [ ] If seller is on Free Trial (`currentSubscription.plan.price === 0`):
+      Display the "DECISION G CARRY-FORWARD BADGE" on paid plan cards:
+      "🎉 Special Offer: Your remaining X free days will automatically stack onto
+      this pack! (Total duration: X + 30/90 days)".
+  [ ] If seller already has an Active Paid Pack:
+      The button should read "Extend / Queue Pack". Tapping it explains:
+      "Your new pack will be queued and will automatically start when your
+      current pack expires."
+
+• 2. AFRIMONEY PUSH USSD RECHARGE DIALOG / BOTTOM SHEET:
+  [ ] Input field for Africell Mobile Number (placeholder: "e.g. 033600171 or 077...").
+  [ ] Optional Coupon / Promo Code input field.
+  [ ] "Pay via AfriMoney" button. When tapped, calls:
+      `POST /mobileapi/<seller-type>/subscription/pay-afrimoney`.
+  [ ] Instant Activation Check: If payableAmount is 0 (100% coupon), immediately
+      show Success without sending USSD.
+
+• 3. 3-SECOND LIVE POLLING & VERIFICATION ENGINE:
+  [ ] Once the USSD request succeeds, show a pulsing radar/handset screen:
+      "USSD Prompt Sent! Please enter your AfriMoney PIN on your phone."
+  [ ] Poll `GET /mobileapi/<seller-type>/subscription/verify-payment?purchaseId=...`
+      every 3 seconds (up to 90 seconds).
+  [ ] Cancel polling and transition immediately when:
+      • `isReady === true`  --> Show Success screen!
+      • `isFailed === true` --> Show Error screen with retry button!
+  [ ] Provide a manual "Verify Now" button in case the seller approved slowly.
+  [ ] On Success: Differentiate between "Pack Activated!" (starts now) and
+      "Pack Queued!" (starts upon current pack expiry).
+
+• 4. DASHBOARD TOP WARNING / EXPIRY BANNERS:
+  [ ] Expiring Soon (7 days or less): Show an amber banner at the top of the dashboard:
+      "⚠️ Your subscription pack expires in X days. [Extend Pack Now]".
+  [ ] Expired (0 days or less): Show a persistent red alert banner:
+      "🔴 Your subscription has expired. Your listings are hidden from marketplace
+       customers. (Note: You can still fulfill existing orders). [Recharge via AfriMoney]".
+
+• 5. SUBSCRIPTION RECHARGE HISTORY / INVOICES TAB:
+  [ ] Call `GET /api/seller/subscription/history` to show past recharges.
+  [ ] Display table/list: Date, Plan Name, Duration, Price Paid, Method (AfriMoney),
+      and Status (ACTIVE, QUEUED, EXPIRED).
+
+--------------------------------------------------------------------------------
+PART B: BACKEND MOBILE API CHANGES DONE & HOW THEY REFLECT IN APPS
+--------------------------------------------------------------------------------
+• 1. Marketplace Visibility Gate (Phase 2):
+  - Backend change: 30+ mobile customer endpoints (`/mobileapi/browse`, `/mobileapi/search`,
+    `/mobileapi/product/[id]`, `/mobileapi/customer/hotels`, `/mobileapi/customer/foods`, etc.)
+    now automatically filter out items belonging to expired sellers.
+  - Cart & Checkout: If an expired seller's product is in cart, cart resolution marks
+    `isAvailable: false`, and `place-order` rejects checkout with a friendly error.
+  - How it reflects: Mobile sellers do NOT need to manually hide products. When their
+    plan expires, the backend hides their items automatically; when they recharge,
+    items instantly re-appear across the customer app!
+
+• 2. In-Flight Order Protection:
+  - Backend change: Expired sellers are NEVER locked out of their orders.
+  - How it reflects: Even if a seller's pack expires, they can still open their
+    Seller App, view pending customer orders, confirm dispatch, assign riders,
+    and fulfill deliveries.
+
+• 3. AfriMoney USSD Failure Isolation Bugfix (Phase 3):
+  - Backend change: The AfriMoney webhook now matches `SUB_PROD_`, `SUB_HOTEL_`, `SUB_REST_`.
+  - How it reflects: If a mobile seller types the wrong PIN or cancels the USSD prompt,
+    ONLY that pending purchase is marked `FAILED`. Their active subscription is
+    NEVER cancelled or killed!
+
+• 4. Automatic Promotion of Queued Packs (Phase 4):
+  - Backend change: When a seller buys a pack while already active, it is saved as `QUEUED`.
+    The daily backend cron sweep automatically promotes the queued pack to `ACTIVE`
+    the moment the current pack reaches its expiry date.
+  - How it reflects: Sellers experience zero downtime and do not have to log in on
+    expiry day to activate their pack.
+
+================================================================================
+2. CORE BUSINESS RULES (PREPAID MOBILE RECHARGE MODEL)
+================================================================================
+MEEEM SL does NOT use recurring auto-debit loops (no forced card renewals).
+Instead, it uses a **Prepaid Mobile Recharge Model** (identical to purchasing an
+Africell data or voice bundle):
+
+  1. PREPAID RECHARGE PACKS:
+     - Plans have a fixed duration (30 days, 60 days, 90 days, 180 days, 365 days).
+     - Sellers manually initiate a recharge when they choose to renew or extend.
+
+  2. DECISION G — FREE TRIAL CARRY-FORWARD (SPECIAL OFFER):
+     - All approved sellers receive a 90-day Free Trial at Go-Live.
+     - IF A SELLER BUYS A PAID PACK WHILE STILL IN THEIR FREE TRIAL:
+       The remaining days of their free trial are NOT lost! They are automatically
+       carried forward and stacked on top of the new pack duration.
+       Example: If a seller has 45 free days remaining and buys a 30-day pack, their
+       new subscription validity is 75 days!
+     - UI Requirement: The mobile app should show a celebratory badge or preview:
+       "Special Carry-Forward Offer: Your remaining 45 free days will be added
+       automatically! (Total validity: 75 days)".
+
+  3. ACTIVE PAID PACK STACKING (QUEUED PACKS):
+     - If a seller already has an active paid pack and buys another pack:
+       The new pack status is set to "QUEUED" (not overwritten).
+       It waits safely in the queue and starts automatically the moment the current
+       pack reaches its expiry date.
+
+  4. EXPIRY LOCKOUT & MARKETPLACE VISIBILITY:
+     - When `currentPeriodEnd` passes and there is no queued pack:
+       • The seller's status becomes "EXPIRED".
+       • The Visibility Gate automatically hides their products, services, rooms,
+         and food menus from all customer search, browse, cart, and checkout.
+     - In-Flight Order Guarantee:
+       • Expired sellers can STILL open their app, view, confirm, dispatch, and
+         fulfill all pending customer orders placed prior to expiry.
+
+  5. SELLER APP EXPIRY WARNING BANNERS:
+     - Expiring Soon (7 days or less): Show an amber banner at the top of the dashboard:
+       "⚠️ Your subscription pack expires in X days. [Recharge / Extend Now]".
+     - Expired (0 days or less): Show a persistent red alert banner:
+       "🔴 Your subscription has expired. Your items are hidden from customers.
+        (You can still fulfill existing orders). [Recharge via AfriMoney]".
+
+================================================================================
+3. BASE URLS & AUTHENTICATION
+================================================================================
+Production Base URL:
+  https://www.meeemsl.com
+
+Authentication Header (Required on all requests):
+  Authorization: Bearer <MOBILE_SELLER_JWT_ACCESS_TOKEN>
+
+Supported Roles:
+  - SELLER_PRODUCT    --> Product Seller
+  - SELLER_SERVICE    --> Service Seller
+  - SELLER_HOTEL      --> Hotel Seller
+  - SELLER_RESTAURANT --> Restaurant Seller
+
+================================================================================
+4. API ENDPOINTS SUMMARY TABLE
+================================================================================
+
+| Action | Seller Category | Endpoint (Method & Path) |
+| :--- | :--- | :--- |
+| **Get Status & Plans** | Product | `GET /mobileapi/product-seller/subscription` |
+| | Service | `GET /mobileapi/service-seller/subscription` |
+| | Hotel | `GET /mobileapi/hotel-seller/subscription` |
+| | Restaurant | `GET /mobileapi/restaurant-seller/subscription` |
+| **Pay via AfriMoney** | Product | `POST /mobileapi/product-seller/subscription/pay-afrimoney` |
+| | Service | `POST /mobileapi/service-seller/subscription/pay-afrimoney` |
+| | Hotel | `POST /mobileapi/hotel-seller/subscription/pay-afrimoney` |
+| | Restaurant | `POST /mobileapi/restaurant-seller/subscription/pay-afrimoney` |
+| | **Universal** | `POST /api/seller/subscription/pay-afrimoney` |
+| **Verify Payment (3s)**| Product | `GET /mobileapi/product-seller/subscription/verify-payment?purchaseId=...` |
+| | Service | `GET /mobileapi/service-seller/subscription/verify-payment?purchaseId=...` |
+| | Hotel | `GET /mobileapi/hotel-seller/subscription/verify-payment?purchaseId=...` |
+| | Restaurant | `GET /mobileapi/restaurant-seller/subscription/verify-payment?purchaseId=...` |
+| | **Universal** | `GET /api/seller/subscription/verify-payment?purchaseId=...` |
+| **History & Purchases**| All 4 Sellers | `GET /api/seller/subscription/history` |
+
+================================================================================
+5. DETAILED API SPECIFICATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+ENDPOINT 1: GET Current Subscription & Available Plans
+--------------------------------------------------------------------------------
+Method: GET
+Path:
+  - Product:    `/mobileapi/product-seller/subscription`
+  - Service:    `/mobileapi/service-seller/subscription`
+  - Hotel:      `/mobileapi/hotel-seller/subscription`
+  - Restaurant: `/mobileapi/restaurant-seller/subscription`
+
+Headers:
+  Authorization: Bearer <token>
+
+Response (HTTP 200 OK):
+```json
+{
+  "currentSubscription": {
+    "id": "csub1234567890",
+    "sellerId": "cmol98syv0002cenwoi019rez",
+    "planId": "plan_gold_30d",
+    "status": "ACTIVE",
+    "paymentMethod": "AFRIMONEY",
+    "currentPeriodStart": "2026-11-04T00:00:00.000Z",
+    "currentPeriodEnd": "2027-02-02T23:59:59.000Z",
+    "paidPrice": 0,
+    "paidAt": "2026-11-04T09:45:00.000Z",
+    "plan": {
+      "id": "plan_gold_30d",
+      "name": "GOLD",
+      "displayName": "Gold Seller Plan",
+      "description": "Full access with priority marketplace ranking",
+      "price": 0,
+      "duration": 90,
+      "maxProducts": null,
+      "maxOrders": null
+    }
+  },
+  "availablePlans": [
+    {
+      "id": "cmw19m79k0001tgm6fgn3h8a2",
+      "name": "BASIC",
+      "displayName": "Starter Pack (30 Days)",
+      "description": "Up to 50 active listings",
+      "price": 50,
+      "duration": 30,
+      "maxProducts": 50,
+      "maxOrders": 200
+    },
+    {
+      "id": "cmw19m79k0002tgm6fgn3h8a3",
+      "name": "PRO",
+      "displayName": "Professional Pack (90 Days)",
+      "description": "Unlimited listings and premium badges",
+      "price": 120,
+      "duration": 90,
+      "maxProducts": null,
+      "maxOrders": null
+    }
+  ]
+}
+```
+
+Key Logic for Mobile App:
+- If `currentSubscription === null`: Seller has no plan. Show "Choose a Plan".
+- Calculate `daysLeft = Math.ceil((new Date(currentPeriodEnd) - Date.now()) / (1000 * 60 * 60 * 24))`.
+- If `status === "ACTIVE"` and `daysLeft > 0`: Plan is live!
+- If `currentSubscription.plan.price === 0`: Seller is currently on the Free Trial.
+  Display the Carry-Forward badge on all paid plans!
+- If `daysLeft <= 0` or `status === "EXPIRED"`: Display the Expiry Alert.
+
+--------------------------------------------------------------------------------
+ENDPOINT 2: POST Initiate AfriMoney Push USSD Recharge
+--------------------------------------------------------------------------------
+Method: POST
+Path:
+  `/mobileapi/<seller-type>/subscription/pay-afrimoney`
+  (or Universal: `/api/seller/subscription/pay-afrimoney`)
+
+Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+
+Request Body:
+```json
+{
+  "planId": "cmw19m79k0002tgm6fgn3h8a3",
+  "phone": "033600171",
+  "couponCode": "SUMMER10"
+}
+```
+*Note: `phone` is the seller's Africell mobile number (e.g. 033..., 077..., 088...).
+*Note: `couponCode` is optional. If a 100% discount coupon is supplied, the plan
+activates instantly without dispatching USSD.
+
+Response (HTTP 200 OK — Standard AfriMoney Prompt Sent):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "ftxnId": "SUB_PROD_cmw20u20c0001129xa4uajodo",
+  "txnId": "AFRI_TXN_987654321",
+  "payableAmount": 120,
+  "planName": "Professional Pack (90 Days)",
+  "message": "USSD payment prompt sent to your handset! Please enter your AfriMoney PIN to approve."
+}
+```
+
+Response (HTTP 200 OK — Instant Activation via 100% Coupon):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "payableAmount": 0,
+  "planName": "Professional Pack (90 Days)",
+  "message": "100% coupon applied! Your plan is activated successfully."
+}
+```
+
+Error Response (HTTP 400 Bad Request):
+```json
+{
+  "error": "Africell mobile number is required to receive Push USSD"
+}
+```
+
+--------------------------------------------------------------------------------
+ENDPOINT 3: GET 3-Second Live Polling / Verification Endpoint
+--------------------------------------------------------------------------------
+After sending the Push USSD prompt, the seller's phone screen prompts for their PIN.
+The mobile app must poll this verification endpoint every 3 seconds for up to 90 seconds.
+
+Method: GET
+Path:
+  `/mobileapi/<seller-type>/subscription/verify-payment?purchaseId=<purchaseId>`
+  (or Universal: `/api/seller/subscription/verify-payment?purchaseId=<purchaseId>`)
+
+Headers:
+  Authorization: Bearer <token>
+
+Response While Waiting (HTTP 200 OK):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "status": "PENDING_PAYMENT",
+  "isReady": false,
+  "isFailed": false,
+  "planName": "Professional Pack (90 Days)",
+  "message": "Payment is still processing. Please enter your AfriMoney PIN on your phone."
+}
+```
+
+Response When Approved & Activated (HTTP 200 OK):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "status": "ACTIVE",
+  "isReady": true,
+  "isFailed": false,
+  "planName": "Professional Pack (90 Days)",
+  "periodStart": "2026-11-04T16:30:00.000Z",
+  "periodEnd": "2027-02-02T16:30:00.000Z",
+  "durationDays": 90,
+  "paidPrice": 120,
+  "paymentMethod": "AFRIMONEY",
+  "afriTxnId": "AFRI_TXN_987654321",
+  "message": "Subscription pack activated successfully!"
+}
+```
+
+Response When Approved & Queued (HTTP 200 OK):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "status": "QUEUED",
+  "isReady": true,
+  "isFailed": false,
+  "planName": "Professional Pack (90 Days)",
+  "periodStart": "2027-02-02T16:30:00.000Z",
+  "periodEnd": "2027-05-03T16:30:00.000Z",
+  "durationDays": 90,
+  "paidPrice": 120,
+  "paymentMethod": "AFRIMONEY",
+  "message": "Subscription pack queued successfully! It will start automatically when your current pack ends."
+}
+```
+
+Response If Failed or Cancelled (HTTP 200 OK):
+```json
+{
+  "success": true,
+  "purchaseId": "cmw20u20c0001129xa4uajodo",
+  "status": "FAILED",
+  "isReady": false,
+  "isFailed": true,
+  "message": "Payment was not completed."
+}
+```
+
+--------------------------------------------------------------------------------
+ENDPOINT 4: GET Subscription Purchase History Ledger
+--------------------------------------------------------------------------------
+Allows the seller to review all past subscription recharges, invoices, and queued packs.
+
+Method: GET
+Path:
+  `/api/seller/subscription/history`
+
+Headers:
+  Authorization: Bearer <token>
+
+Response (HTTP 200 OK):
+```json
+[
+  {
+    "id": "cmw20u20c0001129xa4uajodo",
+    "sellerType": "PRODUCT_SERVICE",
+    "planId": "cmw19m79k0002tgm6fgn3h8a3",
+    "durationDays": 90,
+    "price": 120,
+    "paidPrice": 120,
+    "discountAmount": 0,
+    "status": "ACTIVE",
+    "periodStart": "2026-11-04T16:30:00.000Z",
+    "periodEnd": "2027-02-02T16:30:00.000Z",
+    "paymentMethod": "AFRIMONEY",
+    "afriTxnId": "AFRI_TXN_987654321",
+    "afriMsisdn": "033600171",
+    "paidAt": "2026-11-04T16:30:00.000Z",
+    "createdAt": "2026-11-04T16:29:45.000Z",
+    "plan": {
+      "displayName": "Professional Pack (90 Days)",
+      "price": 120
+    }
+  }
+]
+```
+
+================================================================================
+6. MOBILE UI STATE MACHINE & POLLING LOGIC
+================================================================================
+Recommended Flow in your App:
+
+  [STATE: IDLE]
+  1. User selects a pack from the plan list.
+  2. If user is currently on the 90-day Free Trial:
+     Show banner: "🎉 Offer: Your remaining X free days will stack onto this pack!"
+  3. If user already has an active paid pack:
+     Show note: "ℹ️ Your current pack is active until <date>. This purchase will be
+     QUEUED and will automatically start when your current pack ends."
+  4. User inputs Africell phone number.
+  5. User taps "Pay via AfriMoney".
+
+  [STATE: INITIATING]
+  1. Show loading spinner on button: "Sending USSD prompt...".
+  2. Call POST `.../pay-afrimoney`.
+  3. If `payableAmount === 0`: Instantly transition to [STATE: SUCCESS].
+  4. If successful: Store `purchaseId` and transition to [STATE: WAITING].
+
+  [STATE: WAITING & POLLING]
+  1. Show animated radar or pulsing smartphone icon:
+     "USSD Prompt Sent! Please enter your AfriMoney PIN on your phone."
+  2. Start a timer that calls GET `.../verify-payment?purchaseId=<id>` every 3 seconds.
+  3. Set an absolute timeout of 90 seconds. If timer expires, show a "Check Status" button.
+  4. In the polling response:
+     - IF `isReady === true`:
+       • Cancel polling timer.
+       • Transition to [STATE: SUCCESS].
+     - IF `isFailed === true`:
+       • Cancel polling timer.
+       • Transition to [STATE: ERROR] with `message`.
+
+  [STATE: SUCCESS]
+  1. Show green checkmark animation.
+  2. If `status === "QUEUED"`:
+     Title: "Subscription Queued!"
+     Body: "Your pack will activate automatically on <periodStart>."
+  3. If `status === "ACTIVE"`:
+     Title: "Subscription Active!"
+     Body: "Your store is live and visible to customers on the marketplace."
+  4. Button: "Done" -> Closes dialog, refreshes dashboard.
+
+================================================================================
+7. FLUTTER / DART IMPLEMENTATION EXAMPLE
+================================================================================
+```dart
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class SubscriptionService {
+  final String baseUrl = "https://www.meeemsl.com";
+  final String token;
+
+  SubscriptionService({required this.token});
+
+  Map<String, String> get _headers => {
+    "Authorization": "Bearer $token",
+    "Content-Type": "application/json",
+  };
+
+  // 1. Initiate AfriMoney USSD Recharge
+  Future<Map<String, dynamic>> initiateRecharge({
+    required String sellerType, // 'product-seller', 'hotel-seller', etc.
+    required String planId,
+    required String phone,
+    String? couponCode,
+  }) async {
+    final url = Uri.parse("$baseUrl/mobileapi/$sellerType/subscription/pay-afrimoney");
+    final response = await http.post(
+      url,
+      headers: _headers,
+      body: jsonEncode({
+        "planId": planId,
+        "phone": phone,
+        if (couponCode != null) "couponCode": couponCode,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+    if (response.statusCode != 200 || data['success'] != true) {
+      throw Exception(data['error'] ?? data['message'] ?? 'Failed to initiate payment');
+    }
+    return data;
+  }
+
+  // 2. Poll Payment Verification every 3 seconds (up to 90s)
+  Future<Map<String, dynamic>> pollVerification({
+    required String sellerType,
+    required String purchaseId,
+    Function(String message)? onStatusUpdate,
+  }) async {
+    final url = Uri.parse(
+      "$baseUrl/mobileapi/$sellerType/subscription/verify-payment?purchaseId=$purchaseId",
+    );
+
+    const pollInterval = Duration(seconds: 3);
+    const maxAttempts = 30; // 30 * 3s = 90 seconds
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      await Future.delayed(pollInterval);
+      attempts++;
+
+      try {
+        final response = await http.get(url, headers: _headers);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+
+          if (data['isReady'] == true) {
+            return data; // Payment Success (ACTIVE or QUEUED)
+          }
+
+          if (data['isFailed'] == true) {
+            throw Exception(data['message'] ?? 'Payment was cancelled or failed.');
+          }
+
+          if (onStatusUpdate != null && data['message'] != null) {
+            onStatusUpdate(data['message']);
+          }
+        }
+      } catch (e) {
+        // Continue polling on transient network glitches
+      }
+    }
+
+    throw TimeoutException("Payment verification timed out. Please tap 'Verify Now'.");
+  }
+}
+```
+
+================================================================================
+8. REACT NATIVE / TYPESCRIPT IMPLEMENTATION EXAMPLE
+================================================================================
+```typescript
+interface InitiatePaymentParams {
+  sellerType: 'product-seller' | 'hotel-seller' | 'restaurant-seller' | 'service-seller';
+  planId: string;
+  phone: string;
+  couponCode?: string;
+  token: string;
+}
+
+export async function initiateSubscriptionPayment(params: InitiatePaymentParams) {
+  const res = await fetch(`https://www.meeemsl.com/mobileapi/${params.sellerType}/subscription/pay-afrimoney`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${params.token}`,
+    },
+    body: JSON.stringify({
+      planId: params.planId,
+      phone: params.phone,
+      couponCode: params.couponCode,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || data.message || 'Payment initiation failed');
+  }
+  return data;
+}
+
+export async function pollSubscriptionStatus(
+  sellerType: string,
+  purchaseId: string,
+  token: string,
+  onComplete: (data: any) => void,
+  onError: (err: any) => void
+) {
+  let attempts = 0;
+  const maxAttempts = 30; // 90 seconds max
+
+  const intervalId = setInterval(async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      clearInterval(intervalId);
+      onError(new Error('Payment confirmation timed out'));
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `https://www.meeemsl.com/mobileapi/${sellerType}/subscription/verify-payment?purchaseId=${purchaseId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+
+      if (data.isReady) {
+        clearInterval(intervalId);
+        onComplete(data);
+      } else if (data.isFailed) {
+        clearInterval(intervalId);
+        onError(new Error(data.message || 'Payment failed'));
+      }
+    } catch {
+      // Ignore transient network errors during 3s polling
+    }
+  }, 3000);
+
+  return () => clearInterval(intervalId); // Cleanup function
+}
+```
+
+================================================================================
+END OF MOBILE DEVELOPER SUBSCRIPTION INTEGRATION GUIDE
+================================================================================

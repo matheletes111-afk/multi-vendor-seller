@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { extractFoodImages } from "@/lib/utils"
+import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
 
 export async function GET(
   request: NextRequest,
@@ -17,10 +18,7 @@ export async function GET(
         id,
         isDeleted: false,
         isActive: true,
-        restaurantSeller: {
-          isApproved: true,
-          isSuspended: false
-        }
+        restaurantSeller: activeRestaurantSellerWhere()
       },
       include: {
         reviews: {

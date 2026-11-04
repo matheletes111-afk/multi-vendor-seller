@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
 import { sendSellerApprovalEmail } from "@/lib/email"
+import { PlanType } from "@prisma/client"
+import { assignFreePlanOnApproval } from "@/lib/subscriptions"
 
 import { validateProductOrServiceSellerApproval } from "@/lib/seller-approval-validation"
 
@@ -51,6 +53,11 @@ export async function POST(
     await prisma.seller.update({
       where: { id },
       data: { isApproved: true, onboardingCompleted: true, status: "APPROVED", isSuspended: false, adminFeedback: null },
+    })
+
+    // Assign initial 90-day Free Trial strictly on admin approval (idempotent)
+    await assignFreePlanOnApproval(PlanType.PRODUCT_SERVICE, id).catch((err) => {
+      console.error("[approve] Failed to assign free plan on approval:", err)
     })
 
     // ── Send Email Notification ───────────────────────────────────────────────

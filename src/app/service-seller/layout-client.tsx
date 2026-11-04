@@ -1,3 +1,4 @@
+import { SellerSubscriptionBanner } from "@/components/subscription/seller-subscription-banner"
 "use client"
 
 import Link from "next/link"
@@ -205,6 +206,7 @@ export function ServiceSellerLayoutClient({
             )}
           </div>
         </header>
+        <SellerSubscriptionBanner sellerType="service-seller" />
         <main className="flex-1">{children}</main>
         <DashboardFooter panelName="Service Provider Panel" />
       </div>

@@ -17,7 +17,8 @@
     "cron:onboarding-reminders": "tsx scripts/send-onboarding-reminders.ts",
     "cron:daily-drip": "tsx scripts/send-daily-drip.ts",
     "socket": "node socket-server.js",
-    "test:socket": "node scripts/test-socket.js"
+    "test:socket": "node scripts/test-socket.js",
+    "cron:subscription-lifecycle": "node node_modules/tsx/dist/cli.mjs scripts/run-subscription-lifecycle.ts"
   },
   "dependencies": {
     "@apple/app-store-server-library": "^3.1.0",

@@ -1,0 +1,35 @@
+Hi,
+
+Please configure a daily cron job for our subscription lifecycle sweep endpoint using this Secret Key:
+
+- Secret Key: meeem_sec_cron_9a8f2c7e1b4d3a0e
+- Endpoint URL: https://www.meeemsl.com/api/cron/subscription-lifecycle
+- Schedule: Daily at 00:00 (Midnight UTC) — Cron: 0 0 * * *
+- Method: POST
+- Header:
+    x-internal-secret: meeem_sec_cron_9a8f2c7e1b4d3a0e
+    Content-Type: application/json
+- Request Body:
+    {
+      "dryRun": false
+    }
+
+Note:
+No new environment variable is needed! It uses the existing "INTERNAL_API_SECRET" already configured in AWS Amplify.
+
+--------------------------------------------------------------------------------
+WHAT THIS CRON DOES ON EACH DAILY RUN:
+--------------------------------------------------------------------------------
+1. Overdue Expiry & Auto-Promotion:
+   - If an expired seller has a "QUEUED" prepaid pack waiting: Promotes it to ACTIVE automatically (zero downtime).
+   - If an expired seller has NO queued pack: Marks them EXPIRED and hides their items from customer search, browse, cart, and checkout (pending orders can still be fulfilled).
+2. Multi-Channel Reminders:
+   - Sends expiry reminder notifications at 7, 6, 5, 4, 3, 2, 1 days and today (0) via SendGrid Email, Twilio SMS, and Firebase Push.
+
+--------------------------------------------------------------------------------
+TEST VIA cURL (READY TO RUN):
+--------------------------------------------------------------------------------
+curl -X POST https://www.meeemsl.com/api/cron/subscription-lifecycle \
+  -H "x-internal-secret: meeem_sec_cron_9a8f2c7e1b4d3a0e" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": false}'

@@ -394,8 +394,10 @@ export function RestaurantSellerDetailsView({
         {/* Subscription Package Details */}
         <SellerSubscriptionDetailsCard
           subscription={seller.subscription}
+          purchases={seller.subscriptionPurchases || []}
           plans={seller.plans || []}
           sellerType="RESTAURANT"
+          sellerId={seller.id}
         />
       </div>
 

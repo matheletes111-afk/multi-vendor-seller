@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeHotelSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -15,10 +16,7 @@ export async function GET(request: NextRequest) {
     const whereCondition: any = {
       isActive: true,
       isDeleted: false,
-      hotelSeller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      hotelSeller: activeHotelSellerWhere(),
       city: city ? { contains: city, mode: "insensitive" } : undefined,
       starRating: rating ? { gte: rating } : undefined,
       OR: query ? [

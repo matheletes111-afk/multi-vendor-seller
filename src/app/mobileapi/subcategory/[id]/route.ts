@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 
@@ -46,10 +47,7 @@ export async function GET(
       subcategoryId: subcategory.id,
       isActive: true,
       isDeleted: false,
-      seller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      seller: activeProductSellerWhere(),
     }
 
     const [totalProducts, rawProducts] = await Promise.all([

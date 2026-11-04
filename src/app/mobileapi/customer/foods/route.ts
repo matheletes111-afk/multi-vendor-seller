@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -20,10 +21,7 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isDeleted: false,
       isActive: true,
-      restaurantSeller: {
-        isApproved: true,
-        isSuspended: false
-      }
+      restaurantSeller: activeRestaurantSellerWhere()
     }
 
     if (category) {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 import type { CartAddPayload, GuestCartItemForMerge } from "./types"
 import { isProductCartPayload } from "./types"
 
@@ -21,8 +22,8 @@ export async function resolveProductCartLine(
   quantity: number
 ): Promise<ResolvedCartLine | null> {
   const variantId = productVariantId ?? null
-  const product = await prisma.product.findUnique({
-    where: { id: productId, isActive: true, isDeleted: false },
+  const product = await prisma.product.findFirst({
+    where: { id: productId, isActive: true, isDeleted: false, seller: activeProductSellerWhere() },
     select: {
       name: true,
       images: true,

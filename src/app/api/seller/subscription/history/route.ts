@@ -7,6 +7,7 @@ import {
   getValidRestaurantSubscription,
   createPlanSnapshot,
 } from "@/lib/subscriptions"
+import { PlanType } from "@prisma/client"
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,13 +26,36 @@ export async function GET(request: NextRequest) {
     ])
 
     let currentSub: any = null
+    let sellerId: string | null = null
+    let sellerType: PlanType = PlanType.PRODUCT_SERVICE
+
     if (prodSeller) {
+      sellerId = prodSeller.id
+      sellerType = PlanType.PRODUCT_SERVICE
       currentSub = await getValidSubscription(prodSeller.id)
     } else if (hotelSeller) {
+      sellerId = hotelSeller.id
+      sellerType = PlanType.HOTEL
       currentSub = await getValidHotelSubscription(hotelSeller.id)
     } else if (restSeller) {
+      sellerId = restSeller.id
+      sellerType = PlanType.RESTAURANT
       currentSub = await getValidRestaurantSubscription(restSeller.id)
     }
+
+    // Fetch purchases from SubscriptionPurchase universal ledger
+    const purchases = sellerId ? await prisma.subscriptionPurchase.findMany({
+      where: {
+        sellerType,
+        ...(sellerType === PlanType.PRODUCT_SERVICE ? { sellerId } : {}),
+        ...(sellerType === PlanType.HOTEL ? { hotelSellerId: sellerId } : {}),
+        ...(sellerType === PlanType.RESTAURANT ? { restaurantSellerId: sellerId } : {}),
+      },
+      include: { plan: true },
+      orderBy: { createdAt: "desc" },
+    }) : []
+
+    const queuedPacks = purchases.filter((p) => p.status === "QUEUED")
 
     // Fetch all subscription coupon redemptions for this seller
     const usages = await prisma.couponUsage.findMany({
@@ -46,10 +70,40 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" }
     })
 
-    // Construct history list
     const historyList: any[] = []
 
-    if (currentSub) {
+    if (purchases.length > 0) {
+      purchases.forEach((p) => {
+        const snapshot = (p.planSnapshot as any) || createPlanSnapshot(p.plan)
+        const isCurrent = p.status === "ACTIVE"
+        historyList.push({
+          id: p.id,
+          planName: snapshot?.displayName || p.plan?.displayName || p.plan?.name,
+          planType: p.plan?.name,
+          price: p.price,
+          paidPrice: p.paidPrice,
+          paidAt: p.paidAt,
+          planSnapshot: snapshot,
+          status: p.status,
+          provider: p.paymentMethod?.toLowerCase() || "afrimoney",
+          paymentMethod: p.paymentMethod,
+          afriTxnId: p.afriTxnId || null,
+          afriFtxnId: p.afriFtxnId || null,
+          afriMsisdn: p.afriMsisdn || null,
+          flotOrderId: p.flotOrderId || null,
+          flotPaymentLink: null,
+          originalTransactionId: null,
+          latestTransactionId: null,
+          periodStart: p.periodStart,
+          periodEnd: p.periodEnd,
+          createdAt: p.createdAt,
+          couponCode: p.couponCode || null,
+          couponDiscount: p.discountAmount,
+          finalPaidAmount: p.paidPrice,
+          isCurrent,
+        })
+      })
+    } else if (currentSub) {
       const activeUsage = usages.find(u => u.subscriptionId === currentSub.id)
       const snapshot = currentSub.planSnapshot || createPlanSnapshot(currentSub.plan)
       const planDetails = (snapshot as any) || currentSub.plan
@@ -93,36 +147,23 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Add other coupon usages if any
-    usages.forEach((usage) => {
-      if (currentSub && usage.subscriptionId === currentSub.id) return // Already included above
-      historyList.push({
-        id: usage.id,
-        planName: usage.coupon ? `Seller Coupon (${usage.coupon.code})` : "Subscription Payment",
-        planType: "COUPON_REDEMPTION",
-        price: usage.coupon ? usage.coupon.discountValue : 0,
-        paidPrice: 0,
-        planSnapshot: null,
-        status: "COMPLETED",
-        provider: "coupon",
-        originalTransactionId: null,
-        latestTransactionId: null,
-        periodStart: null,
-        periodEnd: null,
-        createdAt: usage.createdAt,
-        couponCode: usage.coupon?.code || null,
-        couponDiscount: usage.coupon ? usage.coupon.discountValue : 0,
-        finalPaidAmount: 0,
-        isCurrent: false
-      })
-    })
-
     const snapshot = currentSub ? (currentSub.planSnapshot || createPlanSnapshot(currentSub.plan)) : null
     const currentPlanDetails = (snapshot as any) || currentSub?.plan || null
     const basePlanPrice = currentSub ? (currentSub.paidPrice !== null && currentSub.paidPrice !== undefined ? currentSub.paidPrice : (currentPlanDetails?.price ?? currentSub.plan?.price ?? 0)) : 0
 
     return NextResponse.json({
       history: historyList,
+      queuedPacks: queuedPacks.map((q) => ({
+        id: q.id,
+        planName: q.plan?.displayName || q.plan?.name,
+        status: q.status,
+        periodStart: q.periodStart,
+        periodEnd: q.periodEnd,
+        durationDays: q.durationDays,
+        paidPrice: q.paidPrice,
+        paymentMethod: q.paymentMethod,
+        afriTxnId: q.afriTxnId,
+      })),
       currentSubscription: currentSub ? {
         id: currentSub.id,
         status: currentSub.status,

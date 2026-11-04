@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileHotelRestaurantAuth } from "@/lib/mobile-hotel-restaurant-auth-server"
-import { UserRole, SubscriptionPlan, SubscriptionStatus } from "@prisma/client"
-import { createPlanSnapshot, getValidRestaurantSubscription } from "@/lib/subscriptions"
+import { UserRole, SubscriptionPlan, PlanType, SubscriptionStatus } from "@prisma/client"
+import { activateOrQueuePurchase, createPlanSnapshot, getValidRestaurantSubscription } from "@/lib/subscriptions"
 
 /**
  * GET current subscription and available plans for restaurant seller.
@@ -68,39 +68,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
     }
 
-    // Direct update logic
-    const now = new Date()
-    const durationDays = plan.duration || 30
-    const currentPeriodEnd = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
-
-    const snapshot = createPlanSnapshot(plan)
-    const updatedSubscription = await prisma.restaurantSubscription.upsert({
-      where: { restaurantSellerId: auth.seller.id },
-      update: {
-        planId: plan.id,
-        paidPrice: plan.price,
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-      },
-      create: {
-        restaurantSellerId: auth.seller.id,
-        planId: plan.id,
-        paidPrice: plan.price,
-        planSnapshot: snapshot,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd,
-      },
-      include: { plan: true }
+    // Universal activateOrQueuePurchase handler
+    const activation = await activateOrQueuePurchase({
+      sellerType: PlanType.RESTAURANT,
+      restaurantSellerId: auth.seller.id,
+      planId: plan.id,
+      price: plan.price,
+      paidPrice: plan.price,
+      durationDays: plan.duration || 30,
+      paymentMethod: "MOBILE_DIRECT",
+      paidAt: new Date(),
     })
 
     return NextResponse.json({
       success: true,
-      message: "Subscription updated successfully",
-      subscription: updatedSubscription,
-      url: null // null indicates direct update (no Stripe redirect needed)
+      message: activation.status === "QUEUED" ? "Subscription queued successfully" : "Subscription activated successfully",
+      status: activation.status,
+      subscription: activation.purchase,
+      url: null,
     })
   } catch (error) {
     console.error("[POST /mobileapi/restaurant-seller/subscription] Error:", error)

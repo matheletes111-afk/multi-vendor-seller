@@ -5,6 +5,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import path from "path"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { computeFoodDiscount, readSellingPriceField, readImageUrlsField } from "@/lib/food-pricing"
+import { checkRestaurantFoodLimit } from "@/lib/subscriptions"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,14 @@ export async function GET(request: NextRequest) {
     })
     if (!seller) {
       return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 })
+    }
+
+    const limitCheck = await checkRestaurantFoodLimit(seller.id)
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: `Food item limit reached (${limitCheck.limit}). Please upgrade or recharge your plan.` },
+        { status: 403 }
+      )
     }
 
     const foods = await prisma.foodItem.findMany({

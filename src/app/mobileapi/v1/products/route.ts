@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
+import { activeProductSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isActive: true,
       isDeleted: false,
-      seller: {
-        isApproved: true,
-        isSuspended: false,
-      },
+      seller: activeProductSellerWhere(),
     }
 
     if (categoryParam && categoryParam.trim().length > 0) {

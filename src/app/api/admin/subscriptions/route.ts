@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
+import { PlanType } from "@prisma/client"
+import { activateOrQueuePurchase } from "@/lib/subscriptions"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, isValid } from "date-fns"
 
@@ -337,10 +339,23 @@ export async function GET(request: NextRequest) {
       return timeB - timeA
     })
 
-    const totalRevenue = filteredForRevenue.reduce((sum, s) => {
-      const p = s.paidPrice !== null && s.paidPrice !== undefined ? s.paidPrice : (s.plan?.price || 0)
-      return sum + p
-    }, 0)
+    const purchaseRevenueAgg = await prisma.subscriptionPurchase.aggregate({
+      where: {
+        sellerType: sellerType as any,
+        status: { in: ["ACTIVE", "QUEUED", "EXPIRED"] },
+        paidPrice: { gt: 0 },
+        ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+      },
+      _sum: { paidPrice: true },
+    })
+
+    const totalLedgerRevenue = Number(purchaseRevenueAgg._sum.paidPrice || 0)
+    const totalRevenue = totalLedgerRevenue > 0
+      ? totalLedgerRevenue
+      : filteredForRevenue.reduce((sum, s) => {
+          const p = s.paidPrice !== null && s.paidPrice !== undefined ? s.paidPrice : (s.plan?.price || 0)
+          return sum + p
+        }, 0)
     const planCountMap = Object.fromEntries(planCounts.map((p: any) => [p.planId, p._count]))
     const planActiveMap = Object.fromEntries(planActiveCounts.map((p: any) => [p.planId, p._count]))
     const totalPages = Math.ceil(totalCount / perPage)
@@ -365,6 +380,58 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching subscriptions:", error)
     return NextResponse.json(
       { error: "Failed to fetch subscriptions" },
+      { status: 500 }
+    )
+  }
+}
+
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth()
+    if (!session?.user || !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const { sellerType, sellerId, planId, durationDays, note } = body
+
+    if (!sellerType || !sellerId || !planId) {
+      return NextResponse.json({ error: "sellerType, sellerId, and planId are required" }, { status: 400 })
+    }
+
+    const typeEnum =
+      sellerType === "HOTEL"
+        ? PlanType.HOTEL
+        : sellerType === "RESTAURANT"
+        ? PlanType.RESTAURANT
+        : PlanType.PRODUCT_SERVICE
+
+    const plan = await prisma.plan.findUnique({ where: { id: planId } })
+    if (!plan) {
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+    }
+
+    const result = await activateOrQueuePurchase({
+      sellerType: typeEnum,
+      sellerId: typeEnum === PlanType.PRODUCT_SERVICE ? sellerId : null,
+      hotelSellerId: typeEnum === PlanType.HOTEL ? sellerId : null,
+      restaurantSellerId: typeEnum === PlanType.RESTAURANT ? sellerId : null,
+      planId: plan.id,
+      durationDays: durationDays ? Number(durationDays) : (plan.duration || 30),
+      price: plan.price,
+      paidPrice: 0,
+      paymentMethod: "ADMIN_GRANT",
+      adminGrantedBy: session.user.id,
+      note: note || "Granted by Admin",
+      paidAt: new Date(),
+    })
+
+    return NextResponse.json(result)
+  } catch (error: any) {
+    console.error("[POST /api/admin/subscriptions] Error:", error)
+    return NextResponse.json(
+      { error: error?.message || "Failed to grant subscription" },
       { status: 500 }
     )
   }

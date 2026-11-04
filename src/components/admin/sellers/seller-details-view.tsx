@@ -260,8 +260,10 @@ export function SellerDetailsView({
         {/* SUBSCRIPTION PACKAGE DETAILS */}
         <SellerSubscriptionDetailsCard
           subscription={seller.subscription}
+          purchases={seller.subscriptionPurchases || []}
           plans={seller.plans || []}
           sellerType={seller.type || "PRODUCT"}
+          sellerId={seller.id}
         />
 
         {/* PART 4: FINANCIAL ANCHOR */}

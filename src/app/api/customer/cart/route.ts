@@ -5,6 +5,7 @@ import { resolveCartLine } from "./resolve"
 import type { CartAddPayload, CartItemApi, CartPatchPayload } from "./types"
 import { isProductCartPayload } from "./types"
 import { UserRole } from "@prisma/client"
+import { isSubscriptionVisibilityGateEnabled } from "@/lib/subscriptions"
 
 const cartItemInclude = {
   product: {
@@ -12,11 +13,44 @@ const cartItemInclude = {
       id: true,
       name: true,
       images: true,
+      isActive: true,
+      isDeleted: true,
+      sellerId: true,
+      seller: {
+        select: {
+          isApproved: true,
+          isSuspended: true,
+          subscription: {
+            select: { status: true, currentPeriodEnd: true, provider: true }
+          }
+        }
+      },
       variants: { select: { id: true, stock: true }, take: 1, orderBy: { createdAt: "asc" as const } },
     },
   },
   productVariant: { select: { id: true, name: true, price: true, discount: true, hasGst: true, images: true, stock: true } },
-  service: { select: { id: true, name: true, basePrice: true, discount: true, hasGst: true, images: true } },
+  service: {
+    select: {
+      id: true,
+      name: true,
+      basePrice: true,
+      discount: true,
+      hasGst: true,
+      images: true,
+      isActive: true,
+      isDeleted: true,
+      sellerId: true,
+      seller: {
+        select: {
+          isApproved: true,
+          isSuspended: true,
+          subscription: {
+            select: { status: true, currentPeriodEnd: true, provider: true }
+          }
+        }
+      }
+    }
+  },
   servicePackage: { select: { id: true, name: true, price: true } },
 } as const
 
@@ -95,6 +129,41 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
 
   const image = variantFirstImage ?? productFirstImage ?? serviceFirstImage
   const stock = row.productVariant?.stock ?? row.product?.variants?.[0]?.stock ?? 999
+
+  const now = new Date()
+  let isAvailable = true
+  let unavailableReason: string | undefined = undefined
+
+  const checkSellerActive = (seller: any) => {
+    if (!seller) return false
+    if (!seller.isApproved || seller.isSuspended) return false
+    if (!isSubscriptionVisibilityGateEnabled()) return true
+    const sub = seller.subscription
+    if (!sub) return false
+    if (sub.provider === "apple_iap") {
+      return sub.status === "ACTIVE" || sub.status === "IN_GRACE_PERIOD"
+    }
+    return (sub.status === "ACTIVE" || sub.status === "IN_GRACE_PERIOD") && !!sub.currentPeriodEnd && new Date(sub.currentPeriodEnd) > now
+  }
+
+  if (row.product) {
+    if (row.product.isDeleted || !row.product.isActive) {
+      isAvailable = false
+      unavailableReason = "Product is no longer available"
+    } else if (!checkSellerActive((row.product as any).seller)) {
+      isAvailable = false
+      unavailableReason = "Store subscription is expired or inactive"
+    }
+  } else if (row.service) {
+    if (row.service.isDeleted || !row.service.isActive) {
+      isAvailable = false
+      unavailableReason = "Service is no longer available"
+    } else if (!checkSellerActive((row.service as any).seller)) {
+      isAvailable = false
+      unavailableReason = "Provider subscription is expired or inactive"
+    }
+  }
+
   return {
     id: row.id,
     productId: row.productId,
@@ -111,6 +180,8 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
     name,
     image,
     stock,
+    isAvailable,
+    unavailableReason,
   }
 }
 
