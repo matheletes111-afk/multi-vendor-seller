@@ -17,14 +17,14 @@ const nextConfig = {
   async headers() {
     const cspHeader = `
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://maps.googleapis.com https://js.stripe.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://maps.googleapis.com https://js.stripe.com https://challenges.cloudflare.com;
       worker-src 'self' blob:;
       child-src 'self' blob:;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       img-src 'self' blob: data: https: https://images.unsplash.com https://meeemsl-bucket.s3.us-east-1.amazonaws.com https://api.qrserver.com https://*.googleapis.com https://*.gstatic.com https://*.media-amazon.com https://*.shutterstock.com https://*.istockphoto.com https://img.youtube.com https://*.ytimg.com https://content.jdmagicbox.com;
       font-src 'self' data: https://fonts.gstatic.com;
-      connect-src 'self' blob: https://maps.googleapis.com https://api.stripe.com https://*.googleapis.com;
-      frame-src 'self' https://js.stripe.com https://www.youtube.com https://youtube.com;
+      connect-src 'self' blob: https://maps.googleapis.com https://api.stripe.com https://*.googleapis.com https://challenges.cloudflare.com;
+      frame-src 'self' https://js.stripe.com https://www.youtube.com https://youtube.com https://challenges.cloudflare.com;
       frame-ancestors 'self';
       object-src 'none';
       base-uri 'self';
