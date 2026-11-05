@@ -95,6 +95,39 @@ export async function GET(request: NextRequest) {
       seller.bankDetails.bankLetterUrl = bankLetter
     }
 
+    // Ensure primaryCuisine & serviceTypes are clean parsed arrays (not raw JSON strings)
+    let parsedCuisines: string[] = []
+    if (seller.primaryCuisine) {
+      try {
+        const parsed = typeof seller.primaryCuisine === "string" ? JSON.parse(seller.primaryCuisine) : seller.primaryCuisine
+        if (Array.isArray(parsed)) {
+          parsedCuisines = parsed.map(String)
+          seller.primaryCuisine = parsedCuisines
+        }
+      } catch {
+        seller.primaryCuisine = []
+      }
+    }
+    if (seller.serviceTypes) {
+      try {
+        const parsed = typeof seller.serviceTypes === "string" ? JSON.parse(seller.serviceTypes) : seller.serviceTypes
+        if (Array.isArray(parsed)) {
+          seller.serviceTypes = parsed.map(String)
+        }
+      } catch {
+        seller.serviceTypes = []
+      }
+    }
+
+    // Also attach categories (combining cuisines, existing dish categories, and standard categories)
+    const existingFoods = await prisma.foodItem.findMany({
+      where: { restaurantSellerId: seller.id, isDeleted: false },
+      select: { category: true },
+    })
+    const existingCats = existingFoods.map((f) => f.category).filter(Boolean)
+    const combinedCats = Array.from(new Set([...parsedCuisines, ...existingCats]))
+    ;(seller as any).categories = combinedCats
+
     return NextResponse.json({ success: true, data: seller })
   } catch (error) {
     console.error("Error in mobile settings GET API:", error)

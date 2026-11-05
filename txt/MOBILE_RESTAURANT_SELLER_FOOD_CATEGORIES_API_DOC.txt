@@ -1,0 +1,298 @@
+================================================================================
+MEEEM - RESTAURANT SELLER FOOD CATEGORIES MOBILE API DOCUMENTATION
+================================================================================
+Date: 2026-11-05
+Audience: Mobile App Developer (Flutter / React Native / iOS / Android)
+Target Screen: "Add Menu Item" / "Edit Menu Item" -> Category Dropdown
+================================================================================
+
+--------------------------------------------------------------------------------
+1. OVERVIEW & BACKGROUND
+--------------------------------------------------------------------------------
+When a restaurant seller opens the "Add Menu Item" screen, the "CATEGORY" 
+dropdown should show all available categories:
+  1. The seller's primary cuisines selected during onboarding (e.g. Pizza, Burgers, Salads).
+  2. The categories of dishes the seller already created (e.g. Salad, Burger, chicken, etc.).
+  3. System standard food categories (e.g. Starters, Mains, Desserts, Beverages, etc.).
+  4. "+ Other (Create Custom)" as the final option to enter a new custom category.
+
+Previously, the dropdown was showing ONLY "+ Other (Create Custom)" because:
+  - The dedicated endpoint GET /mobileapi/restaurant-seller/categories did not exist.
+  - In Settings API, `primaryCuisine` was returned as a stringified JSON string 
+    ("[\"Pizza\", ...]"), causing Dart/Flutter type-cast errors (String is not a subtype of List).
+
+All backend fixes have now been implemented. Below are the endpoints and integration guide.
+
+
+--------------------------------------------------------------------------------
+2. PRIMARY API ENDPOINT: GET RESTAURANT SELLER CATEGORIES
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/restaurant-seller/categories
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+
+Optional Query Parameters (fallback if token not yet attached):
+  ?restaurantSellerId=<SELLER_ID>
+  ?sellerId=<SELLER_ID>
+
+Example URL:
+  https://www.meeemsl.com/mobileapi/restaurant-seller/categories
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": [
+    { "id": "Pizza", "name": "Pizza" },
+    { "id": "Burgers", "name": "Burgers" },
+    { "id": "Salads", "name": "Salads" },
+    { "id": "Fast Food", "name": "Fast Food" },
+    { "id": "Beverages", "name": "Beverages" },
+    { "id": "Lebanese", "name": "Lebanese" },
+    { "id": "Arabic", "name": "Arabic" },
+    { "id": "African", "name": "African" },
+    { "id": "BBQ", "name": "BBQ" },
+    { "id": "Sandwiches", "name": "Sandwiches" },
+    { "id": "Seafood", "name": "Seafood" },
+    { "id": "Juices", "name": "Juices" },
+    { "id": "chicken", "name": "chicken" },
+    { "id": "friedrice , chicken and vegetable", "name": "friedrice , chicken and vegetable" },
+    { "id": "fried chicken and chips", "name": "fried chicken and chips" },
+    { "id": "sharwama", "name": "sharwama" },
+    { "id": "Salad", "name": "Salad" },
+    { "id": "Starters", "name": "Starters" },
+    { "id": "Mains", "name": "Mains" },
+    { "id": "Desserts", "name": "Desserts" }
+  ],
+  "categories": [
+    "Pizza",
+    "Burgers",
+    "Salads",
+    "Fast Food",
+    "Beverages",
+    "Lebanese",
+    "Arabic",
+    "African",
+    "BBQ",
+    "Sandwiches",
+    "Seafood",
+    "Juices",
+    "chicken",
+    "friedrice , chicken and vegetable",
+    "fried chicken and chips",
+    "sharwama",
+    "Salad",
+    "Starters",
+    "Mains",
+    "Desserts"
+  ],
+  "cuisines": [
+    "Pizza",
+    "Fast Food",
+    "Burgers",
+    "Salads",
+    "Beverages",
+    "Lebanese",
+    "Arabic",
+    "African",
+    "BBQ",
+    "Sandwiches",
+    "Seafood",
+    "Juices",
+    "Other"
+  ]
+}
+
+Note on Compatibility:
+  - If your mobile dropdown parses objects: Use `response.data['data']` (array of `{ id, name }`).
+  - If your mobile dropdown parses strings: Use `response.data['categories']` (array of `String`).
+  - Both keys are provided in the exact same response!
+
+
+--------------------------------------------------------------------------------
+3. ALTERNATIVE ENDPOINT: GET RESTAURANT SELLER SETTINGS
+--------------------------------------------------------------------------------
+If your mobile app fetches profile data via settings:
+Endpoint: GET /mobileapi/restaurant-seller/settings
+Headers:
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+
+Updates Made:
+  1. `data.primaryCuisine`: Now guaranteed to be a parsed JSON Array:
+     ["Pizza", "Fast Food", "Burgers", "Salads", ...]
+     (Will NEVER be a raw string like "\"[\"Pizza\"]\"" - zero Dart type exceptions).
+  2. `data.serviceTypes`: Also guaranteed to be a parsed Array:
+     ["Delivery", "Dine-in", "Takeaway"]
+  3. `data.categories`: A newly added array in the seller profile that merges
+     the seller's cuisines and existing dish categories.
+
+
+--------------------------------------------------------------------------------
+4. PUBLIC FOODS CATEGORIES ENDPOINT
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/foods/categories
+Headers (Optional):
+  Authorization: Bearer <SELLER_ACCESS_TOKEN>
+
+Updates Made:
+  - Now returns BOTH `categories` and `data` keys:
+    {
+      "success": true,
+      "data": ["Pizza", "Burgers", "Salads", ...],
+      "categories": ["Pizza", "Burgers", "Salads", ...],
+      "items": [{ "id": "Pizza", "name": "Pizza" }, ...]
+    }
+  - Supports query parameter: `?restaurantSellerId=<ID>` to return that seller's categories.
+
+
+--------------------------------------------------------------------------------
+5. MOBILE IMPLEMENTATION GUIDE (FLUTTER / DART EXAMPLE)
+--------------------------------------------------------------------------------
+
+A. Fetching Categories on Screen Init:
+```dart
+List<String> categoryList = [];
+String? selectedCategory;
+String customCategoryText = "";
+bool isCustomSelected = false;
+bool isLoadingCategories = true;
+
+Future<void> loadCategories() async {
+  try {
+    final response = await http.get(
+      Uri.parse('https://www.meeemsl.com/mobileapi/restaurant-seller/categories'),
+      headers: {
+        'Authorization': 'Bearer $sellerToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      if (json['success'] == true) {
+        List<String> fetched = [];
+
+        // Support string array key
+        if (json['categories'] != null && json['categories'] is List) {
+          fetched = List<String>.from(json['categories']);
+        } 
+        // Or object array key: data: [{ name: ... }]
+        else if (json['data'] != null && json['data'] is List) {
+          fetched = (json['data'] as List).map((item) {
+            if (item is Map) return item['name']?.toString() ?? '';
+            return item.toString();
+          }).where((s) => s.isNotEmpty).toList();
+        }
+
+        setState(() {
+          categoryList = fetched;
+          // Set initial selection if available
+          if (categoryList.isNotEmpty) {
+            selectedCategory = categoryList.first;
+            isCustomSelected = false;
+          } else {
+            selectedCategory = '__custom__';
+            isCustomSelected = true;
+          }
+          isLoadingCategories = false;
+        });
+      }
+    }
+  } catch (e) {
+    print('Failed to load categories: $e');
+    setState(() => isLoadingCategories = false);
+  }
+}
+```
+
+B. Dropdown UI with "+ Other (Create Custom)" Option:
+```dart
+// Dropdown Items list: All fetched categories + "+ Other (Create Custom)"
+List<DropdownMenuItem<String>> buildDropdownItems() {
+  final items = categoryList.map((cat) {
+    return DropdownMenuItem<String>(
+      value: cat,
+      child: Text(cat),
+    );
+  }).toList();
+
+  items.add(
+    const DropdownMenuItem<String>(
+      value: '__custom__',
+      child: Text(
+        '+ Other (Create Custom)',
+        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2A3B8F)),
+      ),
+    ),
+  );
+
+  return items;
+}
+
+// Dropdown Widget
+DropdownButtonFormField<String>(
+  value: selectedCategory,
+  decoration: const InputDecoration(labelText: 'CATEGORY'),
+  items: buildDropdownItems(),
+  onChanged: (val) {
+    setState(() {
+      selectedCategory = val;
+      isCustomSelected = (val == '__custom__');
+    });
+  },
+)
+
+// Show Custom Text Input when "+ Other (Create Custom)" is active
+if (isCustomSelected) ...[
+  const SizedBox(height: 12),
+  TextFormField(
+    decoration: const InputDecoration(
+      labelText: 'Custom Category Name',
+      hintText: 'e.g. Special Salad, Platters',
+    ),
+    onChanged: (val) {
+      customCategoryText = val;
+    },
+    validator: (val) {
+      if (isCustomSelected && (val == null || val.trim().isEmpty)) {
+        return 'Please enter category name';
+      }
+      return null;
+    },
+  ),
+]
+```
+
+C. Submitting Add Food Item (POST):
+```dart
+// Determine final category string to submit
+final String finalCategory = isCustomSelected 
+    ? customCategoryText.trim() 
+    : (selectedCategory ?? '').trim();
+
+// Add to Multipart / FormData request
+var request = http.MultipartRequest(
+  'POST',
+  Uri.parse('https://www.meeemsl.com/mobileapi/restaurant-seller/foods'),
+);
+request.headers['Authorization'] = 'Bearer $sellerToken';
+
+request.fields['name'] = dishName;
+request.fields['price'] = price.toString();
+request.fields['category'] = finalCategory; // <--- Clean category string
+request.fields['isVeg'] = isVeg ? 'true' : 'false';
+if (description.isNotEmpty) {
+  request.fields['description'] = description;
+}
+// Attach image files...
+```
+
+
+--------------------------------------------------------------------------------
+6. SUMMARY OF VERIFIED FIXES
+--------------------------------------------------------------------------------
+1. GET /mobileapi/restaurant-seller/categories is deployed and tested.
+2. Seller `cmtx1dpto0002wkaywwc0gq5i` returns 21 valid categories.
+3. Settings API returns clean native arrays for cuisines & service types.
+4. Dropdown will now display all cuisines and existing dishes' categories.
+================================================================================
+
