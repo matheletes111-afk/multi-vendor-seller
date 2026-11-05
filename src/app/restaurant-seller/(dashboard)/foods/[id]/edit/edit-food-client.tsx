@@ -17,10 +17,12 @@ export function EditFoodClient({ id }: { id: string }) {
   const [price, setPrice] = useState("")
   const [sellingPrice, setSellingPrice] = useState("")
   const [category, setCategory] = useState("Mains")
+  const [selectedCategory, setSelectedCategory] = useState("Mains")
+  const [customCategory, setCustomCategory] = useState("")
   const [isVeg, setIsVeg] = useState(true)
   const [newImageFiles, setNewImageFiles] = useState<{ file: File; preview: string }[]>([])
   const [existingImages, setExistingImages] = useState<string[]>([])
-  const [cuisines, setCuisines] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -46,23 +48,30 @@ export function EditFoodClient({ id }: { id: string }) {
   }, [])
 
   useEffect(() => {
-    fetch("/api/restaurant-seller/settings")
+    fetch("/api/restaurant-seller/categories")
       .then((r) => r.json())
-      .then((data) => {
-        if (data && data.primaryCuisine) {
-          try {
-            const parsed = typeof data.primaryCuisine === "string"
-              ? JSON.parse(data.primaryCuisine)
-              : data.primaryCuisine
-            if (Array.isArray(parsed)) {
-              setCuisines(parsed)
-            }
-          } catch (e) {
-            console.error(e)
-          }
+      .then((res) => {
+        const cats = res.categories || (Array.isArray(res.data) ? res.data.map((d: any) => d.name || d) : [])
+        if (Array.isArray(cats) && cats.length > 0) {
+          setCategories(cats)
         }
       })
-      .catch(console.error)
+      .catch(() => {
+        fetch("/api/restaurant-seller/settings")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && (data.categories || data.primaryCuisine)) {
+              try {
+                const list = data.categories || data.primaryCuisine
+                const parsed = typeof list === "string" ? JSON.parse(list) : list
+                if (Array.isArray(parsed)) setCategories(parsed)
+              } catch (e) {
+                console.error(e)
+              }
+            }
+          })
+          .catch(console.error)
+      })
 
     fetch(`/api/restaurant-seller/foods/${id}`)
       .then((r) => r.json())
@@ -76,7 +85,15 @@ export function EditFoodClient({ id }: { id: string }) {
             ? Math.max(0, Math.round((item.price - item.discount) * 100) / 100).toString()
             : (item.sellingPrice !== undefined ? item.sellingPrice.toString() : item.price.toString())
           setSellingPrice(calculatedSelling)
-          setCategory(item.category)
+          const itemCat = item.category || ""
+          setCategory(itemCat)
+          setSelectedCategory(itemCat)
+          setCategories((prev: string[]) => {
+            if (itemCat && !prev.includes(itemCat)) {
+              return [itemCat, ...prev]
+            }
+            return prev
+          })
           setIsVeg(item.isVeg)
           
           let imgs: string[] = []
@@ -190,7 +207,7 @@ export function EditFoodClient({ id }: { id: string }) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="price" className="text-sm font-bold text-slate-700">Actual Price / MRP (₹) *</Label>
+                <Label htmlFor="price" className="text-sm font-bold text-slate-700">Actual Price / MRP (NLe) *</Label>
                 <Input
                   id="price"
                   type="number"
@@ -205,11 +222,11 @@ export function EditFoodClient({ id }: { id: string }) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="sellingPrice" className="text-sm font-bold text-slate-700">
-                    Selling Price (₹)
+                    Selling Price (NLe)
                   </Label>
                   {hasDiscount && (
                     <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      Save ₹{discountAmount} ({discountPercent}% OFF)
+                      Save NLe {discountAmount} ({discountPercent}% OFF)
                     </span>
                   )}
                 </div>
@@ -224,7 +241,7 @@ export function EditFoodClient({ id }: { id: string }) {
                 />
                 {isSellingExceeding ? (
                   <p className="text-[11px] font-semibold text-destructive">
-                    Selling price cannot exceed regular price (₹{numPrice})
+                    Selling price cannot exceed regular price (NLe {numPrice})
                   </p>
                 ) : (
                   <p className="text-[11px] text-muted-foreground">
@@ -234,20 +251,44 @@ export function EditFoodClient({ id }: { id: string }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-bold text-slate-700">Category *</Label>
-                {cuisines.length > 0 ? (
+                {categories.length > 0 ? (
+                  <>
                   <select
                     id="category"
                     required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSelectedCategory(val)
+                      if (val === "__custom__") {
+                        setCategory(customCategory)
+                      } else {
+                        setCategory(val)
+                      }
+                    }}
                     className="w-full h-12 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
-                    {cuisines.map((cuisine) => (
+                    {categories.map((cuisine: string) => (
                       <option key={cuisine} value={cuisine}>
                         {cuisine}
                       </option>
                     ))}
-                  </select>
+                      <option value="__custom__">+ Other (Create Custom)</option>
+                    </select>
+                    {selectedCategory === "__custom__" && (
+                      <Input
+                        id="customCategory"
+                        required
+                        value={customCategory}
+                        onChange={(e) => {
+                          setCustomCategory(e.target.value)
+                          setCategory(e.target.value)
+                        }}
+                        className="h-12 rounded-xl mt-2"
+                        placeholder="Enter custom category name (e.g. Special Salad, Platters)"
+                      />
+                    )}
+                  </>
                 ) : (
                   <Input
                     id="category"
@@ -255,6 +296,7 @@ export function EditFoodClient({ id }: { id: string }) {
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="h-12 rounded-xl"
+                    placeholder="e.g. Mains, Starters, Desserts"
                   />
                 )}
               </div>
