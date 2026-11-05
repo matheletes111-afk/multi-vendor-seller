@@ -1,5 +1,7 @@
 "use client"
 
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
+
 import { useState } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -27,6 +29,7 @@ export default function HotelSellerRegistrationPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,7 +45,7 @@ export default function HotelSellerRegistrationPage() {
       const res = await fetch("/api/hotel-seller/auth/registration", { 
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password }) 
+        body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password, turnstileToken }) 
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || "Registration failed"); return }
@@ -111,6 +114,7 @@ export default function HotelSellerRegistrationPage() {
                 </button>
               </div>
             </div>
+            <TurnstileWidget onVerify={setTurnstileToken} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
                 {loading ? "Creating account..." : "Create Account"}

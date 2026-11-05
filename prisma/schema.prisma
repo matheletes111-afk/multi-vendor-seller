@@ -2184,4 +2184,16 @@ model SellerDripLog {
   @@index([sellerId, dayNumber])
   @@index([sentAt])
   @@map("seller_drip_logs")
-}
+}
+model SecurityRateLimit {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  points    Int      @default(1)
+  expireAt  DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([expireAt])
+  @@map("security_rate_limits")
+}

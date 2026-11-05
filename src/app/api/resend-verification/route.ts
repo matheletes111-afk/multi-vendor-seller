@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomBytes } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -8,6 +9,15 @@ import { getEquivalentPhoneVariants } from "@/lib/phone-validation"
 /** POST /api/resend-verification — Resend verification email/SMS. Body: { email, phone, phoneCountryCode } */
 export async function POST(request: Request) {
   try {
+    // 🛡️ Security Guard: IP rate limit (3/min)
+    const sec = await validateRequestSecurity(request, {
+      action: "resend_otp",
+      isMobile: false,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 })) as any
+    }
+
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
     const phone = typeof body.phone === "string" ? body.phone.trim() : ""

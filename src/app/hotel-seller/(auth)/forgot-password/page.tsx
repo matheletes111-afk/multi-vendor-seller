@@ -1,5 +1,7 @@
 "use client"
 
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -15,6 +17,7 @@ export default function HotelSellerForgotPasswordPage() {
   const [identifier, setIdentifier] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +31,7 @@ export default function HotelSellerForgotPasswordPage() {
       const res = await fetch("/api/hotel-seller/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEmail ? { email: raw.toLowerCase() } : { phone: raw }),
+        body: JSON.stringify(isEmail ? { email: raw.toLowerCase(), turnstileToken } : { phone: raw, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) return setError(data.error || "Failed to send OTP.")
@@ -52,6 +55,7 @@ export default function HotelSellerForgotPasswordPage() {
           {error && <Alert variant="destructive" className="mb-5"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-5">
             <div><Label htmlFor="identifier" className="mb-1.5 block text-sm font-medium text-gray-700">Email or Mobile Number</Label><Input id="identifier" type="text" placeholder="example@gmail.com or mobile number" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
+            <TurnstileWidget onVerify={setTurnstileToken} />
             <div className="text-center"><Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[220px]">{loading ? "Sending OTP..." : "Send OTP"}</Button></div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600"><Link href="/hotel-seller/login" className="font-medium text-blue-600 hover:underline">Back to login</Link></p>

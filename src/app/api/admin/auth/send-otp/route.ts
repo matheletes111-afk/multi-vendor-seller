@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -12,6 +13,15 @@ const COOLDOWN_MS = 60 * 1000 // 1 min
 /** POST /api/admin/auth/send-otp — Send 6-digit OTP to email. Body: { email } */
 export async function POST(request: Request) {
   try {
+    // 🛡️ Security Guard: IP rate limit (3/min)
+    const sec = await validateRequestSecurity(request, {
+      action: "resend_otp",
+      isMobile: false,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 })) as any
+    }
+
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim() : ""
     if (!email) {

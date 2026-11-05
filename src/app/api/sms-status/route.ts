@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { normalizePhoneNumber } from "@/lib/twilio-sms"
@@ -35,6 +36,16 @@ function resolvePhoneFormats(input: string, countryCode: string = "+232") {
 
 export async function GET(request: Request) {
   try {
+    // 0. Security Guard: Require SuperAdmin or Admin session
+    const session = await auth();
+    const role = (session?.user as any)?.role as string | undefined
+    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized access: Administrator session required." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url)
     const rawPhone =
       searchParams.get("phone") ||

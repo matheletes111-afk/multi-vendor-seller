@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
@@ -23,6 +24,16 @@ type ApiResponse =
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
     const body = (await request.json().catch(() => ({}))) as Partial<SendOtpRequest> & { identifier?: string }
+    // 🛡️ Security Guard: IP rate limit & Mobile App check
+    const sec = await validateRequestSecurity(request, {
+      action: "forgot_password",
+      isMobile: true,
+      phone: body.phone,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ success: false, error: "Too many requests." }, { status: 429 })) as any
+    }
+
     const rawIdentifier = typeof body.identifier === "string" ? body.identifier.trim() : ""
     let email = typeof body.email === "string" ? body.email.toLowerCase().trim() : ""
     let phone = typeof body.phone === "string" ? body.phone.trim() : ""

@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -22,6 +23,15 @@ type ApiResponse =
 /** POST /mobileapi/restaurant-seller/auth/email-otp/send-otp — Body: { email } */
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
+    // 🛡️ Security Guard: IP rate limit & Mobile App check
+    const sec = await validateRequestSecurity(request, {
+      action: "email_otp",
+      isMobile: true,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ success: false, error: "Too many requests." }, { status: 429 })) as any
+    }
+
     const body = await request.json().catch(() => ({}))
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
     if (!email) return NextResponse.json({ success: false, error: "Email is required" }, { status: 400 })

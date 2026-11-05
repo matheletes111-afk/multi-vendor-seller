@@ -1,3 +1,4 @@
+import { checkIpRateLimit } from "@/lib/ip-rate-limit"
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
@@ -15,6 +16,12 @@ const ROLE_LABELS: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
+    // 🛡️ Security: Credential-stuffing & brute-force protection (Max 5 attempts/min per IP)
+    const ipLimit = await checkIpRateLimit(request, { action: "login", maxRequests: 5, windowSeconds: 60 })
+    if (!ipLimit.allowed) {
+      return (ipLimit.response || NextResponse.json({ error: "Too many login attempts. Please wait 1 minute." }, { status: 429 })) as any
+    }
+
     const body = await request.json()
     const { email, password, callbackUrl, csrfToken } = body as {
       email?: string

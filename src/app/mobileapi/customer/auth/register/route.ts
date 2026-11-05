@@ -1,3 +1,5 @@
+import { checkPhoneOtpLimit } from "@/lib/phone-rate-limit"
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -64,6 +66,15 @@ type ApiResponse = SuccessResponse | ErrorResponse
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
+    // 🛡️ Security Guard: IP rate limit (3/min), Mobile App integrity & Phone cooldown
+    const sec = await validateRequestSecurity(request, {
+      action: "register",
+      isMobile: true,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ success: false, error: "Too many requests. Please wait." }, { status: 429 })) as any
+    }
+
     // Parse and validate request body
     const body: RegisterRequest = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
@@ -183,6 +194,12 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     const now = new Date()
 
     // Create user in database
+        // 🛡️ Security: Check phone cooldown & daily limit BEFORE creating user in DB
+    const phoneLimit = await checkPhoneOtpLimit(normalizedPhone)
+    if (!phoneLimit.allowed) {
+      return (phoneLimit.response || NextResponse.json({ success: false, error: "OTP limit reached for this phone number." }, { status: 429 })) as any
+    }
+
     const user = await prisma.user.create({
       data: {
         email: cleanEmail,

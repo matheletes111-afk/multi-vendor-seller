@@ -1,3 +1,4 @@
+import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
@@ -41,6 +42,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     }
     if (!/^\d{6}$/.test(otp)) return NextResponse.json({ success: false, error: "OTP must be 6 digits" }, { status: 400 })
 
+        const rateLimitKey = `${normalizedPhone}:verify-otp`
+    const rateCheck = await checkOtpRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
+      const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
+      return NextResponse.json({ success: false, error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
+    }
+
     const phoneDigits = normalizedPhone.replace(/^\+/, "")
     const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
     const user = await prisma.user.findFirst({
@@ -66,7 +74,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     })
 
     if (!user) return NextResponse.json({ success: false, error: "Invalid phone number or OTP." }, { status: 400 })
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ success: false, error: "Invalid OTP." }, { status: 400 })
+    if (user.verifyEmailOtp !== otp) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ success: false, error: "Invalid OTP." }, { status: 400 })
+    }
     if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
       return NextResponse.json({ success: false, error: "OTP has expired. Please request a new one.", expired: true }, { status: 400 })
     }
@@ -75,6 +86,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       where: { id: user.id },
       data: { verifyEmailOtp: null, emailVerificationExpires: null, emailOtpSentAt: null },
     })
+    await resetOtpRateLimit(rateLimitKey)
 
     const UserDetails = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },

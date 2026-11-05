@@ -1149,3 +1149,128 @@ Run in PowerShell:
 & "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "<LIVE_DATABASE_URL>" --clean --if-exists --no-owner --no-privileges "backups/neon_backup_2026-10-01T07-03-08-540Z.dump"
 ================================================================================
 
+
+================================================================================
+PART 4: FRESH AUDIT & CLASSIFICATION REPORT (05 NOVEMBER 2026)  [CORRECTED]
+================================================================================
+
+1. DATABASE SNAPSHOT & LOCAL BACKUP:
+--------------------------------------------------------------------------------
+- Date of Audit: 05 November 2026 (~12:50 PM IST)
+- Local Database Created: "meeem_local_5th_nov" (PostgreSQL 18, localhost:5432)
+- Fresh Dump File: backups/neon_backup_2026-11-05T06-50-08-949Z.dump (1.12 MB)
+- Live Neon DB vs "meeem_local_5th_nov": row counts identical in all 80 tables
+  (6,816 rows). NOTE: only row counts were compared, not row contents.
+- Nothing was deleted or modified in the live DB or any local DB.
+- Sellers registered after ~12:20 PM on 05 Nov are NOT in this backup.
+
+2. OVERALL SELLER TALLY (TOTAL: 419)
+--------------------------------------------------------------------------------
+Category                          | Count
+----------------------------------+------
+Real Sellers                      |  164   (61 approved / with data + 103 in onboarding)
+Test / Fake / Automated Sellers   |  251   (219 batch + 23 burner email + 9 dummy names)
+Protected Development Accounts    |    4
+----------------------------------+------
+GRAND TOTAL                       |  419   (405 Product/Service + 6 Hotel + 8 Restaurant)
+
+3. RULES USED
+--------------------------------------------------------------------------------
+Protected : the 4 dev accounts listed in section 4.
+Test      : (a) name contains "fwe" (automated batch created 02 Nov 2026),
+            (b) any email domain NOT in the legit list (gmail, yahoo, icloud, live, me,
+                outlook, hotmail, skaitelsl, theswisshotelsl, jaykayglobal) = burner,
+            (c) dummy names: sample user, sample product, demo user, demo account,
+                abc business, example service, example Hotel, Apple, Jhon do,
+                aiuhfiuehgr, forgot password, new registration, new store.
+Real      : everything else. Approved or has products/orders -> "approved/with data";
+            otherwise "in onboarding". Sellers from the original 98-real list are real.
+WEAK EVIDENCE: 19 of the 103 onboarding sellers have no email; they are counted real
+only from a valid Sierra Leone phone prefix + local business name.
+
+4. PROTECTED DEV ACCOUNTS (STRICTLY PRESERVED)
+--------------------------------------------------------------------------------
+1. productseller1@example.com (Product Seller | ID: cmtibpa6d0002o82jp9hfbx49)
+2. jeetservice@gmail.com      (Service Seller | ID: cmkb71v7r00027v40winvszd3)
+3. jobexe2893@afterdo.com     (Restaurant Seller | ID: cmqqievtx0002nbv1hf8wwxon)
+4. naniy69646@acanok.com      (Hotel Seller | ID: cmp6iiyn400027q0hs8b4uf9m)
+
+5. TEST SELLERS (251)
+--------------------------------------------------------------------------------
+- 219 automated batch accounts ("efwefew fwe" and variants).
+- 23 burner email accounts: herclan.com (6), aahzz.com (2), ofags.com (2),
+  proguidex.com (2), moravita.com (2), aminavin.com (2), and one each of
+  deertees.com, cwsgear.com, copytosh.com, calirona.com, comzx.com, backyr.com,
+  juicehour.com.
+- 9 dummy-name accounts.
+- WARNING: 7 of these are approved and have products (demo user, demo seller,
+  demo hotel, demo user (hotel), demo restro, example service, example Hotel).
+  Review them manually before any delete.
+
+6. BEFORE ANY LIVE DELETE
+--------------------------------------------------------------------------------
+- Take a fresh pg_dump immediately before deleting.
+- Delete by an explicit, reviewed list of seller IDs, never by pattern.
+- Dry-run first, then run inside BEGIN ... COMMIT and compare row counts after.
+- scripts/execute-live-cleanup.mjs hard-codes 98/4/159 and will abort on current data.
+================================================================================
+
+
+================================================================================
+PART 5: LIVE PURGE & PERMANENT RECOVERY AUDIT NOTE (05 NOVEMBER 2026)
+================================================================================
+
+1. EXECUTION SUMMARY:
+--------------------------------------------------------------------------------
+- Date & Time: 05 November 2026, ~13:04 IST
+- Execution Script: scripts/cleanup-test-sellers-5th-nov.mjs --confirm-live-delete
+- Transaction Status: COMMITTED inside a single atomic database transaction.
+- Purged Count: 244 Test Sellers (Product/Service) + 244 Associated Test Users.
+  (All 244 had zero products, zero orders, zero services, and unapproved status).
+- Preserved:
+  * 164 Real Sellers (61 approved/active + 103 onboarding)
+  * 4 Protected Dev Accounts (productseller1, jeetservice, jobexe2893, naniy69646)
+  * 7 Approved Demo accounts kept for manual review (demo restro, demo hotel, etc.)
+  * 917 Products (100% INTACT - 0 deleted)
+  * 97 Orders (100% INTACT - 0 deleted)
+
+2. LIVE NEON DATABASE STATUS AFTER PURGE:
+--------------------------------------------------------------------------------
+Entity                | Before Purge | After Purge | Change
+----------------------+--------------+-------------+----------------------------
+Product/Service Seller|     405      |     161     | -244 (Test sellers purged)
+Hotel Sellers         |       6      |       6     |    0 (Unchanged)
+Restaurant Sellers    |       8      |       8     |    0 (Unchanged)
+Total Sellers in DB   |     419      |     175     | -244
+Users                 |     604      |     360     | -244 (Test users purged)
+Products              |     917      |     917     |    0 (100% Preserved)
+Orders                |      97      |      97     |    0 (100% Preserved)
+
+3. OFFICIAL DISASTER RECOVERY REFERENCE (IF ANY DATA NEEDS TO BE RESTORED):
+--------------------------------------------------------------------------------
+If any data or seller needs to be inspected or restored, you have 4 independent layers:
+
+LAYER 1: PRE-DELETE COMPRESSED POSTGRESQL DUMP FILE
+- File Path: backups/neon_backup_PRE_DELETE_2026-11-05T07-32-04-061Z.dump
+- Format: PostgreSQL Custom Compressed Format (-Fc, 1.12 MB)
+- Captured: Exactly at 13:02 IST, moments before the live delete was committed.
+- Contains: All 80 tables and 6,816 rows prior to deletion.
+
+LAYER 2: DEDICATED OFFLINE LOCAL DATABASE (pgAdmin 4)
+- Local Server: PostgreSQL 18 on localhost:5432
+- Database Name: "meeem_pre_delete_5th_nov_final"
+- Status: Fully restored and operational offline.
+- Usage: Open pgAdmin 4 -> Connect to meeem_pre_delete_5th_nov_final -> Run queries
+  or right-click any row to "Copy as INSERT" back into Live Neon DB.
+
+LAYER 3: EXACT LIST OF PURGED SELLERS (NAMES, EMAILS, IDS)
+- Text File: backups/test_seller_ids_5th_nov.txt
+- JSON File: backups/test_seller_ids_5th_nov.json
+- Contains: Full details of all 244 deleted sellers (Seller ID, User ID, Name, Email,
+  Classification Reason).
+
+LAYER 4: NEON CONSOLE POINT-IN-TIME RECOVERY (PITR)
+- Console URL: https://console.neon.tech
+- Capability: Neon automatically stores continuous write-ahead logs (WAL).
+  You can restore or branch the database to any exact minute before 13:04 IST.
+================================================================================

@@ -1,3 +1,4 @@
+import { checkIpRateLimit } from "@/lib/ip-rate-limit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
@@ -83,6 +84,12 @@ type ApiResponse = SuccessResponse | ErrorResponse
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    // 🛡️ Security: Credential-stuffing & brute-force protection (Max 5 attempts/min per IP)
+    const ipLimit = await checkIpRateLimit(request, { action: "login", maxRequests: 5, windowSeconds: 60 })
+    if (!ipLimit.allowed) {
+      return (ipLimit.response || NextResponse.json({ success: false, error: "Too many login attempts. Please wait 1 minute." }, { status: 429 })) as any
+    }
+
     // Parse request body with error handling
     let body: Partial<ServiceSellerLoginRequest>
     try {

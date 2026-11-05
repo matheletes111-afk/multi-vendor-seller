@@ -1,5 +1,7 @@
 "use client"
 
+import { TurnstileWidget } from "./turnstile-widget"
+
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -30,6 +32,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +42,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -82,6 +85,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
               <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
               <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
+            <TurnstileWidget onVerify={setTurnstileToken} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[240px]">
                 <Mail className="mr-2 h-4 w-4" />

@@ -88,7 +88,7 @@ export async function sendSmsViaTwilio({ to, body }: SendSmsInput): Promise<void
   }
 
   const params = new URLSearchParams({ To: to, Body: body })
-  params.set("RiskCheck", "disable")
+  params.set("RiskCheck", "enable")
   if (TWILIO_MESSAGING_SERVICE_SID) {
     params.set("MessagingServiceSid", TWILIO_MESSAGING_SERVICE_SID)
   } else {
