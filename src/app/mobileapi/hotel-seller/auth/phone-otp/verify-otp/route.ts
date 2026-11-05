@@ -1,3 +1,4 @@
+import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
@@ -41,6 +42,13 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       return NextResponse.json({ success: false, error: "Phone number and OTP are required." }, { status: 400 })
     }
     if (!/^\d{6}$/.test(otp)) return NextResponse.json({ success: false, error: "OTP must be 6 digits" }, { status: 400 })
+
+        const rateLimitKey = `${normalizedPhone}:verify-otp`
+    const rateCheck = await checkOtpRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
+      const minutesLeft = Math.ceil(rateCheck.blockTimeLeftMs / 60000)
+      return NextResponse.json({ success: false, error: `Too many failed attempts. Try again in ${minutesLeft} minute(s).` }, { status: 429 })
+    }
 
     const phoneDigits = normalizedPhone.replace(/^\+/, "")
     const splitPairs = getCandidateCountryCodePhonePairs(normalizedPhone)
@@ -93,7 +101,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
     if (user.hotelSeller.isSuspended) {
       return NextResponse.json({ success: false, error: "Your account has been suspended. Please contact support.", isSuspended: true }, { status: 403 })
     }
-    if (user.verifyEmailOtp !== otp) return NextResponse.json({ success: false, error: "Invalid OTP." }, { status: 400 })
+    if (user.verifyEmailOtp !== otp) {
+      await recordOtpFailure(rateLimitKey)
+      return NextResponse.json({ success: false, error: "Invalid OTP." }, { status: 400 })
+    }
     if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
       return NextResponse.json({ success: false, error: "OTP has expired. Please request a new one.", expired: true }, { status: 400 })
     }
@@ -107,6 +118,7 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
         emailOtpSentAt: null,
       },
     })
+    await resetOtpRateLimit(rateLimitKey)
 
     const tokens = generateMobileTokens({ userId: user.id, email: user.email, phone: user.phone, role: user.role, passwordHash: user.password })
     return NextResponse.json({

@@ -1,5 +1,7 @@
 "use client"
 
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -15,6 +17,7 @@ export default function CustomerForgotPasswordPage() {
   const [identifier, setIdentifier] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +31,7 @@ export default function CustomerForgotPasswordPage() {
       const res = await fetch("/api/customer/auth/forgot-password/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isEmail ? { email: raw.toLowerCase() } : { phone: raw }),
+        body: JSON.stringify(isEmail ? { email: raw.toLowerCase(), turnstileToken } : { phone: raw, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -79,6 +82,7 @@ export default function CustomerForgotPasswordPage() {
                 className="rounded-xl border-gray-200"
               />
             </div>
+            <TurnstileWidget onVerify={setTurnstileToken} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[220px]">
                 {loading ? "Sending OTP..." : "Send OTP"}

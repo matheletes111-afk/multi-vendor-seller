@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
@@ -11,6 +12,16 @@ const COOLDOWN_MS = 60 * 1000
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
+    // 🛡️ Security Guard: IP rate limit & Turnstile check
+    const sec = await validateRequestSecurity(request, {
+      action: "email_otp",
+      isMobile: false,
+      turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ error: "Too many requests." }, { status: 429 })) as any
+    }
+
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
     if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 })
 

@@ -1,3 +1,4 @@
+import crypto from "crypto"
 import { NextResponse } from "next/server"
 
 /**
@@ -51,24 +52,7 @@ function isValidE164(phone: string): boolean {
  * Returns API usage documentation.
  */
 export async function GET() {
-  return NextResponse.json(
-    {
-      status: "ready",
-      endpoint: "POST /api/send-sms",
-      description: "Send an SMS message to a phone number using POST method.",
-      expectedPayload: {
-        number: "+919876543210",
-        msg: "Your text message here",
-      },
-      optionalFields: {
-        countryCode: "+91 (optional fallback if number has no country code)",
-      },
-      curlExample: `curl -X POST http://localhost:3000/api/send-sms \\
-  -H "Content-Type: application/json" \\
-  -d '{"number": "+919876543210", "msg": "Hello, this is a test message!"}'`,
-    },
-    { status: 200 }
-  )
+  return NextResponse.json({ success: false, error: "Access denied." }, { status: 403 });
 }
 
 /**
@@ -81,6 +65,17 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
+    // 0. Security Guard: Disallow unauthenticated public access
+    const adminKey = request.headers.get("x-admin-key") || request.headers.get("x-api-key") || ""
+    const validKey = process.env.ADMIN_SECRET_KEY?.trim() || ""
+    const isAuthorized = Boolean(validKey) && adminKey.length === validKey.length && crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(validKey))
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, error: "Access denied. Unauthorized SMS endpoint." },
+        { status: 403 }
+      );
+    }
+
     // 1. Read Twilio credentials directly from environment variables
     const accountSid =
       process.env.ACC_SID_TWILIO?.trim() ||
@@ -212,7 +207,7 @@ export async function POST(request: Request) {
     const postParams = new URLSearchParams()
     postParams.set("To", formattedNumber)
     postParams.set("Body", msgStr)
-    postParams.set("RiskCheck", "disable")
+    postParams.set("RiskCheck", "enable")
 
     if (messagingServiceSid) {
       postParams.set("MessagingServiceSid", messagingServiceSid)

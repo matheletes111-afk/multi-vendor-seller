@@ -1,3 +1,5 @@
+import { checkPhoneOtpLimit } from "@/lib/phone-rate-limit"
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -17,6 +19,15 @@ const OTP_EXPIRY_MS = 10 * 60 * 1000 // 10 min
 /** POST /api/customer/auth/registration — Customer panel registration. */
 export async function POST(request: Request) {
   try {
+    // 🛡️ Security Guard: IP rate limit (3/min), Turnstile bot check & Phone cooldown
+    const sec = await validateRequestSecurity(request, {
+      action: "register",
+      isMobile: false,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 })) as any
+    }
+
     const body = await request.json()
     const { name, email, password, phone, phoneCountryCode } = body
     const sanitizedName = name ? sanitizeInput(name) : null
@@ -76,6 +87,12 @@ export async function POST(request: Request) {
     const verifyEmailOtp = randomInt(100000, 999999).toString()
     const emailVerificationExpires = new Date(Date.now() + OTP_EXPIRY_MS)
     const now = new Date()
+
+        // 🛡️ Security: Check phone cooldown & daily limit BEFORE creating user in DB
+    const phoneLimit = await checkPhoneOtpLimit(normalizedPhone)
+    if (!phoneLimit.allowed) {
+      return (phoneLimit.response || NextResponse.json({ error: "OTP limit reached for this phone number." }, { status: 429 })) as any
+    }
 
     const user = await prisma.user.create({
       data: {

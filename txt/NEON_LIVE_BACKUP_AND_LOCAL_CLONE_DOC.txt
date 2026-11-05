@@ -240,3 +240,40 @@ Step 2: Import that CSV directly into Live Neon DB:
 Step 3: Delete the temporary CSV file:
 Remove-Item 'recovered_sellers.csv'
 ================================================================================
+
+
+================================================================================
+7. 05 NOVEMBER 2026 PRE-DELETE SNAPSHOT & RECOVERY REFERENCE
+================================================================================
+On 05 November 2026, a fresh full pre-delete backup was executed before purging
+244 test sellers from the live database.
+
+RECOVERY ASSETS SAVED:
+1. Fresh Compressed Dump File:
+   Path: F:\react\meeem\multi-vendor-seller\backups\neon_backup_PRE_DELETE_2026-11-05T07-32-04-061Z.dump
+   Format: PostgreSQL Custom Compressed Format (-Fc, 1.12 MB)
+   Captured: 05 Nov 2026 ~13:02 IST (moments before the live transaction).
+
+2. Offline Recovery Database (pgAdmin 4):
+   Server: PostgreSQL 18 (localhost:5432)
+   Database: "meeem_pre_delete_5th_nov_final"
+   Status: 100% complete snapshot of all 80 tables and 6,816 rows prior to deletion.
+
+3. List of Purged Sellers:
+   Text File: backups/test_seller_ids_5th_nov.txt
+   JSON File: backups/test_seller_ids_5th_nov.json
+   Contains: All 244 deleted seller IDs, user IDs, names, emails, and purge reasons.
+
+4. Neon Console PITR (Point-in-Time Recovery):
+   Console: https://console.neon.tech
+   Rollback to timestamp: 2026-11-05 13:00:00 IST or earlier.
+
+HOW TO RESTORE A SPECIFIC SELLER FROM THIS BACKUP:
+Method 1 (pgAdmin 4 GUI):
+  1. Open pgAdmin 4 -> Connect to "meeem_pre_delete_5th_nov_final".
+  2. Run: SELECT * FROM sellers WHERE id = 'TARGET_SELLER_ID';
+  3. Right-click row -> "Copy as INSERT" -> Paste and run in Neon Live Query Tool.
+
+Method 2 (PowerShell CLI):
+  & "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -d "<LIVE_DATABASE_URL>" --data-only --table=sellers "backups/neon_backup_PRE_DELETE_2026-11-05T07-32-04-061Z.dump"
+================================================================================

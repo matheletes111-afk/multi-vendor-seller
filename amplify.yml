@@ -68,6 +68,11 @@ frontend:
         - echo "AFRIMONEY_CONSUMER_SECRET=$AFRIMONEY_CONSUMER_SECRET" >> .env
         - echo "AFRIMONEY_MERCHANT_MSISDN=$AFRIMONEY_MERCHANT_MSISDN" >> .env
         - echo "AFRIMONEY_API_KEY=$AFRIMONEY_API_KEY" >> .env
+        # Cloudflare Turnstile & Admin Security
+        - echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY" >> .env
+        - echo "TURNSTILE_SECRET_KEY=$TURNSTILE_SECRET_KEY" >> .env
+        - echo "ADMIN_SECRET_KEY=$ADMIN_SECRET_KEY" >> .env
+        - echo "MOBILE_APP_SECRET=$MOBILE_APP_SECRET" >> .env
         - npx prisma generate
     build:
       commands:

@@ -1,3 +1,4 @@
+import crypto from "crypto"
 import { NextResponse } from "next/server"
 
 /**
@@ -41,23 +42,27 @@ function isValidE164(phone: string): boolean {
 export async function GET() {
   return NextResponse.json(
     {
-      status: "ready",
-      endpoint: "POST /api/sms",
-      description: "Send an SMS message to a phone number using POST method.",
-      expectedPayload: {
-        number: "+919876543210",
-        msg: "Your text message here",
-      },
-      curlExample: `curl -X POST http://localhost:3000/api/sms \\
-  -H "Content-Type: application/json" \\
-  -d '{"number": "+919876543210", "msg": "Hello, this is a test message!"}'`,
+      error: "Method not allowed. Public SMS inspection is disabled.",
     },
-    { status: 200 }
+    { status: 405 }
   )
 }
 
 export async function POST(request: Request) {
   try {
+    // 🔒 RESTRICTED: Admin-only protection
+    const adminKey = request.headers.get("x-admin-key") || ""
+    const expectedKey = process.env.ADMIN_SECRET_KEY?.trim() || ""
+    const isAuthorized = Boolean(expectedKey) && adminKey.length === expectedKey.length && crypto.timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
+    if (!isAuthorized) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized. Admin authentication required to access this endpoint.",
+        },
+        { status: 401 }
+      )
+    }
     const accountSid =
       process.env.ACC_SID_TWILIO?.trim() ||
       process.env.TWILIO_ACCOUNT_SID?.trim() ||
@@ -183,6 +188,7 @@ export async function POST(request: Request) {
     const postParams = new URLSearchParams()
     postParams.set("To", formattedNumber)
     postParams.set("Body", msgStr)
+    postParams.set("RiskCheck", "enable")
 
     if (messagingServiceSid) {
       postParams.set("MessagingServiceSid", messagingServiceSid)

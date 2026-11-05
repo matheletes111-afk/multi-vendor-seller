@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 import Link from "next/link"
 import Image from "next/image"
 import { Bike, Mail, Lock, User, Phone, ArrowRight, AlertCircle, RefreshCw, CheckCircle2, Eye, EyeOff } from "lucide-react"
@@ -19,6 +20,7 @@ export function RiderRegistrationClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [agreed, setAgreed] = useState(true)
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

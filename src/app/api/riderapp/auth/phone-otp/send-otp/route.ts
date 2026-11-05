@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
@@ -14,6 +15,17 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const phoneInput = typeof body.phone === "string" ? body.phone : ""
     const normalizedPhone = normalizePhoneNumber(phoneInput)
+    // 🛡️ Security Guard: IP rate limit, Turnstile & Phone cooldown
+    const sec = await validateRequestSecurity(request, {
+      action: "phone_otp",
+      isMobile: false,
+      phone: normalizedPhone,
+      turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ error: "Too many requests." }, { status: 429 })) as any
+    }
+
 
     if (!isValidE164(normalizedPhone)) {
       return NextResponse.json(

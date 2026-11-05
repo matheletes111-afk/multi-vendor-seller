@@ -1,3 +1,4 @@
+import { validateRequestSecurity } from "@/lib/security-guard"
 import { randomInt } from "crypto"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
@@ -47,6 +48,15 @@ type ApiResponse = SuccessResponse | ErrorResponse
 
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
+    // 🛡️ Security Guard: IP rate limit (3/min)
+    const sec = await validateRequestSecurity(request, {
+      action: "resend_otp",
+      isMobile: true,
+    })
+    if (!sec.allowed) {
+      return (sec.response || NextResponse.json({ success: false, error: "Too many requests. Please wait." }, { status: 429 })) as any
+    }
+
     let body: ResendOtpRequest
     try {
       body = await request.json()

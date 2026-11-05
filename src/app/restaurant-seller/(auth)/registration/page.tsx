@@ -1,5 +1,7 @@
 "use client"
 
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
+
 import { useState } from "react"
 import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
