@@ -99,6 +99,8 @@ export interface SellerAnalyticsPayload {
     isApproved: boolean
     isSuspended: boolean
     commissionRate: number
+    customCommissionRate?: number | null
+    baseCommissionRate?: number
     joinedDate: string
   }
   timeframe: "7d" | "30d" | "90d" | "1y" | "all"
@@ -464,6 +466,7 @@ async function getProductAnalytics(
       isApproved: seller.isApproved,
       isSuspended: seller.isSuspended,
       commissionRate,
+      customCommissionRate: seller.commissionRate,
       joinedDate: seller.createdAt.toISOString(),
     },
     timeframe: timeframeParam,
@@ -867,6 +870,7 @@ async function getHotelAnalytics(
       isApproved: hotelSeller.isApproved,
       isSuspended: hotelSeller.isSuspended,
       commissionRate,
+      customCommissionRate: hotelSeller.commissionRate,
       joinedDate: hotelSeller.createdAt.toISOString(),
     },
     timeframe: timeframeParam,
@@ -1055,6 +1059,7 @@ async function getRestaurantAnalytics(
       isApproved: restaurantSeller.isApproved,
       isSuspended: restaurantSeller.isSuspended,
       commissionRate,
+      customCommissionRate: restaurantSeller.commissionRate,
       joinedDate: restaurantSeller.createdAt.toISOString(),
     },
     timeframe: timeframeParam,

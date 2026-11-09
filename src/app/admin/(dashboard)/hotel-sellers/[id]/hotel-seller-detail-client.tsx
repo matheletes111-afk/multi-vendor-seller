@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
+import { CommissionModal } from "@/components/admin/sellers/commission-modal"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import Link from "next/link"
 
@@ -73,6 +74,7 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
 
   const handleStatusAction = async (id: string, action: string, fb?: string) => {
     setActionLoading(id)
@@ -169,6 +171,7 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
             onUnsuspend={() => handleStatusAction(seller.id, "unsuspend")}
             onOpenCorrection={(id) => setRejectDialog({ open: true, id, action: "correction" })}
             onOpenReject={(id) => setRejectDialog({ open: true, id, action: "reject" })}
+            onOpenCommission={() => setIsCommissionDialogOpen(true)}
             onSendEmail={(id) =>
               setEmailModalTarget({
                 id,
@@ -304,6 +307,20 @@ export function HotelSellerDetailClient({ seller, plans = [] }: { seller: any; p
       </Dialog>
 
       {/* Direct Email/SMS Modal */}
+      <CommissionModal
+        open={isCommissionDialogOpen}
+        onOpenChange={setIsCommissionDialogOpen}
+        seller={{
+          id: seller.id,
+          name: seller.user?.name,
+          businessName: seller.businessInfo?.businessName,
+          email: seller.user?.email,
+          sellerType: "HOTEL",
+          commissionRate: seller.commissionRate,
+          baseCommissionRate: seller.baseCommissionRate,
+        }}
+        onSuccess={() => router.refresh()}
+      />
       <SellerEmailModal
         seller={emailModalTarget}
         open={!!emailModalTarget}

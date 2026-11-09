@@ -25,10 +25,12 @@ import {
   ShieldCheck,
   Globe,
   Utensils,
-  BarChart3
+  BarChart3,
+  Percent
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RestaurantSellerDetailsView } from "@/components/admin/sellers/restaurant-seller-details-view"
+import { CommissionModal } from "@/components/admin/sellers/commission-modal"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import Link from "next/link"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
@@ -47,6 +49,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
   const [rejectDialog, setRejectDialog] = useState({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
   const docEval = evaluateSellerDocuments(seller, "RESTAURANT")
 
   const handleStatusUpdate = async (id: string, action: string, feedbackText?: string) => {
@@ -196,6 +199,7 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
             onUnsuspend={(id) => handleStatusUpdate(id, "unsuspend")}
             onOpenCorrection={(id) => openFeedbackDialog(id, "correction")}
             onOpenReject={(id) => openFeedbackDialog(id, "reject")}
+            onOpenCommission={() => setIsCommissionDialogOpen(true)}
             onSendEmail={(id) =>
               setEmailModalTarget({
                 id,
@@ -248,6 +252,20 @@ export function RestaurantSellerDetailClient({ seller, plans = [] }: RestaurantS
       </Dialog>
 
       {/* Direct Email Modal */}
+      <CommissionModal
+        open={isCommissionDialogOpen}
+        onOpenChange={setIsCommissionDialogOpen}
+        seller={{
+          id: seller.id,
+          name: seller.user?.name,
+          businessName: seller.businessInfo?.businessName,
+          email: seller.user?.email,
+          sellerType: "RESTAURANT",
+          commissionRate: seller.commissionRate,
+          baseCommissionRate: seller.baseCommissionRate,
+        }}
+        onSuccess={() => router.refresh()}
+      />
       <SellerEmailModal
         seller={emailModalTarget}
         open={!!emailModalTarget}

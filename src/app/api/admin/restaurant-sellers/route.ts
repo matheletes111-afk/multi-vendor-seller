@@ -103,7 +103,10 @@ export async function GET(request: NextRequest) {
             include: { plan: true },
           },
           foods: true,
-          foodOrders: true,
+          foodOrders: {
+            where: { status: { not: "CANCELLED" } },
+            select: { totalAmount: true },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -112,11 +115,15 @@ export async function GET(request: NextRequest) {
     const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
     const restaurantBaseCommission = globalSetting?.restaurantBaseCommission ?? fallbackBaseCommission
 
-    // Attach document evaluation and base commission rate to each restaurant seller
+    // Attach document evaluation, base commission rate, itemsCount, and totalSales to each restaurant seller
     let processedSellers = sellersRaw.map((seller: any) => {
       const docEval = evaluateSellerDocuments(seller, "RESTAURANT")
+      const totalSales = seller.foodOrders?.reduce((acc: number, o: any) => acc + (o.totalAmount || 0), 0) || 0
+      const itemsCount = seller.foods?.length ?? 0
       return {
         ...seller,
+        itemsCount,
+        totalSales,
         baseCommissionRate: restaurantBaseCommission,
         documentEvaluation: docEval,
       }
@@ -190,6 +197,18 @@ export async function GET(request: NextRequest) {
           const valA = (a.subscription?.plan?.displayName || a.subscription?.plan?.name || "Free").toLowerCase()
           const valB = (b.subscription?.plan?.displayName || b.subscription?.plan?.name || "Free").toLowerCase()
           const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "items":
+        case "itemscount": {
+          const diff = ((a.itemsCount || 0) - (b.itemsCount || 0)) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "sales":
+        case "totalsales": {
+          const diff = ((a.totalSales || 0) - (b.totalSales || 0)) * modifier
           if (diff !== 0) return diff
           return newestFirst
         }

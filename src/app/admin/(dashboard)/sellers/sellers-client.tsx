@@ -6,7 +6,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select"
 import { Badge } from "@/ui/badge"
@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from "@/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
+import { CommissionModal } from "@/components/admin/sellers/commission-modal"
 import { SellerFilterToolbar } from "@/components/admin/sellers/seller-filter-toolbar"
 import { SellerDocumentBadge } from "@/components/admin/sellers/seller-document-badge"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
@@ -592,7 +593,8 @@ export function SellersClient() {
                       <TableHead className="py-4 pl-6 min-w-[220px]">Seller / Business</TableHead>
                       <TableHead className="min-w-[190px]">Contact & Location</TableHead>
                       <TableHead className="min-w-[90px]">Plan</TableHead>
-                      <TableHead className="min-w-[120px]">Commission</TableHead>
+                      <TableHead className="min-w-[120px]">Items Uploaded</TableHead>
+                      <TableHead className="min-w-[120px]">Total Sales</TableHead>
                       <TableHead className="min-w-[150px]">Status & Documents</TableHead>
                       <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                     </TableRow>
@@ -600,7 +602,7 @@ export function SellersClient() {
                   <TableBody>
                     {data.sellers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-24">
+                        <TableCell colSpan={7} className="text-center py-24">
                           <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
                           <p className="text-muted-foreground font-semibold text-sm">No matching sellers found</p>
                           <p className="text-xs text-slate-400 mt-1">Try clearing or adjusting your search filters.</p>
@@ -709,61 +711,24 @@ export function SellersClient() {
                                 )}
                               </TableCell>
 
-                              {/* Commission Rate */}
+                              {/* Items Uploaded */}
                               <TableCell className="min-w-[120px]">
-                                {seller.commissionRate != null ? (
-                                  <div
-                                    className="cursor-pointer inline-flex items-center gap-1 group/comm"
-                                    onClick={() => {
-                                      setSelectedSellerId(seller.id)
-                                      setCommissionValue(seller.commissionRate)
-                                      setIsCommissionDialogOpen(true)
-                                    }}
-                                    title="Click to edit custom commission rate"
-                                  >
-                                    <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-lg px-2 py-0.5 font-bold text-xs group-hover/comm:bg-purple-600 group-hover/comm:text-white transition-colors">
-                                      {seller.commissionRate}%
-                                    </Badge>
-                                    <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">
-                                      Custom
-                                    </span>
-                                  </div>
-                                ) : (
-                                  (() => {
-                                    const baseRate = seller.baseCommissionRate ?? (seller.type === "SERVICE" ? data?.baseCommissions?.service : data?.baseCommissions?.product) ?? 10
-                                    return (
-                                      <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setSelectedSellerId(seller.id)
-                                            setCommissionValue("")
-                                            setIsCommissionDialogOpen(true)
-                                          }}
-                                          title={`Default base commission set by admin: ${baseRate}% (Click to assign custom rate)`}
-                                        >
-                                          <span className="font-bold">{baseRate}%</span>
-                                          <span className="text-[9px] text-muted-foreground ml-1 uppercase tracking-tight font-medium">Base</span>
-                                        </Badge>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-6 px-2 text-[11px] font-semibold text-purple-700 bg-purple-50/70 border-purple-200/80 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 rounded-lg cursor-pointer transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setSelectedSellerId(seller.id)
-                                            setCommissionValue("")
-                                            setIsCommissionDialogOpen(true)
-                                          }}
-                                        >
-                                          Assign
-                                        </Button>
-                                      </div>
-                                    )
-                                  })()
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  <Package className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                  <span className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                                    {seller.itemsCount ?? (seller.type === "PRODUCT" ? (seller._count?.products ?? 0) : (seller._count?.services ?? 0))}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground capitalize">
+                                    {seller.type === "SERVICE" ? "services" : "products"}
+                                  </span>
+                                </div>
+                              </TableCell>
+
+                              {/* Total Sales */}
+                              <TableCell className="min-w-[120px]">
+                                <span className="font-bold text-sm text-slate-900 dark:text-slate-100 font-mono">
+                                  {formatCurrency(seller.totalSales || 0)}
+                                </span>
                               </TableCell>
 
                               {/* Status & Documents */}
@@ -881,7 +846,7 @@ export function SellersClient() {
                             {/* Expanded Review */}
                             {isExpanded && (
                               <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
-                                <TableCell colSpan={6} className="p-6">
+                                <TableCell colSpan={7} className="p-6">
                                   <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
                                     <SellerDetailsView
                                       seller={{ ...seller, plans }}
@@ -1037,85 +1002,25 @@ export function SellersClient() {
       </Dialog>
 
       {/* Commission Dialog */}
-      <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
-        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50">
-                <Percent className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  Assign Custom Commission Rate
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Override the platform default commission rate for this specific seller.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="py-4 space-y-3">
-            {(() => {
-              const currentEditingSeller = data?.sellers.find((s) => s.id === selectedSellerId)
-              const currentBaseRate = currentEditingSeller?.baseCommissionRate ?? (currentEditingSeller?.type === "SERVICE" ? data?.baseCommissions?.service : data?.baseCommissions?.product) ?? 10
-              return (
-                <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="commRate" className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                      <span>Commission Percentage (%)</span>
-                      <span className="text-[11px] font-normal text-muted-foreground">
-                        Admin Base: <strong className="text-purple-600 dark:text-purple-400 font-bold">{currentBaseRate}%</strong>
-                      </span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="commRate"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        placeholder="e.g. 12.5"
-                        className="rounded-2xl text-sm pr-9 h-11"
-                        value={commissionValue}
-                        onChange={(e) => setCommissionValue(e.target.value === "" ? "" : parseFloat(e.target.value))}
-                      />
-                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-semibold text-xs">
-                        %
-                      </div>
-                    </div>
-                  </div>
+      <CommissionModal
+        open={isCommissionDialogOpen}
+        onOpenChange={setIsCommissionDialogOpen}
+        seller={(() => {
+          const currentEditingSeller = data?.sellers.find((s) => s.id === selectedSellerId)
+          if (!currentEditingSeller) return null
+          return {
+            id: currentEditingSeller.id,
+            name: currentEditingSeller.user?.name,
+            businessName: currentEditingSeller.businessInfo?.businessName || currentEditingSeller.store?.name,
+            email: currentEditingSeller.user?.email,
+            sellerType: currentEditingSeller.type || "PRODUCT",
+            commissionRate: currentEditingSeller.commissionRate,
+            baseCommissionRate: currentEditingSeller.baseCommissionRate,
+          }
+        })()}
+        onSuccess={() => loadSellers({ showLoading: false })}
+      />
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80 space-y-1">
-                    <p className="text-[11px] text-muted-foreground">
-                      💡 Leave empty to use admin default base commission (<strong className="text-foreground">{currentBaseRate}%</strong>).
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      📌 Custom rates take immediate effect on all new customer orders.
-                    </p>
-                  </div>
-                </>
-              )
-            })()}
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" size="sm" onClick={() => setIsCommissionDialogOpen(false)} className="rounded-2xl text-xs font-medium">
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs"
-              disabled={actionLoading === selectedSellerId}
-              onClick={() => {
-                if (selectedSellerId) {
-                  handleUpdateCommission(selectedSellerId, commissionValue === "" ? null : Number(commissionValue))
-                }
-              }}
-            >
-              {actionLoading === selectedSellerId ? "Saving..." : "Save Commission Rate"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {/* ── Direct Custom Email Modal ── */}
       <SellerEmailModal
         open={!!emailModalTarget}

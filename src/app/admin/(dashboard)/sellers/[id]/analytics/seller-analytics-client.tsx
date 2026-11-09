@@ -41,6 +41,7 @@ import { SellerAnalyticsCatalogTab } from "@/components/admin/sellers/analytics/
 import { SellerAnalyticsOrdersTab } from "@/components/admin/sellers/analytics/seller-analytics-orders-tab"
 import { SellerAnalyticsFinancialsTab } from "@/components/admin/sellers/analytics/seller-analytics-financials-tab"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
+import { CommissionModal } from "@/components/admin/sellers/commission-modal"
 
 interface SellerAnalyticsClientProps {
   id: string
@@ -56,6 +57,7 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [emailModalTarget, setEmailModalTarget] = useState<SellerEmailTarget | null>(null)
+  const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
 
   const fetchAnalytics = async () => {
     setLoading(true)
@@ -359,9 +361,23 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Platform Commission
               </span>
-              <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 text-[10px] font-bold">
-                {seller.commissionRate}%
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge
+                  className="bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 text-[10px] font-bold cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors"
+                  onClick={() => setIsCommissionDialogOpen(true)}
+                  title="Click to edit commission rate"
+                >
+                  {seller.commissionRate}% {seller.customCommissionRate != null ? "(Custom)" : "(Base)"}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] font-bold border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/50 rounded-lg"
+                  onClick={() => setIsCommissionDialogOpen(true)}
+                >
+                  Edit
+                </Button>
+              </div>
             </div>
             <div className="pt-2">
               <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono block">
@@ -456,6 +472,19 @@ export function SellerAnalyticsClient({ id, initialSellerType }: SellerAnalytics
       </Tabs>
 
       {/* Direct Email/SMS Modal */}
+      <CommissionModal
+        open={isCommissionDialogOpen}
+        onOpenChange={setIsCommissionDialogOpen}
+        seller={{
+          id: seller.id,
+          name: seller.ownerName,
+          businessName: seller.businessName,
+          email: seller.email,
+          sellerType: seller.sellerType,
+          commissionRate: seller.customCommissionRate ?? null,
+        }}
+        onSuccess={fetchAnalytics}
+      />
       <SellerEmailModal
         seller={emailModalTarget}
         open={!!emailModalTarget}

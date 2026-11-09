@@ -7,6 +7,7 @@ import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { ChevronLeft, MoreHorizontal, User, ShieldCheck, BarChart3 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
+import { CommissionModal } from "@/components/admin/sellers/commission-modal"
 import { SellerEmailModal, type SellerEmailTarget } from "@/components/admin/sellers/seller-email-modal"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
@@ -366,49 +367,20 @@ export function SellerIdClient({ id }: SellerIdClientProps) {
       </Dialog>
 
       {/* Commission Dialog */}
-      <Dialog open={isCommissionDialogOpen} onOpenChange={setIsCommissionDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-3xl border-none shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <MoreHorizontal className="h-5 w-5 text-amber-500" /> Platform Commission
-            </DialogTitle>
-            <DialogDescription className="font-medium">
-              Set a custom commission percentage for this seller.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="space-y-2">
-              <Label className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground ml-1">Commission Rate (%)</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  className="rounded-2xl h-12 bg-muted/30 border-muted font-bold text-lg pl-4 pr-10"
-                  value={commissionValue}
-                  onChange={(e) => setCommissionValue(e.target.value === "" ? "" : Number(e.target.value))}
-                />
-                <div className="absolute right-4 top-3 text-muted-foreground font-bold">%</div>
-              </div>
-            </div>
-            <div className="p-3 bg-amber-500/5 rounded-2xl border border-amber-500/10 flex items-start gap-3">
-              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-              <p className="text-[10px] font-medium text-amber-700/80 leading-relaxed uppercase">
-                Changing this rate will affect all future orders processed by this seller.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsCommissionDialogOpen(false)} className="rounded-full px-6">Cancel</Button>
-            <Button 
-              className="rounded-full px-8 bg-amber-500 hover:bg-amber-600 font-bold"
-              onClick={handleUpdateCommission}
-              disabled={loading}
-            >
-              Set Rate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CommissionModal
+        open={isCommissionDialogOpen}
+        onOpenChange={setIsCommissionDialogOpen}
+        seller={{
+          id: seller.id,
+          name: seller.user?.name,
+          businessName: seller.businessInfo?.businessName || seller.store?.name,
+          email: seller.user?.email,
+          sellerType: seller.type || "PRODUCT",
+          commissionRate: seller.commissionRate,
+          baseCommissionRate: seller.baseCommissionRate,
+        }}
+        onSuccess={() => fetchSeller()}
+      />
 
       {/* Direct Email/SMS Modal */}
       <SellerEmailModal
