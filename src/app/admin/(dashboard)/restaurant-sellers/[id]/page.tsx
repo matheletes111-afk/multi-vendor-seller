@@ -56,10 +56,20 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
 
   if (!seller) notFound()
 
-  const allPlans = await prisma.plan.findMany({
-    where: { type: "RESTAURANT" },
-    orderBy: { price: "asc" }
-  })
+  const [allPlans, globalSetting] = await Promise.all([
+    prisma.plan.findMany({
+      where: { type: "RESTAURANT" },
+      orderBy: { price: "asc" }
+    }),
+    (prisma as any).globalSetting.findFirst({
+      select: {
+        baseCommission: true,
+        restaurantBaseCommission: true,
+      },
+    }),
+  ])
+
+  const baseCommissionRate = globalSetting?.restaurantBaseCommission ?? globalSetting?.baseCommission ?? 10.0
 
   // Pre-sign S3 URLs
   seller.logo = await getPresignedUrlOrOriginal(seller.logo)
@@ -96,7 +106,7 @@ export default async function RestaurantSellerDetailPage({ params }: { params: P
 
   return (
     <Suspense fallback={<PageLoader />}>
-      <RestaurantSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
+      <RestaurantSellerDetailClient seller={JSON.parse(JSON.stringify({ ...seller, baseCommissionRate }))} plans={JSON.parse(JSON.stringify(allPlans))} />
     </Suspense>
   )
 }

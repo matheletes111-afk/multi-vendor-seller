@@ -111,6 +111,10 @@ export async function GET(request: NextRequest) {
           subscription: {
             include: { plan: true },
           },
+          orderItems: {
+            where: { itemStatus: { not: "CANCELLED" } },
+            select: { subtotal: true, price: true, quantity: true },
+          },
           _count: {
             select: {
               products: true,
@@ -127,12 +131,16 @@ export async function GET(request: NextRequest) {
     const productBaseCommission = globalSetting?.productBaseCommission ?? fallbackBaseCommission
     const serviceBaseCommission = globalSetting?.serviceBaseCommission ?? fallbackBaseCommission
 
-    // Attach document evaluation and base commission rate to each seller
+    // Attach document evaluation, base commission rate, itemsCount, and totalSales to each seller
     let processedSellers = sellersRaw.map((seller: any) => {
       const docEval = evaluateSellerDocuments(seller, seller.type)
       const baseCommissionRate = seller.type === "SERVICE" ? serviceBaseCommission : productBaseCommission
+      const totalSales = seller.orderItems?.reduce((acc: number, it: any) => acc + (it.subtotal || (it.price * it.quantity) || 0), 0) || 0
+      const itemsCount = seller.type === "PRODUCT" ? (seller._count?.products ?? 0) : (seller._count?.services ?? 0)
       return {
         ...seller,
+        itemsCount,
+        totalSales,
         baseCommissionRate,
         documentEvaluation: docEval,
       }
@@ -211,6 +219,18 @@ export async function GET(request: NextRequest) {
           const valA = (a.subscription?.plan?.displayName || a.subscription?.plan?.name || "Free").toLowerCase()
           const valB = (b.subscription?.plan?.displayName || b.subscription?.plan?.name || "Free").toLowerCase()
           const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "items":
+        case "itemscount": {
+          const diff = ((a.itemsCount || 0) - (b.itemsCount || 0)) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "sales":
+        case "totalsales": {
+          const diff = ((a.totalSales || 0) - (b.totalSales || 0)) * modifier
           if (diff !== 0) return diff
           return newestFirst
         }

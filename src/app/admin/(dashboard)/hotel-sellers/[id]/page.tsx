@@ -68,10 +68,20 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
 
   if (!seller) notFound()
 
-  const allPlans = await prisma.plan.findMany({
-    where: { type: "HOTEL" },
-    orderBy: { price: "asc" }
-  })
+  const [allPlans, globalSetting] = await Promise.all([
+    prisma.plan.findMany({
+      where: { type: "HOTEL" },
+      orderBy: { price: "asc" }
+    }),
+    (prisma as any).globalSetting.findFirst({
+      select: {
+        baseCommission: true,
+        hotelBaseCommission: true,
+      },
+    }),
+  ])
+
+  const baseCommissionRate = globalSetting?.hotelBaseCommission ?? globalSetting?.baseCommission ?? 10.0
 
   // Pre-sign S3 URLs
   if ((seller.businessInfo as any)?.busRegCertUrl) {
@@ -121,7 +131,7 @@ export default async function HotelSellerDetailPage({ params }: { params: Promis
 
   return (
     <Suspense fallback={<PageLoader />}>
-      <HotelSellerDetailClient seller={JSON.parse(JSON.stringify(seller))} plans={JSON.parse(JSON.stringify(allPlans))} />
+      <HotelSellerDetailClient seller={JSON.parse(JSON.stringify({ ...seller, baseCommissionRate }))} plans={JSON.parse(JSON.stringify(allPlans))} />
     </Suspense>
   )
 }

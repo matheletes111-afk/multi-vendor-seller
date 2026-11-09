@@ -44,6 +44,7 @@ interface HotelSellerDetailsViewProps {
   onOpenCorrection?: (id: string) => void
   onOpenReject?: (id: string) => void
   onSendEmail?: (id: string) => void
+  onOpenCommission?: (id: string, rate: number | "") => void
 }
 
 function parseJsonArray(val: any): string[] {
@@ -93,7 +94,8 @@ export function HotelSellerDetailsView({
   onUnsuspend,
   onOpenCorrection,
   onOpenReject,
-  onSendEmail
+  onSendEmail,
+  onOpenCommission,
 }: HotelSellerDetailsViewProps) {
   if (!seller) return null
 
@@ -463,6 +465,29 @@ export function HotelSellerDetailsView({
                     </Button>
                   </div>
                 )}
+                <div className="inline-flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    className="rounded-full font-bold px-5 uppercase tracking-widest text-[10px] h-10 border-amber-200 text-amber-700 hover:bg-amber-50"
+                    onClick={() => onOpenCommission?.(seller.id, seller.commissionRate ?? "")}
+                  >
+                    Set Commission
+                  </Button>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] font-semibold px-2.5 py-1 rounded-full border",
+                      seller.commissionRate != null
+                        ? "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200/80"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200"
+                    )}
+                    title={seller.commissionRate != null ? "Individual custom commission rate" : "Platform base commission rate set by admin"}
+                  >
+                    {seller.commissionRate != null
+                      ? `${seller.commissionRate}% (Custom)`
+                      : `${seller.baseCommissionRate ?? 10}% (Base)`}
+                  </Badge>
+                </div>
                 <Link
                   href={`/admin/hotel-sellers/${seller.id}/analytics`}
                   className="inline-flex items-center rounded-full font-bold px-5 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950 uppercase tracking-widest text-[10px] h-10 gap-1.5 transition-colors"

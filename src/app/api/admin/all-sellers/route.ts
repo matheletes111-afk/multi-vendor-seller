@@ -38,6 +38,7 @@ export interface UnifiedSellerItem {
   updatedAt: string | Date
   subscriptionPlan?: string | null
   itemsCount: number
+  totalSales?: number
   ordersCount?: number
   city?: string | null
   state?: string | null
@@ -246,6 +247,10 @@ export async function GET(request: NextRequest) {
               selectedServiceCategories: true,
               agreement: true,
               subscription: { include: { plan: true } },
+              orderItems: {
+                where: { itemStatus: { not: "CANCELLED" } },
+                select: { subtotal: true, price: true, quantity: true },
+              },
               _count: {
                 select: {
                   products: true,
@@ -267,7 +272,14 @@ export async function GET(request: NextRequest) {
               bankDetails: true,
               agreement: true,
               subscription: { include: { plan: true } },
-              hotels: true,
+              hotels: {
+                include: {
+                  bookings: {
+                    where: { status: { not: "CANCELLED" } },
+                    select: { totalPrice: true },
+                  },
+                },
+              },
             },
             orderBy: { createdAt: "desc" },
           })
@@ -283,7 +295,10 @@ export async function GET(request: NextRequest) {
               agreement: true,
               subscription: { include: { plan: true } },
               foods: true,
-              foodOrders: true,
+              foodOrders: {
+                where: { status: { not: "CANCELLED" } },
+                select: { totalAmount: true },
+              },
             },
             orderBy: { createdAt: "desc" },
           })
@@ -303,6 +318,7 @@ export async function GET(request: NextRequest) {
     for (const s of sellersRaw) {
       const isProduct = s.type === "PRODUCT"
       const docEval = evaluateSellerDocuments(s, isProduct ? "PRODUCT" : "SERVICE")
+      const totalSales = s.orderItems?.reduce((acc: number, it: any) => acc + (it.subtotal || (it.price * it.quantity) || 0), 0) || 0
       unifiedList.push({
         id: s.id,
         sellerType: isProduct ? "PRODUCT" : "SERVICE",
@@ -323,6 +339,7 @@ export async function GET(request: NextRequest) {
         updatedAt: s.updatedAt,
         subscriptionPlan: s.subscription?.plan?.displayName || s.subscription?.plan?.name || null,
         itemsCount: isProduct ? (s._count?.products ?? 0) : (s._count?.services ?? 0),
+        totalSales,
         ordersCount: s._count?.orders ?? 0,
         city: s.store?.city || s.businessInfo?.city || null,
         state: s.store?.state || s.businessInfo?.district || null,
@@ -340,6 +357,10 @@ export async function GET(request: NextRequest) {
     // 2. Hotel Sellers
     for (const h of hotelSellersRaw) {
       const docEval = evaluateSellerDocuments(h, "HOTEL")
+      const totalSales = h.hotels?.reduce((acc: number, hotel: any) => {
+        const hotelTotal = hotel.bookings?.reduce((bAcc: number, b: any) => bAcc + (b.totalPrice || 0), 0) || 0
+        return acc + hotelTotal
+      }, 0) || 0
       unifiedList.push({
         id: h.id,
         sellerType: "HOTEL",
@@ -360,6 +381,7 @@ export async function GET(request: NextRequest) {
         updatedAt: h.updatedAt,
         subscriptionPlan: h.subscription?.plan?.displayName || h.subscription?.plan?.name || null,
         itemsCount: h.hotels?.length ?? 0,
+        totalSales,
         city: h.businessInfo?.city || h.hotels?.[0]?.city || null,
         state: h.businessInfo?.state || h.hotels?.[0]?.state || null,
         logo: h.logo || null,
@@ -376,6 +398,7 @@ export async function GET(request: NextRequest) {
     // 3. Restaurant Sellers
     for (const r of restaurantSellersRaw) {
       const docEval = evaluateSellerDocuments(r, "RESTAURANT")
+      const totalSales = r.foodOrders?.reduce((acc: number, o: any) => acc + (o.totalAmount || 0), 0) || 0
       unifiedList.push({
         id: r.id,
         sellerType: "RESTAURANT",
@@ -396,6 +419,7 @@ export async function GET(request: NextRequest) {
         updatedAt: r.updatedAt,
         subscriptionPlan: r.subscription?.plan?.displayName || r.subscription?.plan?.name || null,
         itemsCount: r.foods?.length ?? 0,
+        totalSales,
         ordersCount: r.foodOrders?.length ?? 0,
         city: r.businessInfo?.city || null,
         state: r.businessInfo?.state || null,
@@ -491,6 +515,18 @@ export async function GET(request: NextRequest) {
           const valA = (a.subscriptionPlan || "Free").toLowerCase()
           const valB = (b.subscriptionPlan || "Free").toLowerCase()
           const diff = valA.localeCompare(valB) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "items":
+        case "itemscount": {
+          const diff = ((a.itemsCount || 0) - (b.itemsCount || 0)) * modifier
+          if (diff !== 0) return diff
+          return newestFirst
+        }
+        case "sales":
+        case "totalsales": {
+          const diff = ((a.totalSales || 0) - (b.totalSales || 0)) * modifier
           if (diff !== 0) return diff
           return newestFirst
         }

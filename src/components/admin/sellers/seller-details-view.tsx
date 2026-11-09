@@ -522,7 +522,7 @@ export function SellerDetailsView({
                 <Button
                   variant="outline"
                   className="rounded-full font-bold px-5 uppercase tracking-widest text-[10px] h-9 border-amber-200 text-amber-700 hover:bg-amber-50"
-                  onClick={() => onOpenCommission?.(seller.id, seller.commissionRate || "")}
+                  onClick={() => onOpenCommission?.(seller.id, seller.commissionRate ?? "")}
                 >
                   Set Commission
                 </Button>

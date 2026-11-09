@@ -38,12 +38,31 @@ export async function GET(
       }
     })
 
-    const plans = await prisma.plan.findMany({
-      where: { type: "PRODUCT_SERVICE" },
-      orderBy: { price: "asc" }
-    })
+    if (!seller) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 })
+    }
 
-    return NextResponse.json({ ...seller, plans })
+    const [plans, globalSetting] = await Promise.all([
+      prisma.plan.findMany({
+        where: { type: "PRODUCT_SERVICE" },
+        orderBy: { price: "asc" }
+      }),
+      (prisma as any).globalSetting.findFirst({
+        select: {
+          baseCommission: true,
+          productBaseCommission: true,
+          serviceBaseCommission: true,
+        },
+      }),
+    ])
+
+    const fallbackBaseCommission = globalSetting?.baseCommission ?? 10.0
+    const baseCommissionRate =
+      seller.type === "SERVICE"
+        ? (globalSetting?.serviceBaseCommission ?? fallbackBaseCommission)
+        : (globalSetting?.productBaseCommission ?? fallbackBaseCommission)
+
+    return NextResponse.json({ ...seller, plans, baseCommissionRate })
   } catch (error) {
     console.error("[SELLER_GET]", error)
     return new NextResponse("Internal Error", { status: 500 })
