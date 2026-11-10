@@ -171,6 +171,12 @@ export async function GET(request: NextRequest) {
         status: a.status,
         statusCategory, // "DELIVERED" | "IN_PROGRESS"
         isDelivered,
+        paymentMethod: a.order?.paymentMethod || "COD",
+        settlementStatus: a.settlementStatus || (isDelivered ? (a.order?.paymentMethod === "AFRIMONEY" ? "YET_TO_PAY" : "COD_COLLECTED_BY_RIDER") : "PENDING"),
+        codAmountCollected: a.codAmountCollected || null,
+        payoutDisbursedAt: a.payoutDisbursedAt || null,
+        payoutReference: a.payoutReference || null,
+        payoutMethod: a.payoutMethod || null,
         offeredAt: a.offeredAt,
         acceptedAt: a.acceptedAt,
         pickedUpAt: a.pickedUpAt,
@@ -216,9 +222,10 @@ export async function GET(request: NextRequest) {
       include: {
         order: {
           select: {
+            paymentMethod: true,
             shipping: true,
             items: {
-              select: { id: true, sellerId: true, shippingAmount: true },
+              select: { id: true, sellerId: true, shippingAmount: true, subtotal: true, subtotalInclGst: true },
             },
           },
         },
@@ -229,6 +236,9 @@ export async function GET(request: NextRequest) {
     let deliveredCount = 0
     let pendingInProgressRevenue = 0
     let inProgressCount = 0
+    let prepaidDeliveredRevenue = 0
+    let codDeliveredRevenue = 0
+    let codCashCollectedTotal = 0
 
     allRiderAssignments.forEach((a) => {
       const assignedItems = (a.order?.items || []).filter(
@@ -239,26 +249,74 @@ export async function GET(request: NextRequest) {
         0
       )
       const fee = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
+      const isPrepaid = a.order?.paymentMethod === "AFRIMONEY"
 
       if (a.status === "DELIVERED") {
         totalDeliveredRevenue += fee
         deliveredCount += 1
+        if (isPrepaid) {
+          prepaidDeliveredRevenue += fee
+        } else {
+          codDeliveredRevenue += fee
+          const itemsSubtotalSum = assignedItems.reduce(
+            (s, it) => s + (Number(it.subtotalInclGst || it.subtotal) || 0),
+            0
+          )
+          codCashCollectedTotal += Number(a.codAmountCollected || (itemsSubtotalSum + fee))
+        }
       } else if (["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(a.status)) {
         pendingInProgressRevenue += fee
         inProgressCount += 1
       }
     })
 
+    const [pendingPayoutRequest, freshRider] = await Promise.all([
+      prisma.sellerPayoutRequest.findFirst({
+        where: { sellerSector: "RIDER", sellerId: authResult.rider.id, status: "PENDING" },
+      }),
+      prisma.rider.findUnique({
+        where: { id: authResult.rider.id },
+        select: {
+          netBalance: true,
+          paymentOption: true,
+          preferredPayoutMethod: true,
+          bankName: true,
+          accountHolderName: true,
+          accountNumber: true,
+          mobileNumber: true,
+          mobileMoneyOption: true,
+        },
+      }),
+    ])
+
+    const netBalance = Number(freshRider?.netBalance ?? authResult.rider.netBalance ?? 0)
+
     return NextResponse.json({
       success: true,
       data: {
         summary: {
+          netBalance,
+          availablePayoutBalance: netBalance,
           totalDeliveredRevenue,
+          prepaidDeliveredRevenue,
+          codDeliveredRevenue,
+          codCashCollectedTotal,
           pendingInProgressRevenue,
           deliveredCount,
           inProgressCount,
           totalDeliveriesCount: deliveredCount + inProgressCount,
           currency: "NLe",
+          hasPendingPayoutRequest: Boolean(pendingPayoutRequest),
+          pendingPayoutRequest,
+        },
+        riderBankDetails: {
+          paymentOption: freshRider?.paymentOption,
+          preferredPayoutMethod: freshRider?.preferredPayoutMethod,
+          bankName: freshRider?.bankName,
+          accountHolderName: freshRider?.accountHolderName,
+          accountNumber: freshRider?.accountNumber,
+          mobileNumber: freshRider?.mobileNumber,
+          mobileMoneyOption: freshRider?.mobileMoneyOption,
         },
         filters: {
           status: statusParam,

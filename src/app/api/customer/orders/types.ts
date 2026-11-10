@@ -69,7 +69,7 @@ export type CustomerOrderSellerGroupApi = {
     subtotal: number
     tax: number
     shipping: number
-    commission: number
+    commission?: number
     total: number
   }
   itemStatuses: Record<string, number>
@@ -98,6 +98,10 @@ export type OrderDetailApi = {
   }
   paymentMethod: string | null
   paymentStatus: string
+  afriTxnId?: string | null
+  afriFtxnId?: string | null
+  afriMsisdn?: string | null
+  paidAt?: string | null
   shippingFullName: string | null
   shippingPhone: string | null
   shippingAddressLine1: string | null

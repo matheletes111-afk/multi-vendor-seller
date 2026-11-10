@@ -10,6 +10,13 @@ function customerOrderKindFilter(kind: CustomerOrderKind) {
   return kind === "product" ? { productId: { not: null } } : { serviceId: { not: null } }
 }
 
+function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null
+  const clean = phone.trim()
+  if (clean.length <= 4) return clean
+  return clean.slice(0, 3) + "***" + clean.slice(-3)
+}
+
 export async function listCustomerOrders({
   userId,
   kind,
@@ -139,8 +146,6 @@ export async function listCustomerOrders({
         review: reviewData,
         canReview: row.itemStatus === "DELIVERED" && !row.review && !!(row.productId || row.serviceId),
         shippingAmount: row.shippingAmount,
-        commissionAmount: row.commissionAmount,
-        commissionRateSnapshot: row.commissionRateSnapshot,
         returnAvailable,
         replacementAllowed,
         returnPolicyType: variantReturnType,
@@ -215,7 +220,6 @@ export async function listCustomerOrders({
           subtotal: group.subtotal,
           tax: group.tax,
           shipping: group.shipping,
-          commission: group.commission,
           total: group.total,
         },
         itemStatuses: statusSummary.counts,
@@ -243,6 +247,10 @@ export async function listCustomerOrders({
       },
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
+      afriTxnId: order.afriTxnId ?? null,
+      afriFtxnId: order.afriFtxnId ?? null,
+      afriMsisdn: maskPhone(order.afriMsisdn),
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
       shippingFullName: order.shippingFullName,
       shippingPhone: order.shippingPhone,
       shippingAddressLine1: order.shippingAddressLine1,
@@ -282,16 +290,18 @@ export async function getCustomerOrderDetail({
 }: {
   userId: string
   orderId: string
-  kind: CustomerOrderKind
+  kind?: CustomerOrderKind
 }): Promise<OrderDetailApi | null> {
+  const where: any = {
+    id: orderId,
+    customerId: userId,
+  }
+  if (kind) {
+    where.items = { some: customerOrderKindFilter(kind) }
+  }
+
   const order = await prisma.order.findFirst({
-    where: {
-      id: orderId,
-      customerId: userId,
-      items: {
-        some: customerOrderKindFilter(kind),
-      },
-    },
+    where,
     include: {
       seller: { include: { store: true } },
       deliveryAssignments: {
@@ -422,8 +432,6 @@ export async function getCustomerOrderDetail({
         !row.review &&
         !!(row.productId || row.serviceId),
       shippingAmount: row.shippingAmount,
-      commissionAmount: row.commissionAmount,
-      commissionRateSnapshot: row.commissionRateSnapshot,
       returnAvailable,
       replacementAllowed,
       returnPolicyType: variantReturnType,
@@ -596,7 +604,6 @@ export async function getCustomerOrderDetail({
         subtotal: group.subtotal,
         tax: group.tax,
         shipping: group.shipping,
-        commission: group.commission,
         total: group.total,
       },
       itemStatuses: statusSummary.counts,
@@ -630,8 +637,21 @@ export async function getCustomerOrderDetail({
     subtotal: order.subtotal,
     tax: order.tax,
     shipping: order.shipping,
+    weightShippingFee: (order as any).weightShippingFee ?? 0,
+    dimensionShippingFee: (order as any).dimensionShippingFee ?? 0,
+    regionShippingFee: (order as any).regionShippingFee ?? 0,
+    shippingBreakup: {
+      weightShippingFee: (order as any).weightShippingFee ?? 0,
+      dimensionShippingFee: (order as any).dimensionShippingFee ?? 0,
+      regionShippingFee: (order as any).regionShippingFee ?? 0,
+      totalShippingFee: order.shipping,
+    },
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId ?? null,
+    afriFtxnId: order.afriFtxnId ?? null,
+    afriMsisdn: maskPhone(order.afriMsisdn),
+    paidAt: order.paidAt ? order.paidAt.toISOString() : null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Star, MapPin, CheckCircle2, User, Users, Coffee, Bed, ArrowLeft, Loader2, Calendar, Lock, AlertCircle, Building2 } from "lucide-react"
+import { Star, MapPin, CheckCircle2, User, Users, Coffee, Bed, ArrowLeft, Loader2, Calendar, Lock, AlertCircle, Building2, Banknote } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -53,6 +53,51 @@ export default function RoomBookingPage() {
   const [bookingLoading, setBookingLoading] = useState(false)
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [bookingSuccess, setBookingSuccess] = useState<any>(null)
+
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY">("COD")
+  const [afriPhone, setAfriPhone] = useState("")
+  const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
+  const [afriPromptInfo, setAfriPromptInfo] = useState<{
+    bookingId: string
+    message: string
+  } | null>(null)
+  const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+    }
+  }, [])
+
+  const handleCancelAfriMoney = async (bookingIdToCancel?: string) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    setWaitingForAfriMoney(false)
+    setBookingLoading(false)
+    const targetId = bookingIdToCancel || afriPromptInfo?.bookingId
+    if (targetId) {
+      try {
+        await fetch(`/api/customer/hotel-bookings/${encodeURIComponent(targetId)}/cancel-pending`, {
+          method: "POST",
+        })
+      } catch (err) {
+        console.warn("Error cancelling pending hotel booking:", err)
+      }
+    }
+  }
+
+  // Auto-fill afriPhone from guestPhone
+  useEffect(() => {
+    if (!afriPhone && guestPhone) {
+      setAfriPhone(guestPhone)
+    }
+  }, [guestPhone, afriPhone])
 
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
@@ -175,6 +220,12 @@ export default function RoomBookingPage() {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isLoggedIn) return
+    if (!room) return
+
+    if (paymentMethod === "AFRIMONEY" && !afriPhone.trim()) {
+      setBookingError("Please enter your AfriMoney phone number to receive the payment prompt.")
+      return
+    }
 
     setBookingLoading(true)
     setBookingError(null)
@@ -191,7 +242,9 @@ export default function RoomBookingPage() {
           guestPhone,
           adults,
           children,
-          couponCode: appliedCoupon ? appliedCoupon.code : undefined
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+          paymentMethod,
+          payerMsisdn: paymentMethod === "AFRIMONEY" ? afriPhone.trim() : undefined,
         })
       })
 
@@ -200,11 +253,65 @@ export default function RoomBookingPage() {
         throw new Error(data.error || "Room booking failed.")
       }
 
+      if (paymentMethod === "AFRIMONEY" && data.ussdPromptSent) {
+        setWaitingForAfriMoney(true)
+        setAfriPromptInfo({
+          bookingId: data.data.id,
+          message: data.promptMessage || "A USSD payment prompt has been sent to your phone. Please check your screen and enter your PIN.",
+        })
+        setAfriPollingCountdown(60)
+
+        const bookingId = data.data.id
+        let attempts = 0
+        const maxAttempts = 24 // 24 * 2.5s = 60s
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = setInterval(async () => {
+          attempts++
+          setAfriPollingCountdown((prev) => Math.max(0, prev - 2.5))
+          try {
+            const verifyRes = await fetch(`/api/customer/hotel-bookings/${encodeURIComponent(bookingId)}/verify-payment`)
+            const verifyData = await verifyRes.json()
+            if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current)
+                pollIntervalRef.current = null
+              }
+              setWaitingForAfriMoney(false)
+              setBookingSuccess(data.data)
+              return
+            } else if (verifyData.paymentStatus === "FAILED") {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current)
+                pollIntervalRef.current = null
+              }
+              setWaitingForAfriMoney(false)
+              setBookingLoading(false)
+              setBookingError("AfriMoney payment was declined or failed. Please try again or choose Pay on Arrival.")
+              return
+            }
+          } catch (err) {
+            console.warn("Hotel booking payment verification error:", err)
+          }
+
+          if (attempts >= maxAttempts) {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current)
+              pollIntervalRef.current = null
+            }
+            handleCancelAfriMoney(bookingId)
+            setBookingError("AfriMoney payment prompt timed out. Please try again or choose Pay on Arrival.")
+          }
+        }, 2500)
+        return
+      }
+
       setBookingSuccess(data.data)
     } catch (err: any) {
       setBookingError(err.message || "An unexpected error occurred during your booking.")
     } finally {
-      setBookingLoading(false)
+      if (paymentMethod !== "AFRIMONEY") {
+        setBookingLoading(false)
+      }
     }
   }
 
@@ -534,6 +641,70 @@ export default function RoomBookingPage() {
                             <span className="font-black text-emerald-600 text-base">{formatCurrency(finalPrice)}</span>
                           </div>
                         </div>
+
+                        {/* Payment Method Selector */}
+                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs space-y-2">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Method</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod("COD")}
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                                paymentMethod === "COD"
+                                  ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-400/40"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "COD" ? "border-emerald-600 bg-emerald-600" : "border-slate-300"}`}>
+                                {paymentMethod === "COD" && <div className="w-1 h-1 rounded-full bg-white" />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                                  <Banknote className="h-3 w-3 text-slate-500" /> Pay on Arrival
+                                </p>
+                                <p className="text-[9px] text-slate-500">Pay at the Hotel</p>
+                              </div>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod("AFRIMONEY")}
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                                paymentMethod === "AFRIMONEY"
+                                  ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-400/40"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-emerald-600 bg-emerald-600" : "border-slate-300"}`}>
+                                {paymentMethod === "AFRIMONEY" && <div className="w-1 h-1 rounded-full bg-white" />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                                  <span>📱</span> AfriMoney
+                                </p>
+                                <p className="text-[9px] text-slate-500">Instant Push USSD</p>
+                              </div>
+                            </button>
+                          </div>
+
+                          {paymentMethod === "AFRIMONEY" && (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1 mt-2">
+                              <label className="text-[10px] font-bold text-emerald-900 block">
+                                AfriMoney Phone Number (Africell) *
+                              </label>
+                              <Input
+                                type="tel"
+                                placeholder="e.g. 077123456"
+                                value={afriPhone}
+                                onChange={(e) => setAfriPhone(e.target.value)}
+                                className="h-8 text-xs bg-white rounded-lg border-emerald-200"
+                              />
+                              <p className="text-[9px] text-emerald-800">
+                                A prompt will be sent to your phone to enter your PIN and approve booking payment.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -553,16 +724,59 @@ export default function RoomBookingPage() {
                     >
                       {bookingLoading ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Processing Booking...
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {paymentMethod === "AFRIMONEY" ? "Sending AfriMoney Prompt..." : "Processing Booking..."}
                         </>
                       ) : (
-                        "Book Suite Now"
+                        paymentMethod === "AFRIMONEY" ? "Pay with AfriMoney" : "Confirm Booking (Pay on Arrival)"
                       )}
                     </Button>
                   </form>
                 )}
               </CardContent>
             </Card>
+          </div>
+        </div>
+      )}
+
+      {/* AfriMoney Push USSD Waiting Modal */}
+      {waitingForAfriMoney && afriPromptInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto ring-8 ring-emerald-50">
+              <Loader2 className="h-7 w-7 animate-spin" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Approve on Your Phone</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Hotel Room Booking
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 space-y-2">
+              <p className="font-semibold">{afriPromptInfo.message}</p>
+              <div className="text-[11px] text-emerald-800/90 space-y-0.5 text-left border-t border-emerald-200/60 pt-2">
+                <p>1. Check your phone screen for the prompt</p>
+                <p>2. Enter your AfriMoney secret PIN</p>
+                <p>3. Do not close this browser window</p>
+              </div>
+            </div>
+
+            <div className="text-xs font-bold text-slate-400 flex items-center justify-center gap-1.5">
+              <span>Time remaining:</span>
+              <span className="font-mono text-emerald-600 text-sm font-black">{Math.ceil(afriPollingCountdown)}s</span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleCancelAfriMoney()}
+              className="w-full rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel / Choose Another Method
+            </Button>
           </div>
         </div>
       )}

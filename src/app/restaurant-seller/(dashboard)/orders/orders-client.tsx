@@ -20,9 +20,20 @@ type Order = {
   id: string
   orderNumber: string
   totalAmount: number
+  subtotal?: number
+  deliveryFee?: number
+  couponCode?: string | null
+  couponDiscount?: number | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  paidAt?: string | null
   commissionRate?: number
   commissionAmount?: number
   sellerNet?: number
+  settlementStatus?: string | null
+  payoutReference?: string | null
+  payoutDisbursedAt?: string | null
   status: "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED" | "REFUNDED" | "EXCHANGED"
   createdAt: string
   deliveryFullName: string
@@ -226,6 +237,27 @@ export function RestaurantOrdersClient() {
                         <div className="text-right hidden sm:block">
                           <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Net Payout</p>
                           <p className="text-base font-black text-emerald-700 mt-0.5">{formatCurrency(order.sellerNet)}</p>
+                          <span className={`inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mt-0.5 ${
+                            order.settlementStatus === "PAID_OUT"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : order.settlementStatus === "YET_TO_PAY"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
+                              : order.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                              ? "bg-purple-100 text-purple-800 border border-purple-300"
+                              : order.settlementStatus === "CANCELLED"
+                              ? "bg-rose-100 text-rose-800 border border-rose-300"
+                              : "bg-sky-100 text-sky-800 border border-sky-300"
+                          }`}>
+                            {order.settlementStatus === "PAID_OUT"
+                              ? "Paid Out"
+                              : order.settlementStatus === "YET_TO_PAY"
+                              ? "Yet to Pay"
+                              : order.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                              ? "Cash Collected"
+                              : order.settlementStatus === "CANCELLED"
+                              ? "Cancelled"
+                              : "Escrow"}
+                          </span>
                         </div>
                       )}
 
@@ -238,21 +270,68 @@ export function RestaurantOrdersClient() {
                   {isExpanded && (
                     <div className="border-t border-slate-100 bg-slate-50/20 p-6 space-y-6">
                       {/* Financial Settlement Breakdown */}
-                      <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Settlement & Commission Breakdown</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Order Total</p>
-                            <p className="text-lg font-black text-slate-900 mt-1">{formatCurrency(order.totalAmount)}</p>
+                      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                          <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Settlement & Payment Breakdown</h4>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500 font-medium">Payment:</span>
+                            <span className="text-xs font-bold text-slate-800">
+                              {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                            </span>
+                            <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className="text-[10px] uppercase">
+                              {order.paymentStatus || "PENDING"}
+                            </Badge>
                           </div>
-                          <div className="p-3.5 bg-amber-50/60 border border-amber-100 rounded-xl">
-                            <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Platform Fee ({order.commissionRate ?? 0}%)</p>
-                            <p className="text-lg font-black text-amber-800 mt-1">-{formatCurrency(order.commissionAmount ?? 0)}</p>
+                        </div>
+
+                        {order.afriTxnId && (
+                          <div className="flex flex-wrap justify-between items-center text-xs text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg">
+                            <span>AfriMoney Txn ID: {order.afriTxnId}</span>
+                            {order.paidAt && <span>Paid At: {new Date(order.paidAt).toLocaleString()}</span>}
                           </div>
-                          <div className="p-3.5 bg-emerald-50/60 border border-emerald-100 rounded-xl">
-                            <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Seller Net Credited</p>
-                            <p className="text-lg font-black text-emerald-800 mt-1">{formatCurrency(order.sellerNet ?? order.totalAmount)}</p>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Food Subtotal</p>
+                            <p className="text-base font-black text-slate-900 mt-0.5">{formatCurrency(order.subtotal ?? order.totalAmount)}</p>
                           </div>
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Delivery Fee</p>
+                            <p className="text-base font-black text-slate-900 mt-0.5">{formatCurrency(order.deliveryFee ?? 0)}</p>
+                          </div>
+                          <div className="p-3 bg-amber-50/60 border border-amber-100 rounded-xl">
+                            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Platform Fee ({order.commissionRate ?? 0}%)</p>
+                            <p className="text-base font-black text-amber-800 mt-0.5">-{formatCurrency(order.commissionAmount ?? 0)}</p>
+                          </div>
+                          <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Seller Net Credited</p>
+                            <p className="text-base font-black text-emerald-800 mt-0.5">{formatCurrency(order.sellerNet ?? order.totalAmount)}</p>
+                          </div>
+                        </div>
+
+                        {/* Settlement Status Banner */}
+                        <div className="rounded-xl bg-slate-900 text-white p-3.5 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 font-medium">Payout Settlement Status:</span>
+                            <span className="font-bold text-emerald-400 uppercase text-[10px]">
+                              {order.settlementStatus === "PAID_OUT"
+                                ? "Paid Out / Disbursed"
+                                : order.settlementStatus === "YET_TO_PAY"
+                                ? "Yet to Pay (Credited to Balance)"
+                                : order.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                                ? "Collected in Cash"
+                                : order.settlementStatus === "CANCELLED"
+                                ? "Cancelled"
+                                : "Held in Escrow"}
+                            </span>
+                          </div>
+                          {order.payoutReference && (
+                            <div className="text-[10px] text-emerald-300 font-mono flex justify-between pt-1 border-t border-slate-800">
+                              <span>Payout Ref: {order.payoutReference}</span>
+                              {order.payoutDisbursedAt && <span>{new Date(order.payoutDisbursedAt).toLocaleDateString()}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
 

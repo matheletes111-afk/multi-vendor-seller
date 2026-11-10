@@ -74,13 +74,16 @@ export async function GET(request: NextRequest) {
     ])
 
     const formatted = bookings.map(b => {
-      const commissionAmount = Math.round(b.totalPrice * (commissionRate / 100) * 100) / 100
-      const sellerNet = Math.max(0, Math.round((b.totalPrice - commissionAmount) * 100) / 100)
+      const bCommissionRate = b.commissionRate ?? commissionRate
+      const commissionAmount = b.commissionAmount ?? Math.round(b.totalPrice * (bCommissionRate / 100) * 100) / 100
+      const sellerNet = b.sellerNetPayout ?? Math.max(0, Math.round((b.totalPrice - commissionAmount) * 100) / 100)
+      const settlementStatus = b.settlementStatus ?? (b.status === "COMPLETED" ? "YET_TO_PAY" : "ESCROW_HELD")
       return {
         ...b,
-        commissionRate,
+        commissionRate: bCommissionRate,
         commissionAmount,
         sellerNet,
+        settlementStatus,
       }
     })
 

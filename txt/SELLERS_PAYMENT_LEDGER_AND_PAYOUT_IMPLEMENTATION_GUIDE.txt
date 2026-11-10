@@ -1,0 +1,346 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM - DEVELOPER IMPLEMENTATION GUIDE (WEB & MOBILE API)
+PANEL: ALL 4 SELLER APPLICATIONS (PRODUCT, SERVICE, HOTEL, RESTAURANT) & ADMIN
+SUBJECT: UNIFIED FINANCIAL LEDGER, COMMISSION BREAKUP, COD VS PREPAID SETTLEMENT,
+         SELLER PAYOUT REQUESTS, AND ADMIN DISBURSEMENT RECONCILIATION
+DATE: NOVEMBER 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & FINANCIAL LEDGER ARCHITECTURE
+--------------------------------------------------------------------------------
+All 4 Seller Panels (Product, Service, Hotel, and Restaurant) operate on a
+unified, transparent financial ledger and settlement lifecycle:
+
+A. SETTLEMENT STATUS LIFECYCLE (`settlementStatus`):
+  1. "PENDING"                 — Order/booking placed with COD (not yet fulfilled)
+                                 or unverified AfriMoney.
+  2. "ESCROW_HELD"             — Customer paid online via AfriMoney (`COMPLETED`);
+                                 platform holds funds in escrow until fulfillment.
+  3. "YET_TO_PAY"              — Order/booking fulfilled (`DELIVERED` / `CONFIRMED`)
+                                 where the platform collected the funds (AfriMoney
+                                 prepaid OR platform rider collected COD for a
+                                 product order). Seller's `netBalance` is credited
+                                 and the platform owes this payout to the seller.
+  4. "COD_COLLECTED_BY_SELLER" — Fulfilled via Cash on Delivery where the seller
+                                 collected cash directly from the customer:
+                                   * Hotel "Pay at Hotel" (`COD`)
+                                   * Restaurant `COD` order
+                                   * Service `COD` appointment
+                                   * Product Self-Delivery `COD` order
+                                 Because the seller already has the cash in hand,
+                                 platform payout liability is 0 (`netBalance` is
+                                 NOT incremented).
+  5. "PAID_OUT"                — Admin has disbursed the `YET_TO_PAY` balance to
+                                 the seller's Bank / AfriMoney / Orange Money
+                                 account and recorded the Transaction Reference ID.
+  6. "CANCELLED"               — Order/booking was cancelled.
+
+B. GROSS SUBTOTAL COMMISSION BASE RULE:
+  * Platform commission (`commissionAmount`) and Seller Net Payout (`sellerNetPayout`)
+    are ALWAYS calculated on the seller's gross item/room/food `subtotal` BEFORE
+    any platform-wide promotional coupon discount.
+  * Platform coupon discounts are absorbed by the platform, never deducted from
+    the seller's net earnings.
+
+================================================================================
+SECTION A: PRODUCT SELLER — ORDERS, LEDGER & PAYOUT REQUESTS
+================================================================================
+
+--------------------------------------------------------------------------------
+A1. PRODUCT SELLER ORDERS LIST, DETAIL & STATUS UPDATE (WITH SETTLEMENT BREAKUP)
+--------------------------------------------------------------------------------
+Web List:        GET   /api/product-seller/orders
+Mobile List:     GET   /mobileapi/product-seller/orders
+Web Detail/Upd:  GET & PATCH /api/product-seller/orders/[id]
+Mobile Det/Upd:  GET & PATCH /mobileapi/product-seller/orders/[id]
+Auth:            Session Cookie (Web) | Bearer Token (Mobile - SELLER_PRODUCT)
+
+Fulfillment & Settlement Trigger (`applySellerCreditForOrderLineDelivered`):
+  * When an order line reaches `DELIVERED` (either via Rider OTP delivery in
+    `/api/riderapp/orders/[id]/status` OR via Seller Self-Delivery OTP in
+    `PATCH /api/product-seller/orders/[id]`):
+    - If `paymentMethod === "AFRIMONEY"` OR Platform Rider delivered a `COD` order:
+        * `settlementStatus` becomes `"YET_TO_PAY"`.
+        * `seller.netBalance` is incremented by `lineInclGst - commissionAmount`
+          (+ `shippingAmount` only if `isSelfDelivery === true` and `AFRIMONEY`).
+        * `SellerBalanceTransaction` (`kind: "CREDIT"`, `reason: "ORDER_LINE_DELIVERED"`) is created.
+    - If `paymentMethod === "COD"` AND `isSelfDelivery === true`:
+        * Seller collected the cash directly from the customer.
+        * `settlementStatus` becomes `"COD_COLLECTED_BY_SELLER"`.
+        * `seller.netBalance` is NOT incremented (0 platform payout liability).
+
+Response Highlights (`GET /api/product-seller/orders/[id]`):
+{
+  "id": "cuid_order_abc123",
+  "orderNumber": "ORD-1762776000-AB12",
+  "status": "DELIVERED",
+  "paymentMethod": "AFRIMONEY",             // "AFRIMONEY" | "COD"
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": "MM261110.1234.A12345",
+  "paidAt": "2026-11-10T12:00:00.000Z",
+  "subtotal": 250,
+  "tax": 0,
+  "shipping": 35,                           // Allocated to Rider unless isSelfDelivery
+  "totalCommission": 25,
+  "sellerCouponCode": null,
+  "sellerCouponDiscount": 0,
+  "totalAmount": 250,
+  "netPayable": 225,                        // Seller Net Earnings (250 - 25)
+  "items": [
+    {
+      "id": "cuid_item_1",
+      "productNameSnapshot": "Wireless Headphones",
+      "quantity": 1,
+      "price": 250,
+      "subtotal": 250,
+      "gstAmount": 0,
+      "subtotalInclGst": 250,
+      "shippingAmount": 35,
+      "commissionAmount": 25,
+      "commissionRateSnapshot": 10,
+      "isSelfDelivery": false,
+      "itemStatus": "DELIVERED",
+      "settlementStatus": "PAID_OUT",       // "PENDING" | "ESCROW_HELD" | "YET_TO_PAY" | "PAID_OUT" | "COD_COLLECTED_BY_SELLER"
+      "payoutRequestedAt": "2026-11-10T14:00:00.000Z",
+      "payoutDisbursedAt": "2026-11-10T15:30:00.000Z",
+      "payoutReference": "AFRI-TXN-889900"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+A2. PRODUCT SELLER BALANCE & LEDGER TRANSACTIONS
+--------------------------------------------------------------------------------
+Web Endpoint:    GET /api/product-seller/balance-transactions
+Mobile Endpoint: GET /mobileapi/product-seller/balance-transactions
+Auth:            Session Cookie (Web) | Bearer Token (Mobile - SELLER_PRODUCT)
+
+Response:
+{
+  "netBalance": 450.00,                     // Current Yet-to-Pay balance owed by platform
+  "balanceCreditsTotal": 1200.00,           // Lifetime delivered credits
+  "balanceDebitsTotal": 750.00,             // Lifetime disbursed payouts & return debits
+  "transactions": [
+    {
+      "id": "cuid_txn_1",
+      "amount": 225.00,
+      "kind": "CREDIT",                     // "CREDIT" | "DEBIT"
+      "reason": "ORDER_LINE_DELIVERED",     // or "PAYOUT_DISBURSED", "RETURN_REFUND_DEBIT"
+      "note": "Seller net credit: Item incl. GST (250) - platform commission (25)",
+      "createdAt": "2026-11-10T13:00:00.000Z",
+      "orderId": "cuid_order_abc123",
+      "orderNumber": "ORD-1762776000-AB12",
+      "orderItemProductName": "Wireless Headphones"
+    },
+    {
+      "id": "cuid_txn_2",
+      "amount": 500.00,
+      "kind": "DEBIT",
+      "reason": "PAYOUT_DISBURSED",
+      "note": "Disbursed SLE 500.00 via AfriMoney. Ref: AFRI-TXN-889900",
+      "createdAt": "2026-11-10T15:30:00.000Z",
+      "orderId": null,
+      "orderNumber": null,
+      "orderItemProductName": null
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+A3. PRODUCT SELLER PAYOUT REQUESTS (GET STATUS & SUBMIT REQUEST)
+--------------------------------------------------------------------------------
+Web Endpoint:    GET  /api/product-seller/payout-requests
+                 POST /api/product-seller/payout-requests
+Mobile Endpoint: GET  /mobileapi/product-seller/payout-requests
+                 POST /mobileapi/product-seller/payout-requests
+
+POST Request Payload:
+{
+  "sellerNote": "Please send to my registered AfriMoney wallet." // Optional
+}
+
+GET Response:
+{
+  "success": true,
+  "netBalance": 450.00,
+  "payoutMethod": "AfriMoney",
+  "payoutAccountSnapshot": "Method: AfriMoney • Mobile: 077123456 • Wallet: AfriMoney",
+  "pendingRequest": {
+    "id": "cuid_req_1",
+    "sellerSector": "PRODUCT",
+    "sellerId": "cuid_seller_1",
+    "requestedAmount": 450.00,
+    "status": "PENDING",
+    "sellerNote": "Please send to my registered AfriMoney wallet.",
+    "payoutMethod": "AfriMoney",
+    "payoutAccountSnapshot": "Method: AfriMoney • Mobile: 077123456",
+    "requestedAt": "2026-11-10T16:00:00.000Z"
+  },
+  "history": [ ... ]
+}
+
+================================================================================
+SECTION B: SERVICE SELLER — ORDERS, NET-WORTH & PAYOUT REQUESTS
+================================================================================
+
+--------------------------------------------------------------------------------
+B1. SERVICE SELLER ORDERS LIST, DETAIL & STATUS UPDATE
+--------------------------------------------------------------------------------
+Web List:        GET   /api/service-seller/orders
+Mobile List:     GET   /mobileapi/service-seller/orders
+Web Detail/Upd:  GET & PATCH /api/service-seller/orders/[id]
+Mobile Det/Upd:  GET & PATCH /mobileapi/service-seller/orders/[id]
+Auth:            Session Cookie (Web) | Bearer Token (Mobile - SELLER_SERVICE)
+
+Fulfillment Behavior when Service Seller marks status = "DELIVERED":
+  * If `paymentMethod === "AFRIMONEY"`:
+      - `settlementStatus` becomes `"YET_TO_PAY"`.
+      - `seller.netBalance` is incremented by `lineInclGst - commissionAmount`.
+      - `SellerBalanceTransaction` (`CREDIT`) is created.
+  * If `paymentMethod === "COD"`:
+      - Service provider collected cash directly from customer at appointment.
+      - `settlementStatus` becomes `"COD_COLLECTED_BY_SELLER"`.
+      - `seller.netBalance` is NOT incremented (0 platform payout liability).
+  * When all items in the parent Order reach `DELIVERED`, parent `Order.status`
+    becomes `"DELIVERED"` and `Order.paymentStatus` becomes `"COMPLETED"`.
+
+--------------------------------------------------------------------------------
+B2. SERVICE SELLER NET-WORTH & PAYOUT REQUESTS
+--------------------------------------------------------------------------------
+Net-Worth & Ledger API:
+  Web:    GET /api/service-seller/net-worth
+  Mobile: GET /mobileapi/service-seller/net-worth
+  * Returns `netBalance`, `deliveredNetEarnings`, `pendingNetEarnings`,
+    `balanceCreditsTotal`, `balanceDebitsTotal`, `recentLines`, and
+    `balanceTransactions` (both `CREDIT` and `DEBIT` rows).
+
+Payout Requests API:
+  Web:    GET & POST /api/service-seller/payout-requests
+  Mobile: GET & POST /mobileapi/service-seller/payout-requests
+  * Identical request/response contract as Product Seller (`sellerSector: "SERVICE"`).
+
+================================================================================
+SECTION C: HOTEL SELLER — BOOKINGS, REVENUE LEDGER & PAYOUT REQUESTS
+================================================================================
+
+--------------------------------------------------------------------------------
+C1. HOTEL SELLER BOOKINGS LIST & STATUS UPDATE
+--------------------------------------------------------------------------------
+Web Endpoint:    GET /api/hotel-seller/bookings
+Mobile Endpoint: GET /mobileapi/hotel-seller/bookings
+                 PATCH /mobileapi/hotel-seller/bookings/[id]
+Auth:            Session Cookie (Web) | Bearer Token (Mobile - SELLER_HOTEL)
+
+Booking Financial Fields Returned to Hotel Seller:
+{
+  "id": "cuid_booking_xyz",
+  "guestName": "John Kamara",
+  "guestPhone": "+23277123456",
+  "checkIn": "2026-12-01T00:00:00.000Z",
+  "checkOut": "2026-12-03T00:00:00.000Z",
+  "subtotal": 1200,                         // Gross room price (2 nights x 600)
+  "couponCode": "HOTEL10",
+  "couponDiscount": 120,
+  "totalPrice": 1080,                       // Customer paid 1080
+  "commissionRate": 10,
+  "commissionAmount": 120,                  // 10% of 1200 gross subtotal
+  "sellerNetPayout": 1080,                  // 1200 - 120 = 1080 credited to Hotel
+  "paymentMethod": "AFRIMONEY",             // "AFRIMONEY" | "COD" (Pay at Hotel)
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": "MM261110.9988.B54321",
+  "paidAt": "2026-11-10T12:15:00.000Z",
+  "settlementStatus": "YET_TO_PAY",         // "YET_TO_PAY" (AfriMoney) | "COD_COLLECTED_BY_SELLER" (Pay at Hotel) | "PAID_OUT"
+  "payoutDisbursedAt": null,
+  "payoutReference": null,
+  "payoutMethod": null,
+  "payoutAccountSnapshot": null,
+  "payoutNote": null
+}
+
+--------------------------------------------------------------------------------
+C2. HOTEL SELLER REVENUE & PAYOUT REQUESTS
+--------------------------------------------------------------------------------
+Revenue & Ledger API:
+  Web:    GET /api/hotel-seller/revenue
+  Mobile: GET /mobileapi/hotel-seller/revenue
+  * Returns `netBalance`, `totalGrossRevenue`, `totalCommission`, `totalNetEarnings`,
+    `bookings`, and `balanceTransactions` (`HotelBalanceTransaction` CREDIT/DEBIT).
+
+Payout Requests API:
+  Web:    GET & POST /api/hotel-seller/payout-requests
+  Mobile: GET & POST /mobileapi/hotel-seller/payout-requests
+
+================================================================================
+SECTION D: RESTAURANT SELLER — FOOD ORDERS, REVENUE & PAYOUT REQUESTS
+================================================================================
+
+--------------------------------------------------------------------------------
+D1. RESTAURANT SELLER FOOD ORDERS & STATUS UPDATE
+--------------------------------------------------------------------------------
+Web Endpoint:    GET & PATCH /api/restaurant-seller/orders
+Mobile Endpoint: GET & PATCH /mobileapi/restaurant-seller/orders
+Auth:            Session Cookie (Web) | Bearer Token (Mobile - SELLER_RESTAURANT)
+
+Fulfillment Behavior when Restaurant Seller marks status = "DELIVERED":
+  * Calls `creditRestaurantSellerForDelivery`:
+      - Calculates commission and `sellerNetPayout` on gross `order.subtotal`.
+      - If `paymentMethod === "AFRIMONEY"`:
+          * `settlementStatus` becomes `"YET_TO_PAY"`.
+          * `restaurantSeller.netBalance` is incremented by `sellerNetPayout`.
+          * `RestaurantBalanceTransaction` (`CREDIT`) is created.
+      - If `paymentMethod === "COD"`:
+          * `settlementStatus` becomes `"COD_COLLECTED_BY_SELLER"`.
+          * `restaurantSeller.netBalance` is NOT incremented (cash collected directly).
+
+--------------------------------------------------------------------------------
+D2. RESTAURANT SELLER REVENUE & PAYOUT REQUESTS
+--------------------------------------------------------------------------------
+Revenue & Ledger API:
+  Web:    GET /api/restaurant-seller/revenue
+  Mobile: GET /mobileapi/restaurant-seller/revenue
+
+Payout Requests API:
+  Web:    GET & POST /api/restaurant-seller/payout-requests
+  Mobile: GET & POST /mobileapi/restaurant-seller/payout-requests
+
+================================================================================
+SECTION E: ADMIN CENTRAL PAYOUTS & DISBURSEMENT ENGINE
+================================================================================
+
+1. GET /api/admin/payouts
+   Returns:
+     * `summary`: `totalYetToPay`, `totalPendingRequested`, `pendingCount`,
+       `totalDisbursed`, `disbursedCount`, `totalYetToPaySellersCount`.
+     * `pendingRequests`: All `PENDING` payout requests across `PRODUCT`,
+       `SERVICE`, `HOTEL`, `RESTAURANT`, and `RIDER`.
+     * `yetToPaySellers`: All vendors/riders with `netBalance > 0`.
+     * `disbursedHistory`: Historical `DISBURSED` payout requests.
+
+2. POST /api/admin/payouts/disburse
+   Request Payload:
+   {
+     "payoutRequestId": "cuid_req_1",       // Optional (if disbursing from Pending Requests tab)
+     "sellerSector": "PRODUCT",             // "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT" | "RIDER"
+     "sellerId": "cuid_seller_1",
+     "amount": 450.00,
+     "payoutMethod": "AfriMoney",           // "AfriMoney" | "Orange Money" | "Bank Transfer"
+     "payoutAccountSnapshot": "Method: AfriMoney • Mobile: 077123456",
+     "payoutReference": "AFRI-TXN-889900",  // Mandatory Transaction ID / Bank Ref
+     "adminNote": "Settled weekly payout",  // Optional
+     "orderId": null,                       // Optional (if disbursing specific order from modal)
+     "orderItemId": null,                   // Optional
+     "bookingId": null,                     // Optional
+     "foodOrderId": null                    // Optional
+   }
+
+   Atomic Transaction Behavior:
+     * Verifies `currentBalance >= amount` and decrements `netBalance`.
+     * Creates a `DEBIT` balance transaction (`reason: "PAYOUT_DISBURSED"`) with
+       full reference and method note.
+     * Marks all corresponding `YET_TO_PAY` order items / hotel bookings / food
+       orders / rider assignments as `PAID_OUT` with `payoutDisbursedAt`,
+       `payoutReference`, `payoutMethod`, `payoutAccountSnapshot`, and `payoutNote`.
+     * Updates the `SellerPayoutRequest` (or any existing `PENDING` request for
+       that seller) to `status: "DISBURSED"`.
+================================================================================

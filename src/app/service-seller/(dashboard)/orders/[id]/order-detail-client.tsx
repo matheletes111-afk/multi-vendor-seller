@@ -257,10 +257,30 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
               </Badge>
             </div>
             {statusError && <p className="text-sm text-destructive">{statusError}</p>}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Payment</span>
-              <span>{order.paymentMethod ?? "—"} ({order.paymentStatus.toLowerCase()})</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Payment Method</span>
+              <span className="font-medium">
+                {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+              </span>
             </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Payment Status</span>
+              <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className="uppercase text-[10px]">
+                {order.paymentStatus}
+              </Badge>
+            </div>
+            {order.afriTxnId && (
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>AfriMoney Txn ID</span>
+                <span className="font-mono font-medium">{order.afriTxnId}</span>
+              </div>
+            )}
+            {order.paidAt && (
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Paid At</span>
+                <span>{new Date(order.paidAt).toLocaleString()}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -358,6 +378,30 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
                           Invoice
                         </Link>
                       </Button>
+                      {item.settlementStatus && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            item.settlementStatus === "PAID_OUT"
+                              ? "bg-emerald-500/10 text-emerald-700 border-emerald-300 text-[10px]"
+                              : item.settlementStatus === "YET_TO_PAY"
+                              ? "bg-amber-500/10 text-amber-700 border-amber-300 text-[10px]"
+                              : item.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                              ? "bg-purple-500/10 text-purple-700 border-purple-300 text-[10px]"
+                              : "bg-slate-100 text-slate-700 border-slate-200 text-[10px]"
+                          }
+                        >
+                          {item.settlementStatus === "PAID_OUT"
+                            ? "Paid Out"
+                            : item.settlementStatus === "YET_TO_PAY"
+                            ? "Yet to Pay"
+                            : item.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                            ? "COD Collected"
+                            : item.settlementStatus === "CANCELLED"
+                            ? "Cancelled"
+                            : "Held in Escrow"}
+                        </Badge>
+                      )}
                     </div>
                     {canUpdateStatus && item.itemStatus !== "DELIVERED" && (
                       <>
@@ -608,6 +652,63 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
             <span>Your net (after fees)</span>
             <span className="tabular-nums">{formatCurrency(order.sellerNet)}</span>
           </div>
+
+          {(() => {
+            const firstItem = order.items[0]
+            const settlementStatus = firstItem?.settlementStatus || "PENDING"
+            const isPaidOut = settlementStatus === "PAID_OUT"
+            const isYetToPay = settlementStatus === "YET_TO_PAY"
+            const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && order.paymentMethod === "AFRIMONEY")
+            const isCodSeller = settlementStatus === "COD_COLLECTED_BY_SELLER"
+
+            return (
+              <div className="mt-4 rounded-xl bg-slate-900 text-white p-3.5 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Payout Settlement Status:</span>
+                  <Badge
+                    variant="outline"
+                    className={
+                      isPaidOut
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]"
+                        : isYetToPay
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]"
+                        : isEscrow
+                        ? "bg-sky-500/20 text-sky-300 border-sky-500/30 text-[10px]"
+                        : isCodSeller
+                        ? "bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px]"
+                        : "bg-slate-800 text-slate-300 border-slate-700 text-[10px]"
+                    }
+                  >
+                    {isPaidOut
+                      ? "Paid Out / Disbursed"
+                      : isYetToPay
+                      ? "Yet to Pay (Credited to Balance)"
+                      : isEscrow
+                      ? "Held in Escrow"
+                      : isCodSeller
+                      ? "Collected in Cash (COD)"
+                      : "Pending Fulfillment"}
+                  </Badge>
+                </div>
+                {isPaidOut && firstItem?.payoutReference && (
+                  <div className="text-[11px] text-emerald-300/90 font-mono flex justify-between pt-0.5">
+                    <span>Ref: {firstItem.payoutReference}</span>
+                    {firstItem.payoutDisbursedAt && <span>{new Date(firstItem.payoutDisbursedAt).toLocaleDateString()}</span>}
+                  </div>
+                )}
+                {isEscrow && (
+                  <p className="text-[11px] text-sky-300/80 leading-relaxed">
+                    Customer payment is held securely in escrow. It will move to your "Yet to Pay" balance once service is fulfilled.
+                  </p>
+                )}
+                {isYetToPay && (
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                    Fulfilled and credited to your available balance. Request a payout from your Revenue / Balance dashboard to receive funds.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
     </div>

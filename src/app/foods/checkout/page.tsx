@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil } from "lucide-react"
+import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil, Banknote, Loader2 } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -112,6 +112,57 @@ function CheckoutContent() {
 
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY">("COD")
+  const [afriPhone, setAfriPhone] = useState("")
+  const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
+  const [afriPromptInfo, setAfriPromptInfo] = useState<{
+    orderId: string
+    orderNumber: string
+    message: string
+  } | null>(null)
+  const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+    }
+  }, [])
+
+  const handleCancelAfriMoney = async (orderIdToCancel?: string) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    setWaitingForAfriMoney(false)
+    setSubmittingOrder(false)
+    const targetId = orderIdToCancel || afriPromptInfo?.orderId
+    if (targetId) {
+      try {
+        await fetch(`/api/customer/foods/orders/${encodeURIComponent(targetId)}/cancel-pending`, {
+          method: "POST",
+        })
+      } catch (err) {
+        console.warn("Error cancelling pending food order:", err)
+      }
+    }
+  }
+
+  // Auto-fill afriPhone if empty from selected address
+  useEffect(() => {
+    if (!afriPhone) {
+      const selectedAddr = addresses.find(a => a.id === selectedAddressId)
+      if (selectedAddr?.phone) {
+        setAfriPhone(selectedAddr.phone)
+      } else if (phone) {
+        setAfriPhone(phone)
+      }
+    }
+  }, [addresses, selectedAddressId, phone, afriPhone])
 
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
@@ -300,6 +351,12 @@ function CheckoutContent() {
         }))
       }
 
+      if (paymentMethod === "AFRIMONEY" && !afriPhone.trim()) {
+        setErrorMessage("Please enter your AfriMoney phone number to receive the payment prompt.")
+        setSubmittingOrder(false)
+        return
+      }
+
       // Submit checkout
       const orderRes = await fetch("/api/customer/foods/orders", {
         method: "POST",
@@ -315,17 +372,82 @@ function CheckoutContent() {
           deliveryState: deliveryDetails.state,
           deliveryPostalCode: deliveryDetails.postalCode,
           deliveryCountry: deliveryDetails.country,
-          couponCode: appliedCoupon ? appliedCoupon.code : undefined
+          couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+          paymentMethod,
+          payerMsisdn: paymentMethod === "AFRIMONEY" ? afriPhone.trim() : undefined,
         })
       })
 
       const orderData = await orderRes.json()
       if (orderData.success) {
-        // Clear local food cart if checking out from cart
+        if (paymentMethod === "COD") {
+          if (!isSingleItem) {
+            localStorage.removeItem("meeem-food-cart")
+          }
+          router.push("/customer/food-orders")
+          return
+        }
+
+        if (paymentMethod === "AFRIMONEY" && orderData.ussdPromptSent) {
+          setWaitingForAfriMoney(true)
+          setAfriPromptInfo({
+            orderId: orderData.data.id,
+            orderNumber: orderData.data.orderNumber,
+            message: orderData.message || "A USSD payment prompt has been sent to your phone. Please check your screen and enter your PIN.",
+          })
+          setAfriPollingCountdown(60)
+
+          const orderId = orderData.data.id
+          let attempts = 0
+          const maxAttempts = 24 // 24 * 2.5s = 60s
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+          pollIntervalRef.current = setInterval(async () => {
+            attempts++
+            setAfriPollingCountdown((prev) => Math.max(0, prev - 2.5))
+            try {
+              const verifyRes = await fetch(`/api/customer/foods/orders/${encodeURIComponent(orderId)}/verify-payment`)
+              const verifyData = await verifyRes.json()
+              if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+                if (pollIntervalRef.current) {
+                  clearInterval(pollIntervalRef.current)
+                  pollIntervalRef.current = null
+                }
+                if (!isSingleItem) {
+                  localStorage.removeItem("meeem-food-cart")
+                }
+                router.push("/customer/food-orders")
+                return
+              } else if (verifyData.paymentStatus === "FAILED") {
+                if (pollIntervalRef.current) {
+                  clearInterval(pollIntervalRef.current)
+                  pollIntervalRef.current = null
+                }
+                setWaitingForAfriMoney(false)
+                setSubmittingOrder(false)
+                setErrorMessage("AfriMoney payment was declined or failed. Please check your balance or try Cash on Delivery.")
+                return
+              }
+            } catch (err) {
+              console.warn("Food order payment verification error:", err)
+            }
+
+            if (attempts >= maxAttempts) {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current)
+                pollIntervalRef.current = null
+              }
+              handleCancelAfriMoney(orderId)
+              setErrorMessage("AfriMoney payment prompt timed out. Please try again or choose Cash on Delivery.")
+            }
+          }, 2500)
+          return
+        }
+
         if (!isSingleItem) {
           localStorage.removeItem("meeem-food-cart")
         }
         router.push("/customer/food-orders")
+        return
       } else {
         setErrorMessage(orderData.error || "Failed to place order. Please try again.")
       }
@@ -333,7 +455,9 @@ function CheckoutContent() {
       setErrorMessage("An unexpected error occurred.")
       console.error(error)
     } finally {
-      setSubmittingOrder(false)
+      if (paymentMethod !== "AFRIMONEY") {
+        setSubmittingOrder(false)
+      }
     }
   }
 
@@ -836,6 +960,70 @@ function CheckoutContent() {
                 )}
               </div>
 
+              {/* Payment Method Selector */}
+              <div className="border-t border-slate-100 pt-3 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Method</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("COD")}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                      paymentMethod === "COD"
+                        ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "COD" ? "border-amber-600 bg-amber-600" : "border-slate-300"}`}>
+                      {paymentMethod === "COD" && <div className="w-1 h-1 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        <Banknote className="h-3 w-3 text-slate-500" /> Cash on Delivery
+                      </p>
+                      <p className="text-[9px] text-slate-500">Pay on Delivery</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("AFRIMONEY")}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                      paymentMethod === "AFRIMONEY"
+                        ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-amber-600 bg-amber-600" : "border-slate-300"}`}>
+                      {paymentMethod === "AFRIMONEY" && <div className="w-1 h-1 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        <span>📱</span> AfriMoney
+                      </p>
+                      <p className="text-[9px] text-slate-500">Instant Push USSD</p>
+                    </div>
+                  </button>
+                </div>
+
+                {paymentMethod === "AFRIMONEY" && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 space-y-1 mt-2">
+                    <label className="text-[10px] font-bold text-amber-900 block">
+                      AfriMoney Phone Number (Africell) *
+                    </label>
+                    <Input
+                      type="tel"
+                      placeholder="e.g. 077123456"
+                      value={afriPhone}
+                      onChange={(e) => setAfriPhone(e.target.value)}
+                      className="h-8 text-xs bg-white rounded-lg border-amber-200"
+                    />
+                    <p className="text-[9px] text-amber-800">
+                      You will receive an instant prompt on your phone to enter your PIN and approve payment.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <hr className="border-slate-100" />
 
               <div className="flex justify-between items-end">
@@ -856,12 +1044,63 @@ function CheckoutContent() {
               disabled={submittingOrder}
               className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-2xl font-black text-xs uppercase tracking-widest w-full h-12 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 border border-amber-600/10"
             >
-              <ShieldCheck className="h-4.5 w-4.5" />
-              {submittingOrder ? "Placing Order..." : "Confirm &amp; Place Order"}
+              {submittingOrder ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {paymentMethod === "AFRIMONEY" ? "Sending Prompt..." : "Placing Order..."}
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4.5 w-4.5" />
+                  {paymentMethod === "AFRIMONEY" ? "Pay with AfriMoney" : "Confirm & Place Order (COD)"}
+                </>
+              )}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* AfriMoney Push USSD Waiting Modal */}
+      {waitingForAfriMoney && afriPromptInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto ring-8 ring-amber-50">
+              <Loader2 className="h-7 w-7 animate-spin" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Approve on Your Phone</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Order <span className="font-bold text-slate-800">#{afriPromptInfo.orderNumber}</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-950 space-y-2">
+              <p className="font-semibold">{afriPromptInfo.message}</p>
+              <div className="text-[11px] text-amber-800/90 space-y-0.5 text-left border-t border-amber-200/60 pt-2">
+                <p>1. Check your phone screen for the prompt</p>
+                <p>2. Enter your AfriMoney secret PIN</p>
+                <p>3. Do not close this browser window</p>
+              </div>
+            </div>
+
+            <div className="text-xs font-bold text-slate-400 flex items-center justify-center gap-1.5">
+              <span>Time remaining:</span>
+              <span className="font-mono text-amber-600 text-sm font-black">{Math.ceil(afriPollingCountdown)}s</span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleCancelAfriMoney()}
+              className="w-full rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel / Choose Another Method
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -234,6 +234,13 @@ export async function GET(
       netPayout: itemSellerNet,
       deliveryFeeDeducted: 0,
       deliveryFeeEarned: isSelf ? shippingFee : 0,
+      settlementStatus: row.settlementStatus || "PENDING",
+      payoutReference: row.payoutReference ?? null,
+      payoutMethod: row.payoutMethod ?? null,
+      payoutAccountSnapshot: row.payoutAccountSnapshot ?? null,
+      payoutNote: row.payoutNote ?? null,
+      payoutRequestedAt: row.payoutRequestedAt?.toISOString() ?? null,
+      payoutDisbursedAt: row.payoutDisbursedAt?.toISOString() ?? null,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -275,11 +282,10 @@ export async function GET(
   const isPackageSelfDelivery = order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)
   const sellerShippingTotal = order.items.reduce((sum, item) => sum + item.shippingAmount, 0)
   const sellerCommissionTotal = order.items.reduce((sum, item) => sum + item.commissionAmount, 0)
-  const sellerGrossTotal =
-    order.items.reduce(
-      (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount),
-      0
-    ) - sellerCouponDiscount
+  const sellerGrossTotal = order.items.reduce(
+    (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount),
+    0
+  )
 
   // When self-delivery is enabled, customer-paid delivery fee is earned by seller.
   // For platform delivery, delivery fee is paid by customer to the platform for the rider (not deducted from seller product revenue).
@@ -405,6 +411,9 @@ export async function GET(
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId,
+    afriFtxnId: order.afriFtxnId,
+    paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,

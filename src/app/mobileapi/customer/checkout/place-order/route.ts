@@ -8,6 +8,7 @@ import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
 import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
+import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 
 export const dynamic = "force-dynamic"
 
@@ -65,9 +66,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 })
   }
 
-  const payload = body as { addressId?: string; couponCode?: string }
+  const payload = body as {
+    addressId?: string
+    couponCode?: string
+    paymentMethod?: string
+    payerMsisdn?: string
+  }
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
   const couponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
+  const requestedPaymentMethod = payload.paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+  const payerMsisdn = typeof payload.payerMsisdn === "string" ? payload.payerMsisdn.trim() : ""
+
+  if (requestedPaymentMethod === "AFRIMONEY" && !payerMsisdn) {
+    return NextResponse.json({ success: false, error: "AfriMoney phone number (payerMsisdn) is required for AfriMoney payment" }, { status: 400 })
+  }
   if (!addressId) {
     return NextResponse.json({ success: false, error: "addressId required" }, { status: 400 })
   }
@@ -315,7 +327,7 @@ export async function POST(request: NextRequest) {
         commission: totalOrderCommission,
         commissionRate: itemCommissionData.length > 0 ? itemCommissionData[0].effectiveRate : defaultProductRate,
         paymentStatus: "PENDING",
-        paymentMethod: "COD",
+        paymentMethod: requestedPaymentMethod,
         shippingFullName: address.fullName,
         shippingPhone: address.phone,
         shippingAddressLine1: address.addressLine1,
@@ -347,7 +359,7 @@ export async function POST(request: NextRequest) {
     const lineTotalInclGst = row.item.totalPriceInclGst ?? row.item.totalPrice + row.item.totalGst
     const itemData = itemCommissionData[idx]
 
-    await prisma.orderItem.create({
+    const createdOrderItem = await prisma.orderItem.create({
       data: {
         orderId: order.id,
         sellerId: row.sellerId,
@@ -364,12 +376,22 @@ export async function POST(request: NextRequest) {
         hasGst: row.item.hasGst,
         gstAmount: row.item.totalGst,
         subtotalInclGst: lineTotalInclGst,
-        itemStatus: "PENDING",
+        itemStatus: requestedPaymentMethod === "AFRIMONEY" ? "PENDING" : "CONFIRMED",
+        settlementStatus: requestedPaymentMethod === "AFRIMONEY" ? "ESCROW_HELD" : "PENDING",
         shippingAmount: itemData.itemShippingAmount,
         commissionAmount: itemData.itemCommissionAmount,
         commissionRateSnapshot: itemData.effectiveRate,
       },
     })
+
+    await prisma.orderItemStatusHistory.create({
+      data: {
+        orderItemId: createdOrderItem.id,
+        status: requestedPaymentMethod === "AFRIMONEY" ? "PENDING" : "CONFIRMED",
+        note: requestedPaymentMethod === "AFRIMONEY" ? "Order placed, awaiting AfriMoney payment" : "Order placed with Cash on Delivery",
+        location: "Mobile Checkout",
+      },
+    }).catch(() => null)
 
     if (row.item.productVariantId) {
       await prisma.productVariant.update({
@@ -379,15 +401,103 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  let afriTxnId: string | undefined = undefined
+  let ussdPromptSent = false
+  let pushMessage = ""
+
+  if (requestedPaymentMethod === "AFRIMONEY") {
+    const externalRef = `ORD_${order.id}`
+    try {
+      const pushResult = await initiateAfriMoneyPushUssd({
+        amount: totalAmount,
+        payerMsisdn,
+        externalReferenceId: externalRef,
+        remarks: `Order ${order.orderNumber}`,
+      })
+
+      if (pushResult.success) {
+        ussdPromptSent = true
+        afriTxnId = pushResult.txnId
+        pushMessage = pushResult.message || "USSD push prompt sent to your phone. Please enter your AfriMoney PIN."
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            afriFtxnId: externalRef,
+            afriTxnId: pushResult.txnId || null,
+            afriMsisdn: payerMsisdn,
+          },
+        })
+      } else {
+        for (const row of normalizedItems) {
+          if (row.item.productVariantId) {
+            await prisma.productVariant.update({
+              where: { id: row.item.productVariantId },
+              data: { stock: { increment: row.item.quantity } },
+            }).catch(() => null)
+          }
+          if (row.item.serviceSlotId) {
+            await prisma.serviceSlot.update({
+              where: { id: row.item.serviceSlotId },
+              data: { isBooked: false },
+            }).catch(() => null)
+          }
+        }
+        await prisma.couponUsage.deleteMany({
+          where: { orderId: order.id },
+        }).catch(() => null)
+        await prisma.order.delete({ where: { id: order.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: pushResult.message || "Failed to initiate AfriMoney USSD payment. Please check your phone number and try again." },
+          { status: 400 }
+        )
+      }
+    } catch (pushErr: any) {
+      for (const row of normalizedItems) {
+        if (row.item.productVariantId) {
+          await prisma.productVariant.update({
+            where: { id: row.item.productVariantId },
+            data: { stock: { increment: row.item.quantity } },
+          }).catch(() => null)
+        }
+        if (row.item.serviceSlotId) {
+          await prisma.serviceSlot.update({
+            where: { id: row.item.serviceSlotId },
+            data: { isBooked: false },
+          }).catch(() => null)
+        }
+      }
+      await prisma.couponUsage.deleteMany({
+        where: { orderId: order.id },
+      }).catch(() => null)
+      await prisma.order.delete({ where: { id: order.id } }).catch(() => null)
+      return NextResponse.json(
+        { success: false, error: `AfriMoney connection error: ${pushErr?.message || "Payment service unavailable"}` },
+        { status: 502 }
+      )
+    }
+  }
+
   await prisma.payment.create({
-    data: { orderId: order.id, amount: totalAmount, status: "PENDING", method: "COD" },
+    data: {
+      orderId: order.id,
+      amount: totalAmount,
+      status: "PENDING",
+      method: requestedPaymentMethod,
+      gatewayReferenceId: afriTxnId || null,
+    },
   })
 
-  await prisma.cartItem.deleteMany({ where: { userId: auth.userId } })
+  // For COD, order is immediately confirmed so we clear the cart items.
+  // For AFRIMONEY, we keep cart items until payment verification succeeds
+  // so that if the user cancels or payment fails, their cart is preserved.
+  if (requestedPaymentMethod === "COD") {
+    await prisma.cartItem.deleteMany({ where: { userId: auth.userId } })
+  }
 
-  // ── Send Email Notifications ───────────────────────────────────────────────
-  try {
-    const customerUser = await prisma.user.findUnique({
+  // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
+  if (requestedPaymentMethod !== "AFRIMONEY") {
+    try {
+      const customerUser = await prisma.user.findUnique({
       where: { id: auth.userId },
       select: { email: true, name: true, phone: true, phoneCountryCode: true },
     })
@@ -489,6 +599,7 @@ export async function POST(request: NextRequest) {
   } catch (emailErr) {
     console.error("Failed to send order placement emails:", emailErr)
   }
+  }
 
   const response: PlaceOrderResponse = {
     success: true,
@@ -505,6 +616,13 @@ export async function POST(request: NextRequest) {
       },
     ],
   }
-  return NextResponse.json({ ...response, shippingBreakup })
+  return NextResponse.json({
+    ...response,
+    paymentMethod: requestedPaymentMethod,
+    ussdPromptSent,
+    afriTxnId,
+    message: pushMessage,
+    shippingBreakup,
+  })
 }
 

@@ -47,6 +47,8 @@ type FoodOrder = {
   customerEmail: string
   restaurantName: string
   itemsCount: number
+  settlementStatus?: string
+  paymentMethod?: string
   items: FoodOrderItem[]
 }
 
@@ -406,7 +408,7 @@ export function AdminRestaurantOrdersClient() {
                       <TableCell className="text-right font-black text-slate-900 text-base tabular-nums">
                         {formatCurrency(order.totalAmount)}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center space-y-1">
                         <Badge 
                           className={`capitalize font-bold text-[10px] tracking-widest px-3 py-1 rounded-full border-none shadow-sm ${
                             order.status === "DELIVERED" ? "bg-emerald-500 text-white" :
@@ -417,6 +419,23 @@ export function AdminRestaurantOrdersClient() {
                         >
                           {order.status.toLowerCase().replace(/_/g, " ")}
                         </Badge>
+                        {order.settlementStatus && (
+                          <div>
+                            {order.settlementStatus === "PAID_OUT" ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                PAID OUT
+                              </span>
+                            ) : order.settlementStatus === "YET_TO_PAY" ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+                                YET TO PAY
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-600">
+                                ESCROW HELD
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right pr-4">
                         <div className="flex items-center justify-end gap-2">

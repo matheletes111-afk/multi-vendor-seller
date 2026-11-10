@@ -18,8 +18,15 @@ type Booking = {
   numberOfRooms: number
   adults: number
   children: number
+  subtotal?: number
+  couponCode?: string | null
+  couponDiscount?: number
   totalPrice: number
   status: string
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  paidAt?: string | null
   createdAt: string
   room: {
     id: string
@@ -404,10 +411,34 @@ function CustomerHotelBookingsClient() {
                 <span>Booking Date:</span>
                 <span className="font-bold text-slate-900">{new Date(selectedBooking.createdAt).toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Total Cost Paid:</span>
+              {Boolean(selectedBooking.couponDiscount && selectedBooking.couponDiscount > 0) && (
+                <div className="flex justify-between border-b border-slate-100 pb-2.5 text-emerald-700 font-bold">
+                  <span>Coupon ({selectedBooking.couponCode || "Discount"}):</span>
+                  <span className="font-mono">-{formatCurrency(selectedBooking.couponDiscount || 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-b border-slate-100 pb-2.5">
+                <span>Total Amount:</span>
                 <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.totalPrice)}</span>
               </div>
+              <div className="flex justify-between border-b border-slate-100 pb-2.5">
+                <span>Payment Method:</span>
+                <span className="font-bold text-slate-900">
+                  {selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Pay on Arrival / Cash")}
+                </span>
+              </div>
+              {selectedBooking.afriTxnId && (
+                <div className="flex justify-between border-b border-slate-100 pb-2.5 text-xs text-slate-500">
+                  <span>AfriMoney Txn ID:</span>
+                  <span className="font-mono font-bold text-slate-700">{selectedBooking.afriTxnId}</span>
+                </div>
+              )}
+              {selectedBooking.paidAt && (
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Paid At:</span>
+                  <span>{new Date(selectedBooking.paidAt).toLocaleString()}</span>
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex justify-between items-center">

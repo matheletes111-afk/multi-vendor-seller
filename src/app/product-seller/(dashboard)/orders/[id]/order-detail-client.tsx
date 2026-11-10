@@ -1780,6 +1780,25 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : order.totalAmount)}
                         </span>
                       </div>
+
+                      <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
+                        <span className="text-muted-foreground font-medium min-w-0 truncate">Payment Method</span>
+                        <span className="font-bold text-foreground shrink-0">
+                          {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                        </span>
+                      </div>
+                      {order.afriTxnId && (
+                        <div className="flex justify-between items-center px-1 text-[11px] text-muted-foreground gap-2 min-w-0">
+                          <span className="truncate">AfriMoney Txn ID</span>
+                          <span className="font-mono font-bold shrink-0">{order.afriTxnId}</span>
+                        </div>
+                      )}
+                      {order.paidAt && (
+                        <div className="flex justify-between items-center px-1 text-[11px] text-muted-foreground gap-2 min-w-0">
+                          <span className="truncate">Paid At</span>
+                          <span className="shrink-0">{new Date(order.paidAt).toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* B. Seller Payout Math Strip */}
@@ -1816,7 +1835,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       )}
                     </div>
 
-                    {/* C. Net Seller Payout Banner (Replacing ambiguous Settlement Total) */}
+                    {/* C. Net Seller Payout Banner */}
                     {(() => {
                       const netSellerAmount = order.sellerNet ?? (
                         isSelfDelivery
@@ -1824,6 +1843,12 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                           : Math.max(0, (order.subtotal + order.tax) - order.commission)
                       )
                       const itemGross = order.subtotal + order.tax
+                      const firstItem = order.items[0] as any
+                      const settlementStatus = firstItem?.settlementStatus || "PENDING"
+                      const isPaidOut = settlementStatus === "PAID_OUT"
+                      const isYetToPay = settlementStatus === "YET_TO_PAY"
+                      const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && order.paymentMethod === "AFRIMONEY")
+                      const isCodSeller = settlementStatus === "COD_COLLECTED_BY_SELLER"
 
                       return (
                         <div className="relative p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-2xl overflow-hidden border border-slate-800 min-w-0">
@@ -1845,14 +1870,52 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                             </div>
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5 text-[11px] text-slate-400 min-w-0">
+                          <div className="mt-4 pt-3 border-t border-slate-800 space-y-2 text-[11px] text-slate-400 min-w-0">
                             <div className="flex flex-wrap items-center justify-between gap-1 font-mono text-[10px] text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded-lg border border-slate-800 min-w-0">
                               <span className="text-slate-400 font-sans shrink-0">Formula:</span>
-                              <span className="truncate max-w-full">{formatCurrency(itemGross)} − {formatCurrency(order.commission)} = {formatCurrency(netSellerAmount)}</span>
+                              <span className="truncate max-w-full">
+                                {isSelfDelivery
+                                  ? `${formatCurrency(itemGross)} + ${formatCurrency(order.shipping)} (Delivery) − ${formatCurrency(order.commission)} = ${formatCurrency(netSellerAmount)}`
+                                  : `${formatCurrency(itemGross)} − ${formatCurrency(order.commission)} = ${formatCurrency(netSellerAmount)}`}
+                              </span>
                             </div>
-                            <p className="text-[10px] text-slate-400/80 pt-0.5 leading-tight">
-                              Customer paid {formatCurrency(order.totalAmount)} total (Includes {formatCurrency(order.shipping)} platform rider delivery fee).
-                            </p>
+
+                            {/* Settlement Status Indicator */}
+                            <div className="rounded-xl bg-slate-950/40 p-2.5 border border-slate-800/80 space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400 font-medium">Settlement:</span>
+                                <span className={cn(
+                                  "px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase",
+                                  isPaidOut ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
+                                  isYetToPay ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" :
+                                  isEscrow ? "bg-sky-500/20 text-sky-300 border border-sky-500/30" :
+                                  isCodSeller ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" :
+                                  "bg-slate-800 text-slate-300 border border-slate-700"
+                                )}>
+                                  {isPaidOut ? "Paid Out / Disbursed" :
+                                   isYetToPay ? "Yet to Pay (Credited)" :
+                                   isEscrow ? "Held in Escrow" :
+                                   isCodSeller ? "Collected by Seller (COD)" :
+                                   "Pending Delivery"}
+                                </span>
+                              </div>
+                              {isPaidOut && firstItem?.payoutReference && (
+                                <div className="text-[10px] text-emerald-400/90 font-mono flex justify-between pt-0.5">
+                                  <span>Ref: {firstItem.payoutReference}</span>
+                                  {firstItem.payoutDisbursedAt && <span>{new Date(firstItem.payoutDisbursedAt).toLocaleDateString()}</span>}
+                                </div>
+                              )}
+                              {isEscrow && (
+                                <p className="text-[10px] text-sky-300/80 leading-tight pt-0.5">
+                                  Payment held in platform escrow. Releases to your balance upon delivery.
+                                </p>
+                              )}
+                              {isYetToPay && (
+                                <p className="text-[10px] text-amber-300/80 leading-tight pt-0.5">
+                                  Delivered & credited to balance. Awaiting platform payout disbursement.
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )

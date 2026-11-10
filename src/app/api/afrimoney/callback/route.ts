@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activateOrQueuePurchase } from "@/lib/subscriptions"
+import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
 
 export const dynamic = "force-dynamic"
 
@@ -123,13 +124,15 @@ export async function POST(request: NextRequest) {
       if (targetCategory === "FOOD" || targetCategory === "AUTO") {
         const foodOrder = await prisma.foodOrder.findFirst({
           where: {
-            OR: [{ id: cleanId }, { orderNumber: cleanId }, { orderNumber: ftxnId }],
+            OR: [{ id: cleanId }, { orderNumber: cleanId }, { orderNumber: ftxnId }, { afriFtxnId: ftxnId }],
           },
+          include: { items: true },
         })
 
         if (foodOrder) {
           matchedCategory = "FOOD_ORDER"
           console.log(`[AfriMoney Callback] Matched Food Order ${foodOrder.orderNumber} (id: ${foodOrder.id})`)
+          const wasPending = foodOrder.paymentStatus === "PENDING"
 
           await prisma.foodOrder.update({
             where: { id: foodOrder.id },
@@ -139,8 +142,21 @@ export async function POST(request: NextRequest) {
                 : isFailed
                 ? "CANCELLED"
                 : foodOrder.status,
+              paymentStatus: isSuccess ? "COMPLETED" : isFailed ? "FAILED" : foodOrder.paymentStatus,
+              paymentMethod: "AFRIMONEY",
+              afriTxnId: transactionId || foodOrder.afriTxnId,
+              afriFtxnId: ftxnId || foodOrder.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || foodOrder.afriMsisdn,
+              paidAt: isSuccess ? (foodOrder.paidAt || new Date()) : foodOrder.paidAt,
+              settlementStatus: isSuccess ? "ESCROW_HELD" : (isFailed ? "CANCELLED" : foodOrder.settlementStatus),
             },
           })
+
+          if (isFailed && wasPending) {
+            await prisma.couponUsage.deleteMany({
+              where: { foodOrderId: foodOrder.id },
+            }).catch(() => null)
+          }
         }
       }
 
@@ -190,12 +206,17 @@ export async function POST(request: NextRequest) {
       // ──────────────────────────────────────────────────────────────────────────
       if (!matchedCategory && (targetCategory === "HOTEL" || targetCategory === "AUTO")) {
         const booking = await prisma.hotelBooking
-          .findUnique({ where: { id: cleanId } })
+          .findFirst({
+            where: {
+              OR: [{ id: cleanId }, { id: ftxnId }, { afriFtxnId: ftxnId }],
+            },
+          })
           .catch(() => null)
 
         if (booking) {
           matchedCategory = "HOTEL_BOOKING"
           console.log(`[AfriMoney Callback] Matched Hotel Booking (id: ${booking.id})`)
+          const wasPending = booking.paymentStatus === "PENDING"
 
           await prisma.hotelBooking.update({
             where: { id: booking.id },
@@ -205,8 +226,46 @@ export async function POST(request: NextRequest) {
                 : isFailed
                 ? "CANCELLED"
                 : booking.status,
+              paymentStatus: isSuccess ? "COMPLETED" : isFailed ? "FAILED" : booking.paymentStatus,
+              paymentMethod: "AFRIMONEY",
+              afriTxnId: transactionId || booking.afriTxnId,
+              afriFtxnId: ftxnId || booking.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || booking.afriMsisdn,
+              paidAt: isSuccess ? (booking.paidAt || new Date()) : booking.paidAt,
+              settlementStatus: isSuccess ? "ESCROW_HELD" : (isFailed ? "CANCELLED" : booking.settlementStatus),
             },
           })
+
+          if (isSuccess) {
+            await creditHotelSellerForBooking(prisma, booking.id).catch((err) =>
+              console.error("[AfriMoney Callback] creditHotelSellerForBooking error:", err)
+            )
+          }
+
+          if (isFailed && wasPending) {
+            // Rollback room availability only if it was pending
+            try {
+              const start = new Date(booking.checkIn)
+              const end = new Date(booking.checkOut)
+              for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+                await prisma.roomAvailability.updateMany({
+                  where: {
+                    roomId: booking.roomId,
+                    date: new Date(d.toISOString().split("T")[0]),
+                  },
+                  data: {
+                    bookedCount: { decrement: booking.numberOfRooms },
+                  },
+                })
+              }
+            } catch (availErr) {
+              console.warn("[AfriMoney Callback] Could not release room availability:", availErr)
+            }
+
+            await prisma.couponUsage.deleteMany({
+              where: { hotelBookingId: booking.id },
+            }).catch(() => null)
+          }
         }
       }
 
@@ -420,22 +479,100 @@ export async function POST(request: NextRequest) {
       if (!matchedCategory && (targetCategory === "PRODUCT_SERVICE" || targetCategory === "AUTO")) {
         const order = await prisma.order.findFirst({
           where: {
-            OR: [{ id: cleanId }, { orderNumber: cleanId }, { orderNumber: ftxnId }],
+            OR: [
+              { id: cleanId },
+              { orderNumber: cleanId },
+              { orderNumber: ftxnId },
+              { afriFtxnId: ftxnId },
+            ],
           },
+          include: { items: true },
         })
 
         if (order) {
           matchedCategory = "PRODUCT_OR_SERVICE_ORDER"
           console.log(`[AfriMoney Callback] Matched Product/Service Order ${order.orderNumber} (id: ${order.id})`)
+          const wasPending = order.paymentStatus === "PENDING"
 
           await prisma.order.update({
             where: { id: order.id },
             data: {
               paymentStatus: isSuccess ? "COMPLETED" : isFailed ? "FAILED" : order.paymentStatus,
-              status: isSuccess && order.status === "PENDING" ? "CONFIRMED" : order.status,
+              status: isSuccess && order.status === "PENDING" ? "CONFIRMED" : (isFailed && order.status === "PENDING" ? "CANCELLED" : order.status),
               paymentMethod: "AFRIMONEY",
+              afriTxnId: transactionId || order.afriTxnId,
+              afriFtxnId: ftxnId || order.afriFtxnId,
+              afriMsisdn: payerMsisdn || body.msisdn || order.afriMsisdn,
+              paidAt: isSuccess ? (order.paidAt || new Date()) : order.paidAt,
             },
           })
+
+          if (isSuccess) {
+            // Clear cart for customer upon verified payment
+            await prisma.cartItem.deleteMany({
+              where: { userId: order.customerId },
+            }).catch(() => null)
+
+            // Update items to CONFIRMED and settlementStatus to ESCROW_HELD
+            await prisma.orderItem.updateMany({
+              where: { orderId: order.id, itemStatus: "PENDING" },
+              data: {
+                itemStatus: "CONFIRMED",
+                settlementStatus: "ESCROW_HELD",
+              },
+            })
+
+            await prisma.orderItem.updateMany({
+              where: { orderId: order.id, settlementStatus: "PENDING" },
+              data: { settlementStatus: "ESCROW_HELD" },
+            })
+
+            // Record CONFIRMED status history for all items
+            const orderLineItems = await prisma.orderItem.findMany({
+              where: { orderId: order.id },
+              select: { id: true },
+            })
+            if (orderLineItems.length > 0) {
+              await prisma.orderItemStatusHistory.createMany({
+                data: orderLineItems.map((item) => ({
+                  orderItemId: item.id,
+                  status: "CONFIRMED",
+                  note: `AfriMoney payment verified: ${transactionId || "SUCCESS"}`,
+                  location: "AfriMoney Webhook",
+                })),
+              }).catch(() => null)
+            }
+          } else if (isFailed && wasPending) {
+            // Update items to CANCELLED
+            await prisma.orderItem.updateMany({
+              where: { orderId: order.id, itemStatus: "PENDING" },
+              data: {
+                itemStatus: "CANCELLED",
+                settlementStatus: "CANCELLED",
+              },
+            })
+
+            // Rollback inventory for variants
+            for (const item of order.items) {
+              if (item.productVariantId) {
+                await prisma.productVariant.update({
+                  where: { id: item.productVariantId },
+                  data: { stock: { increment: item.quantity } },
+                }).catch(() => null)
+              }
+              if (item.serviceSlotId) {
+                await prisma.serviceSlot.update({
+                  where: { id: item.serviceSlotId },
+                  data: { isBooked: false },
+                }).catch(() => null)
+              }
+            }
+
+            // Rollback coupon if any
+            await prisma.couponUsage.deleteMany({
+              where: { orderId: order.id },
+            }).catch(() => null)
+          }
 
           // Upsert Payment table record
           const existingPayment = await prisma.payment.findFirst({

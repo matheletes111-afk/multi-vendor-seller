@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
                 select: {
                   name: true
                 }
-              }
+              },
+              bankDetails: true
             }
           },
           items: {
@@ -116,10 +117,18 @@ export async function GET(request: NextRequest) {
         orderNumber: o.orderNumber,
         status: o.status,
         totalAmount: o.totalAmount,
-        subtotal: (o as any).subtotal ?? 0,
+        subtotal: o.subtotal > 0 ? o.subtotal : o.totalAmount,
         deliveryFee: (o as any).deliveryFee ?? 0,
+        commissionRate: (o as any).commissionRate ?? 10.0,
+        commissionAmount: (o as any).commissionAmount ?? 0,
+        sellerNetPayout: (o as any).sellerNetPayout ?? 0,
+        settlementStatus: (o as any).settlementStatus ?? "PENDING",
+        payoutDisbursedAt: (o as any).payoutDisbursedAt ? (o as any).payoutDisbursedAt.toISOString() : null,
+        payoutReference: (o as any).payoutReference || null,
         paymentMethod: (o as any).paymentMethod ?? "COD",
         paymentStatus: (o as any).paymentStatus ?? "PENDING",
+        afriTxnId: (o as any).afriTxnId || null,
+        paidAt: (o as any).paidAt ? (o as any).paidAt.toISOString() : null,
         specialInstructions: (o as any).specialInstructions ?? null,
         createdAt: o.createdAt.toISOString(),
         customerName: o.customer.name || (o as any).deliveryFullName || "Customer",
@@ -138,7 +147,9 @@ export async function GET(request: NextRequest) {
         couponCode: (o as any).couponCode || null,
         couponDiscount: (o as any).couponDiscount || null,
         restaurantName: o.restaurantSeller.businessInfo?.businessName || o.restaurantSeller.user.name || "Restaurant",
+        restaurantSellerId: o.restaurantSellerId,
         restaurantSeller: o.restaurantSeller,
+        restaurantBankDetails: o.restaurantSeller.bankDetails || null,
         itemsCount: o.items.length,
         items
       }

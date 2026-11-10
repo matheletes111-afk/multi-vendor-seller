@@ -22,6 +22,13 @@ type Booking = {
   commissionRate?: number
   commissionAmount?: number
   sellerNet?: number
+  settlementStatus?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  paidAt?: string | null
+  payoutReference?: string | null
+  payoutDisbursedAt?: string | null
   status: string
   createdAt: string
   room: {
@@ -250,8 +257,31 @@ function HotelSellerBookingsClient() {
                       <p className="text-amber-700 text-xs font-bold">-{formatCurrency(booking.commissionAmount ?? 0)}</p>
                       <p className="text-[10px] text-slate-400 font-semibold">({booking.commissionRate ?? 0}%)</p>
                     </td>
-                    <td className="px-6 py-4 text-emerald-700 font-black">
-                      {formatCurrency(booking.sellerNet ?? booking.totalPrice)}
+                    <td className="px-6 py-4">
+                      <p className="text-emerald-700 font-black">
+                        {formatCurrency(booking.sellerNet ?? booking.totalPrice)}
+                      </p>
+                      <span className={`inline-block mt-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        booking.settlementStatus === "PAID_OUT"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : booking.settlementStatus === "YET_TO_PAY"
+                          ? "bg-amber-100 text-amber-800 border border-amber-300"
+                          : booking.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                          ? "bg-purple-100 text-purple-800 border border-purple-300"
+                          : booking.settlementStatus === "CANCELLED"
+                          ? "bg-rose-100 text-rose-800 border border-rose-300"
+                          : "bg-sky-100 text-sky-800 border border-sky-300"
+                      }`}>
+                        {booking.settlementStatus === "PAID_OUT"
+                          ? "Paid Out"
+                          : booking.settlementStatus === "YET_TO_PAY"
+                          ? "Yet to Pay"
+                          : booking.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                          ? "Cash Collected"
+                          : booking.settlementStatus === "CANCELLED"
+                          ? "Cancelled"
+                          : "Escrow"}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-slate-500 text-xs font-semibold">
                       {new Date(booking.createdAt).toLocaleDateString()}
@@ -352,9 +382,31 @@ function HotelSellerBookingsClient() {
                 <span className="font-bold text-slate-900">{new Date(selectedBooking.createdAt).toLocaleString()}</span>
               </div>
 
-              {/* Settlement & Commission Breakdown */}
+              {/* Payment & Settlement Breakdown */}
               <div className="pt-3 border-t border-slate-200/80 space-y-2">
                 <div className="flex justify-between text-xs">
+                  <span>Payment Method:</span>
+                  <span className="font-bold text-slate-900">
+                    {selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Cash on Arrival")}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Payment Status:</span>
+                  <span className="font-bold text-slate-900 uppercase">{selectedBooking.paymentStatus || "PENDING"}</span>
+                </div>
+                {selectedBooking.afriTxnId && (
+                  <div className="flex justify-between text-xs text-slate-500 font-mono">
+                    <span>AfriMoney Txn ID:</span>
+                    <span>{selectedBooking.afriTxnId}</span>
+                  </div>
+                )}
+                {selectedBooking.paidAt && (
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>Paid At:</span>
+                    <span>{new Date(selectedBooking.paidAt).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs pt-1 border-t border-slate-100">
                   <span>Gross Booking Value:</span>
                   <span className="font-bold text-slate-900">{formatCurrency(selectedBooking.totalPrice)}</span>
                 </div>
@@ -365,6 +417,29 @@ function HotelSellerBookingsClient() {
                 <div className="flex justify-between pt-1.5 border-t border-slate-200/60">
                   <span className="font-bold text-slate-900">Seller Net Payout:</span>
                   <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.sellerNet ?? selectedBooking.totalPrice)}</span>
+                </div>
+
+                <div className="mt-3 rounded-xl bg-slate-900 text-white p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium">Settlement Status:</span>
+                    <span className="font-bold text-emerald-400 uppercase text-[10px]">
+                      {selectedBooking.settlementStatus === "PAID_OUT"
+                        ? "Paid Out / Disbursed"
+                        : selectedBooking.settlementStatus === "YET_TO_PAY"
+                        ? "Yet to Pay (Credited to Balance)"
+                        : selectedBooking.settlementStatus === "COD_COLLECTED_BY_SELLER"
+                        ? "Collected in Cash"
+                        : selectedBooking.settlementStatus === "CANCELLED"
+                        ? "Cancelled"
+                        : "Held in Escrow"}
+                    </span>
+                  </div>
+                  {selectedBooking.payoutReference && (
+                    <div className="text-[10px] text-emerald-300 font-mono flex justify-between pt-1 border-t border-slate-800">
+                      <span>Payout Ref: {selectedBooking.payoutReference}</span>
+                      {selectedBooking.payoutDisbursedAt && <span>{new Date(selectedBooking.payoutDisbursedAt).toLocaleDateString()}</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

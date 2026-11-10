@@ -24,6 +24,7 @@ import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
+import { sendOrderItemStatusUpdateEmail } from "@/lib/email"
 
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
@@ -240,6 +241,13 @@ export async function GET(
       deliveryOtp: row.itemStatus === "DELIVERED" ? ((row as any).deliveryOtp ?? null) : null,
       deliveryOtpExpires: row.itemStatus === "DELIVERED" && (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       isSelfDelivery: isSelf,
+      settlementStatus: row.settlementStatus || "PENDING",
+      payoutReference: row.payoutReference ?? null,
+      payoutMethod: row.payoutMethod ?? null,
+      payoutAccountSnapshot: row.payoutAccountSnapshot ?? null,
+      payoutNote: row.payoutNote ?? null,
+      payoutRequestedAt: row.payoutRequestedAt?.toISOString() ?? null,
+      payoutDisbursedAt: row.payoutDisbursedAt?.toISOString() ?? null,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -283,7 +291,7 @@ export async function GET(
   const sellerGrossTotal = order.items.reduce(
     (sum, item) => sum + (item.subtotalInclGst ?? item.subtotal + item.gstAmount),
     0
-  ) - sellerCouponDiscount
+  )
   const isPackageSelfDelivery = order.items.length > 0 && order.items.every((i) => i.isSelfDelivery)
   const deliveryBoyCharges = isPackageSelfDelivery ? 0 : sellerShippingTotal
   const sellerNetPayout = isPackageSelfDelivery
@@ -387,7 +395,7 @@ export async function GET(
     orderNumber: order.orderNumber,
     orderHasDeliveredLine,
     status: deriveOrderStatus(order.items.map((item) => item.itemStatus)),
-    totalAmount: Math.max(0, sellerGrossTotal + sellerShippingTotal),
+    totalAmount: Math.max(0, sellerGrossTotal + sellerShippingTotal - sellerCouponDiscount),
     itemGross: sellerGrossTotal,
     itemTotalWithShipping: Math.max(0, sellerGrossTotal + sellerShippingTotal),
     subtotal: sellerSubtotal,
@@ -413,6 +421,9 @@ export async function GET(
     netEarnings: sellerNetPayout,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId,
+    afriFtxnId: order.afriFtxnId,
+    paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,
@@ -743,6 +754,29 @@ export async function PATCH(
         }
       }
 
+      if (status === "PROCESSING" || status === "SHIPPED") {
+        const allItems = await tx.orderItem.findMany({
+          where: { orderId },
+          select: { itemStatus: true },
+        })
+        const allShippedOrBeyond = allItems.every((i) =>
+          ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REFUNDED"].includes(i.itemStatus)
+        )
+        const anyProcessing = allItems.some((i) =>
+          ["PROCESSING", "READY_FOR_PICKUP", "SHIPPED", "OUT_FOR_DELIVERY"].includes(i.itemStatus)
+        )
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: allShippedOrBeyond
+              ? "SHIPPED"
+              : anyProcessing
+                ? "PROCESSING"
+                : undefined,
+          },
+        })
+      }
+
       if (status === "CANCELLED") {
         // Cancel any pending rider offers or accepted assignments for this seller package
         await tx.riderDeliveryAssignment.updateMany({
@@ -791,6 +825,32 @@ export async function PATCH(
     }).catch((err) =>
       console.error("[AutoDispatch Mobile] Trigger failed:", err?.message || err)
     )
+  }
+
+  // ── Send Email Notifications ───────────────────────────────────────────────
+  try {
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
+        items: { where: { id: { in: targetItemIds } } },
+      },
+    })
+    if (fullOrder && fullOrder.customer) {
+      for (const item of fullOrder.items) {
+        await sendOrderItemStatusUpdateEmail({
+          to: fullOrder.customer.email,
+          toPhone: fullOrder.customer.phone,
+          phoneCountryCode: fullOrder.customer.phoneCountryCode,
+          name: fullOrder.customer.name ?? "Customer",
+          orderNumber: fullOrder.orderNumber,
+          itemName: item.productNameSnapshot ?? item.serviceNameSnapshot ?? "Item",
+          status,
+        })
+      }
+    }
+  } catch (emailErr) {
+    console.error("Failed to send mobile status update email:", emailErr)
   }
 
   return NextResponse.json({ success: true, status, updatedItemIds: targetItemIds })

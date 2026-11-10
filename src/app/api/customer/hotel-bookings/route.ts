@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: NextRequest) {
   try {
+    let userId: string | null = null
     const session = await auth()
-    if (!session?.user?.id) {
+    if (session?.user?.id && session.user.role === "CUSTOMER") {
+      userId = session.user.id
+    } else {
+      const mobileAuth = await getMobileCustomerAuth(request)
+      if (mobileAuth.ok) {
+        userId = mobileAuth.userId
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -23,7 +36,7 @@ export async function GET(request: NextRequest) {
     const checkOut = searchParams.get("checkOut") || undefined
 
     const whereCondition = {
-      userId: session.user.id,
+      userId,
       status: status || undefined,
       hotelId: hotelId || undefined,
       checkIn: checkIn ? { gte: new Date(checkIn) } : undefined,
@@ -50,9 +63,33 @@ export async function GET(request: NextRequest) {
 
     const totalPages = Math.ceil(totalCount / perPage)
 
-    return NextResponse.json({ 
-      success: true, 
-      data: bookings,
+    // Sanitize customer response to ensure commission is 100% private
+    const sanitizedBookings = bookings.map((b) => ({
+      id: b.id,
+      guestName: b.guestName,
+      guestPhone: b.guestPhone,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      numberOfRooms: b.numberOfRooms,
+      adults: b.adults,
+      children: b.children,
+      subtotal: b.subtotal,
+      couponCode: b.couponCode,
+      couponDiscount: b.couponDiscount,
+      totalPrice: b.totalPrice,
+      status: b.status,
+      paymentMethod: b.paymentMethod ?? "COD",
+      paymentStatus: b.paymentStatus,
+      afriTxnId: b.afriTxnId,
+      paidAt: b.paidAt,
+      createdAt: b.createdAt,
+      room: b.room,
+      hotel: b.hotel,
+    }))
+
+    return NextResponse.json({
+      success: true,
+      data: sanitizedBookings,
       totalCount,
       totalPages,
       page,

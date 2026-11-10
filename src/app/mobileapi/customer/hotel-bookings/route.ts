@@ -51,11 +51,38 @@ export async function GET(request: NextRequest) {
       prisma.hotelBooking.count({ where: whereCondition })
     ])
 
+    // Strictly sanitize: never expose platform commission or seller net payout to customer
+    const sanitizedBookings = bookings.map((b) => ({
+      id: b.id,
+      userId: b.userId,
+      roomId: b.roomId,
+      hotelId: b.hotelId,
+      guestName: b.guestName,
+      guestPhone: b.guestPhone,
+      checkIn: b.checkIn,
+      checkOut: b.checkOut,
+      numberOfRooms: b.numberOfRooms,
+      adults: b.adults,
+      children: b.children,
+      subtotal: b.subtotal,
+      couponCode: b.couponCode,
+      couponDiscount: b.couponDiscount,
+      totalPrice: b.totalPrice,
+      status: b.status,
+      paymentMethod: b.paymentMethod ?? "COD",
+      paymentStatus: b.paymentStatus,
+      afriTxnId: b.afriTxnId,
+      paidAt: b.paidAt,
+      createdAt: b.createdAt,
+      room: b.room,
+      hotel: b.hotel,
+    }))
+
     const totalPages = Math.ceil(totalCount / perPage)
 
     return NextResponse.json({ 
       success: true, 
-      data: bookings,
+      data: sanitizedBookings,
       totalCount,
       totalPages,
       page,

@@ -41,8 +41,16 @@ type OrderItem = {
 type FoodOrderDetails = {
   id: string
   orderNumber: string
+  subtotal?: number
+  deliveryFee?: number
+  couponCode?: string | null
+  couponDiscount?: number
   totalAmount: number
   status: string
+  paymentMethod?: string
+  paymentStatus?: string
+  afriTxnId?: string | null
+  paidAt?: string | null
   createdAt: string
   deliveryFullName: string
   deliveryPhone: string
@@ -367,25 +375,78 @@ export default function CustomerFoodOrdersPage() {
                                   </div>
                                 </div>
 
-                                {/* Address delivery info column */}
-                                <div className="space-y-3">
-                                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                    <MapPin className="h-4 w-4" /> Delivery Address
-                                  </h4>
-                                  <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-sm text-xs font-semibold text-slate-600 leading-relaxed">
-                                    <div>
-                                      <p className="font-bold text-slate-800 text-sm leading-none">{details.deliveryFullName}</p>
-                                      <p className="text-[10px] text-slate-400 font-bold mt-1">Phone: {details.deliveryPhone}</p>
+                                {/* Address & Payment summary column */}
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                      <MapPin className="h-4 w-4" /> Delivery Address
+                                    </h4>
+                                    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-2 shadow-sm text-xs font-semibold text-slate-600 leading-relaxed">
+                                      <div>
+                                        <p className="font-bold text-slate-800 text-sm leading-none">{details.deliveryFullName}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold mt-1">Phone: {details.deliveryPhone}</p>
+                                      </div>
+                                      <hr className="border-slate-100" />
+                                      <p>
+                                        {details.deliveryAddressLine1}
+                                        {details.deliveryAddressLine2 && `, ${details.deliveryAddressLine2}`}
+                                        <br />
+                                        {details.deliveryCity}, {details.deliveryState} - {details.deliveryPostalCode}
+                                        <br />
+                                        {details.deliveryCountry}
+                                      </p>
                                     </div>
-                                    <hr className="border-slate-100" />
-                                    <p>
-                                      {details.deliveryAddressLine1}
-                                      {details.deliveryAddressLine2 && `, ${details.deliveryAddressLine2}`}
-                                      <br />
-                                      {details.deliveryCity}, {details.deliveryState} - {details.deliveryPostalCode}
-                                      <br />
-                                      {details.deliveryCountry}
-                                    </p>
+                                  </div>
+
+                                  {/* Price & Payment Breakdown Card */}
+                                  <div className="space-y-2">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                      <Receipt className="h-4 w-4" /> Payment Summary
+                                    </h4>
+                                    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-2.5 shadow-sm text-xs font-semibold text-slate-600">
+                                      <div className="flex justify-between text-slate-500">
+                                        <span>Subtotal:</span>
+                                        <span className="font-mono font-bold text-slate-800">
+                                          {formatCurrency(details.subtotal ?? (details.totalAmount + (details.couponDiscount || 0)))}
+                                        </span>
+                                      </div>
+                                      {Boolean(details.couponDiscount && details.couponDiscount > 0) && (
+                                        <div className="flex justify-between text-emerald-700 font-bold">
+                                          <span>Coupon ({details.couponCode || "Discount"}):</span>
+                                          <span className="font-mono">-{formatCurrency(details.couponDiscount || 0)}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between text-slate-500">
+                                        <span>Delivery Fee:</span>
+                                        <span className="font-mono font-bold text-slate-800">
+                                          {(details.deliveryFee ?? 0) <= 0 ? "FREE" : formatCurrency(details.deliveryFee || 0)}
+                                        </span>
+                                      </div>
+                                      <div className="border-t border-slate-100 pt-2 flex justify-between font-black text-slate-900 text-sm">
+                                        <span>Total:</span>
+                                        <span className="font-mono text-amber-600">{formatCurrency(details.totalAmount)}</span>
+                                      </div>
+                                      <div className="border-t border-slate-100 pt-2 space-y-1">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-slate-500">Method:</span>
+                                          <span className="font-bold text-slate-800">
+                                            {details.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (details.paymentMethod || "Cash on Delivery")}
+                                          </span>
+                                        </div>
+                                        {details.afriTxnId && (
+                                          <div className="flex justify-between items-center text-[11px] text-slate-500">
+                                            <span>Txn ID:</span>
+                                            <span className="font-mono font-bold text-slate-700">{details.afriTxnId}</span>
+                                          </div>
+                                        )}
+                                        {details.paidAt && (
+                                          <div className="flex justify-between items-center text-[11px] text-slate-500">
+                                            <span>Paid At:</span>
+                                            <span>{new Date(details.paidAt).toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
