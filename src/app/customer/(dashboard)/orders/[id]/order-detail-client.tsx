@@ -970,6 +970,35 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   )}
                 </span>
               </div>
+              {Boolean(order.couponDiscount && order.couponDiscount > 0) && (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span>Coupon Discount {order.couponCode ? `(${order.couponCode})` : ""}</span>
+                  <span className="font-mono font-semibold">-{formatCurrency(order.couponDiscount || 0)}</span>
+                </div>
+              )}
+              {order.shippingBreakup && ((order.shippingBreakup.weightShippingFee > 0) || (order.shippingBreakup.dimensionShippingFee > 0) || (order.shippingBreakup.regionShippingFee > 0)) && (
+                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-2.5 space-y-1 text-xs text-slate-600 my-1">
+                  <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider pb-1 border-b border-slate-200/50">Shipping Sub-breakup</div>
+                  {order.shippingBreakup.weightShippingFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>Weight Fee:</span>
+                      <span className="font-mono">{formatCurrency(order.shippingBreakup.weightShippingFee)}</span>
+                    </div>
+                  )}
+                  {order.shippingBreakup.dimensionShippingFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>Dimension Fee:</span>
+                      <span className="font-mono">{formatCurrency(order.shippingBreakup.dimensionShippingFee)}</span>
+                    </div>
+                  )}
+                  {order.shippingBreakup.regionShippingFee > 0 && (
+                    <div className="flex justify-between">
+                      <span>Regional Surcharge:</span>
+                      <span className="font-mono">{formatCurrency(order.shippingBreakup.regionShippingFee)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <Separator className="bg-gray-200" />
               <div className="flex justify-between text-lg font-bold text-gray-900">
                 <span>Total</span>
@@ -979,12 +1008,42 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   )}
                 </span>
               </div>
-              <div className="flex justify-between border-t border-gray-100 pt-3 text-gray-600">
-                <span>Payment</span>
-                <span className="text-right font-medium text-gray-900">
-                  {order.paymentMethod ?? "—"}{" "}
-                  <span className="text-gray-500">({order.paymentStatus.toLowerCase()})</span>
-                </span>
+              <div className="border-t border-gray-100 pt-3 space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600 font-medium">Payment Method</span>
+                  <span className="font-bold text-slate-900 inline-flex items-center gap-1.5">
+                    {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600 font-medium">Payment Status</span>
+                  <span className={cn(
+                    "px-2.5 py-0.5 rounded-full text-xs font-bold",
+                    order.paymentStatus === "COMPLETED" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+                    order.paymentStatus === "FAILED" ? "bg-rose-100 text-rose-800 border border-rose-200" :
+                    "bg-amber-100 text-amber-800 border border-amber-200"
+                  )}>
+                    {order.paymentStatus}
+                  </span>
+                </div>
+                {order.afriTxnId && (
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Transaction ID</span>
+                    <span className="font-mono font-bold text-slate-700">{order.afriTxnId}</span>
+                  </div>
+                )}
+                {order.afriMsisdn && (
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Paid Via</span>
+                    <span className="font-mono font-medium text-slate-700">{order.afriMsisdn}</span>
+                  </div>
+                )}
+                {order.paidAt && (
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Paid At</span>
+                    <span>{new Date(order.paidAt).toLocaleString()}</span>
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3">
                 <span className="text-gray-600">Order ID</span>

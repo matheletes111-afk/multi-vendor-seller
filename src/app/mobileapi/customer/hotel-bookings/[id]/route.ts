@@ -25,7 +25,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: "Booking not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, data: booking })
+    const sanitizedBooking = {
+      id: booking.id,
+      userId: booking.userId,
+      roomId: booking.roomId,
+      hotelId: booking.hotelId,
+      guestName: booking.guestName,
+      guestPhone: booking.guestPhone,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      numberOfRooms: booking.numberOfRooms,
+      adults: booking.adults,
+      children: booking.children,
+      subtotal: booking.subtotal,
+      couponCode: booking.couponCode,
+      couponDiscount: booking.couponDiscount,
+      totalPrice: booking.totalPrice,
+      status: booking.status,
+      paymentMethod: booking.paymentMethod ?? "COD",
+      paymentStatus: booking.paymentStatus,
+      afriTxnId: booking.afriTxnId,
+      paidAt: booking.paidAt,
+      createdAt: booking.createdAt,
+      room: booking.room,
+      hotel: booking.hotel,
+    }
+
+    return NextResponse.json({ success: true, data: sanitizedBooking })
   } catch (error) {
     console.error("Error fetching mobile booking details:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

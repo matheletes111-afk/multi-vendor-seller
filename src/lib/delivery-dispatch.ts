@@ -6,7 +6,7 @@ import { sendNotificationSms } from "./twilio-sms"
 import { sendDeliveryOtp } from "./delivery-otp"
 import { applySellerCreditForOrderLineDelivered } from "./seller-order-line-settlement"
 import { determineRequiredVehicleForItems, isRiderVehicleCompatible } from "./ai-vehicle-matcher"
-import { DeliveryAssignmentStatus, DispatchMode, OrderStatus } from "@prisma/client"
+import { DeliveryAssignmentStatus, DispatchMode, OrderStatus, Prisma } from "@prisma/client"
 
 const OFFER_TIMEOUT_SECONDS = 60
 const NO_SHOW_TIMEOUT_MINUTES = 30
@@ -1067,14 +1067,74 @@ export async function handleRiderStatusUpdate(
             })),
           })
         }
+        // Calculate rider delivery fee and financial settlement
+        const assignedItems = (assignment.order?.items || []).filter(
+          (item) => (assignment.orderItemId ? item.id === assignment.orderItemId : !assignment.sellerId || item.sellerId === assignment.sellerId)
+        )
+        const itemsShippingSum = assignedItems.reduce(
+          (sum, item) => sum + (Number(item.shippingAmount) || 0),
+          0
+        )
+        const deliveryFee = itemsShippingSum > 0 ? itemsShippingSum : Number(assignment.order?.shipping || 0)
+
+        const isPrepaid = assignment.order?.paymentMethod === "AFRIMONEY"
+        const itemsSubtotalSum = assignedItems.reduce(
+          (sum, item) => sum + (Number(item.subtotalInclGst || item.subtotal) || 0),
+          0
+        )
+        const codCollected = itemsSubtotalSum + deliveryFee
+        const riderSettlementStatus = isPrepaid ? "YET_TO_PAY" : "COD_COLLECTED_BY_RIDER"
+
         const updatedAssignment = await tx.riderDeliveryAssignment.update({
           where: { id: assignmentId },
           data: {
             status: newStatus,
             deliveredAt: new Date(),
             deliveryProofImage: options?.proofImage || assignment.deliveryProofImage,
+            deliveryFee,
+            codAmountCollected: isPrepaid ? null : codCollected,
+            settlementStatus: riderSettlementStatus,
           },
         })
+
+        // Rider Balance Ledger Credit (Idempotent check via assignmentId)
+        const existingTxn = await tx.riderBalanceTransaction.findFirst({
+          where: { assignmentId: assignment.id },
+        })
+        if (!existingTxn && deliveryFee > 0) {
+          if (isPrepaid) {
+            // Online AfriMoney payment: Platform collected customer shipping payment and owes rider -> increment rider.netBalance
+            await tx.rider.update({
+              where: { id: riderId },
+              data: { netBalance: { increment: new Prisma.Decimal(deliveryFee) } },
+            })
+            await tx.riderBalanceTransaction.create({
+              data: {
+                riderId: riderId,
+                amount: new Prisma.Decimal(deliveryFee),
+                kind: "CREDIT",
+                reason: "DELIVERY_FULFILLED",
+                assignmentId: assignment.id,
+                orderId: assignment.orderId,
+                note: `Prepaid AfriMoney delivery fee credited for Order #${assignment.order?.orderNumber || assignment.orderId}`,
+              },
+            })
+          } else {
+            // Cash on Delivery: Rider collected cash directly from customer at doorstep (0 platform payout liability)
+            await tx.riderBalanceTransaction.create({
+              data: {
+                riderId: riderId,
+                amount: new Prisma.Decimal(deliveryFee),
+                kind: "CREDIT",
+                reason: "COD_DELIVERY_COLLECTED",
+                assignmentId: assignment.id,
+                orderId: assignment.orderId,
+                note: `COD delivery completed. Delivery fee SLE ${deliveryFee.toFixed(2)} collected in cash from customer for Order #${assignment.order?.orderNumber || assignment.orderId} (Cash in Hand)`,
+              },
+            })
+          }
+        }
+
         // Settle seller net earnings credit for this seller's lines only
         for (const line of deliveredLineItems) {
           await applySellerCreditForOrderLineDelivered(tx, line.id)

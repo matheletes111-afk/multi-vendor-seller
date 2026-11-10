@@ -88,6 +88,13 @@ export async function GET(
       imageUrl,
       commissionRateSnapshot: row.commissionRateSnapshot,
       commissionAmount: row.commissionAmount,
+      settlementStatus: row.settlementStatus || "PENDING",
+      payoutReference: row.payoutReference ?? null,
+      payoutMethod: row.payoutMethod ?? null,
+      payoutAccountSnapshot: row.payoutAccountSnapshot ?? null,
+      payoutNote: row.payoutNote ?? null,
+      payoutRequestedAt: row.payoutRequestedAt?.toISOString() ?? null,
+      payoutDisbursedAt: row.payoutDisbursedAt?.toISOString() ?? null,
       serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
       serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
       deliveryProofImage: row.deliveryProofImage ?? null,
@@ -129,6 +136,9 @@ export async function GET(
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId,
+    afriFtxnId: order.afriFtxnId,
+    paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,
@@ -319,8 +329,27 @@ export async function PATCH(
       for (const id of targetItemIds) {
         await applySellerCreditForOrderLineDelivered(tx, id)
       }
+
+      // Check if all items across order are delivered
+      const allItems = await tx.orderItem.findMany({
+        where: { orderId },
+        select: { itemStatus: true },
+      })
+      const allDelivered = allItems.every((i) =>
+        ["DELIVERED", "CANCELLED", "REFUNDED"].includes(i.itemStatus)
+      )
+      if (allDelivered) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: "DELIVERED", paymentStatus: "COMPLETED" },
+        })
+      }
     }
     if (status === "CANCELLED") {
+      await tx.orderItem.updateMany({
+        where: { id: { in: targetItemIds } },
+        data: { settlementStatus: "CANCELLED" },
+      })
       await releaseServiceSlotsForOrderItems(tx, targetItemIds)
     }
   })

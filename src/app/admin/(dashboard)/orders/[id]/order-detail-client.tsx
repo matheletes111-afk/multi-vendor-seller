@@ -55,6 +55,7 @@ import {
   ORDER_ITEM_LOCKED_AFTER_DELIVERED,
 } from "@/lib/order-cancel-guard"
 import { OrderRiderCard } from "@/components/delivery/order-rider-card"
+import { AdminDisburseModal } from "@/components/admin/admin-disburse-modal"
 
 type ReturnAction = "ACCEPT" | "REJECT" | "PICKUP_COMPLETED" | "REFUND_COMPLETED" | "EXCHANGE_TOP_UP_RECEIVED"
 
@@ -80,6 +81,15 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
     description: string
   } | null>(null)
   const [previewPhotoModal, setPreviewPhotoModal] = useState<{ url: string; title: string } | null>(null)
+  const [disburseModal, setDisburseModal] = useState<{
+    isOpen: boolean
+    sellerSector: "PRODUCT" | "SERVICE"
+    sellerId: string
+    sellerName: string
+    suggestedAmount: number
+    payoutMethod?: string
+    accountSnapshot?: string
+  } | null>(null)
 
   const uploadDeliveryProofOnSave = async (itemId: string): Promise<string> => {
     const file = deliveryProofFiles[itemId]
@@ -745,6 +755,18 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                                {order.paymentStatus}
                             </Badge>
                          </div>
+                         {order.afriTxnId && (
+                            <div className="pt-1.5 space-y-0.5 text-[11px] font-semibold text-muted-foreground">
+                              <p className="text-emerald-600 dark:text-emerald-400 font-mono">
+                                <span className="font-bold">AfriMoney Txn:</span> {order.afriTxnId}
+                              </p>
+                              {order.paidAt && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Paid: {formatDate(order.paidAt)}
+                                </p>
+                              )}
+                            </div>
+                         )}
                       </div>
                       <div className="p-2.5 sm:p-3 bg-primary/5 rounded-2xl shrink-0">
                          <Wallet className="w-5 h-5 text-primary/60" />
@@ -923,11 +945,37 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
 
                   return (
                     <div key={group.sellerId ?? `seller-${group.sellerStoreName ?? "unknown"}`} className="rounded-xl bg-muted/10 border border-muted/20 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-sm text-foreground">{group.sellerStoreName ?? "Store"}</p>
-                        <Badge variant="outline" className="text-[9px] font-medium uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
-                          {group.derivedStatus.replace(/_/g, " ").toLowerCase()}
-                        </Badge>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <p className="font-bold text-sm text-foreground">{group.sellerStoreName ?? "Store"}</p>
+                          {group.payoutAccountSnapshot && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-xs">
+                              {group.payoutAccountSnapshot}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge variant="outline" className="text-[9px] font-medium uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
+                            {group.derivedStatus.replace(/_/g, " ").toLowerCase()}
+                          </Badge>
+                          {group.settlementStatus === "PAID_OUT" ? (
+                            <Badge className="bg-emerald-500 text-white font-bold text-[9px] uppercase tracking-wider">
+                              PAID OUT
+                            </Badge>
+                          ) : group.settlementStatus === "YET_TO_PAY" ? (
+                            <Badge className="bg-amber-500 text-white font-bold text-[9px] uppercase tracking-wider">
+                              YET TO PAY
+                            </Badge>
+                          ) : group.settlementStatus === "COD_COLLECTED_BY_SELLER" ? (
+                            <Badge className="bg-blue-500 text-white font-bold text-[9px] uppercase tracking-wider">
+                              COD COLLECTED
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-500 font-bold text-[9px] uppercase tracking-wider">
+                              ESCROW HELD
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-medium text-muted-foreground">
                         <div className="bg-background/50 p-2 rounded-lg">
@@ -949,6 +997,32 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                           <p className="text-emerald-700 dark:text-emerald-400 text-xs font-black">{formatCurrency(groupSellerNet)}</p>
                         </div>
                       </div>
+
+                      {group.payoutReference && (
+                        <p className="text-[10px] text-emerald-600 font-mono font-bold">
+                          Payout Ref: {group.payoutReference}
+                        </p>
+                      )}
+
+                      {group.settlementStatus === "YET_TO_PAY" && group.sellerId && (
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setDisburseModal({
+                              isOpen: true,
+                              sellerSector: group.sellerSector || "PRODUCT",
+                              sellerId: group.sellerId!,
+                              sellerName: group.sellerStoreName || "Store",
+                              suggestedAmount: groupSellerNet,
+                              payoutMethod: group.payoutMethod || undefined,
+                              accountSnapshot: group.payoutAccountSnapshot || undefined,
+                            })
+                          }
+                          className="w-full text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-1.5 mt-2"
+                        >
+                          <Banknote className="w-3.5 h-3.5" /> Mark Payout Disbursed
+                        </Button>
+                      )}
                     </div>
                   )
                 })}
@@ -1013,6 +1087,22 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Disburse Modal */}
+      {disburseModal && (
+        <AdminDisburseModal
+          isOpen={disburseModal.isOpen}
+          onClose={() => setDisburseModal(null)}
+          onSuccess={fetchOrder}
+          sellerSector={disburseModal.sellerSector}
+          sellerId={disburseModal.sellerId}
+          sellerName={disburseModal.sellerName}
+          suggestedAmount={disburseModal.suggestedAmount}
+          defaultPayoutMethod={disburseModal.payoutMethod}
+          defaultAccountSnapshot={disburseModal.accountSnapshot}
+          orderId={order.id}
+        />
+      )}
     </div>
   )
 }

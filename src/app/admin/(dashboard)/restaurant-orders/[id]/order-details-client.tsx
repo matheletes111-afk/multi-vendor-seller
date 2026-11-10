@@ -10,8 +10,9 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/page-loader"
 import { 
   ShoppingBag, User, Store, ArrowLeft, 
-  MapPin, Phone, Mail, Clock, Calendar, CheckSquare, Utensils
+  MapPin, Phone, Mail, Clock, Calendar, CheckSquare, Utensils, Banknote, Wallet
 } from "lucide-react"
+import { AdminDisburseModal } from "@/components/admin/admin-disburse-modal"
 
 type OrderItem = {
   id: string
@@ -30,6 +31,18 @@ type OrderDetails = {
   orderNumber: string
   status: string
   totalAmount: number
+  subtotal?: number
+  deliveryFee?: number
+  commissionRate?: number
+  commissionAmount?: number
+  sellerNetPayout?: number
+  settlementStatus?: string
+  payoutDisbursedAt?: string | null
+  payoutReference?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string
+  afriTxnId?: string | null
+  paidAt?: string | null
   createdAt: string
   deliveryFullName: string
   deliveryPhone: string
@@ -41,6 +54,7 @@ type OrderDetails = {
   deliveryCountry: string
   couponCode?: string | null
   couponDiscount?: number | null
+  restaurantSellerId?: string
   customer: {
     name: string
     email: string
@@ -52,6 +66,7 @@ type OrderDetails = {
     email: string
     phone: string
     address: string
+    bankDetails?: any
   }
   items: OrderItem[]
 }
@@ -61,8 +76,9 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState("")
+  const [disburseModalOpen, setDisburseModalOpen] = useState(false)
 
-  useEffect(() => {
+  const fetchOrder = () => {
     fetch(`/api/admin/restaurant-orders/${orderId}`)
       .then((r) => r.json())
       .then((json) => {
@@ -74,6 +90,10 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
       })
       .catch(() => setErrorMsg("Failed to connect to server."))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchOrder()
   }, [orderId])
 
   if (loading) return <PageLoader message="Loading order details..." />
@@ -146,19 +166,40 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment Breakdown</p>
                 <div className="text-sm font-semibold space-y-1 text-slate-600 mt-1">
                   <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span className="font-bold text-slate-800">{formatCurrency(order.items.reduce((s, i) => s + i.subtotal, 0))}</span>
+                    <span>Food Subtotal:</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(order.subtotal ?? order.items.reduce((s, i) => s + i.subtotal, 0))}</span>
                   </div>
+                  {order.deliveryFee && order.deliveryFee > 0 ? (
+                    <div className="flex justify-between">
+                      <span>Delivery Fee:</span>
+                      <span className="font-bold text-slate-800">+{formatCurrency(order.deliveryFee)}</span>
+                    </div>
+                  ) : null}
                   {order.couponDiscount && order.couponDiscount > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Discount ({order.couponCode}):</span>
                       <span className="font-bold">-{formatCurrency(order.couponDiscount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-rose-600 pt-1 border-t border-dashed border-slate-200 text-base">
-                    <span>Grand Total:</span>
-                    <span className="font-black">{formatCurrency(order.totalAmount)}</span>
+                  <div className="flex justify-between text-slate-900 pt-1 border-t border-dashed border-slate-200 text-base">
+                    <span>Customer Paid:</span>
+                    <span className="font-black text-rose-600">{formatCurrency(order.totalAmount)}</span>
                   </div>
+                  <div className="flex justify-between items-center pt-2 text-xs">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Payment Method:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold uppercase text-slate-800">{order.paymentMethod ?? "COD"}</span>
+                      <Badge variant="outline" className="text-[10px] font-bold">
+                        {order.paymentStatus ?? "PENDING"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {order.afriTxnId && (
+                    <div className="pt-1 text-[11px] font-semibold text-emerald-600 font-mono flex justify-between">
+                      <span>AfriMoney Txn:</span>
+                      <span>{order.afriTxnId}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -286,11 +327,108 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                     <span className="font-semibold leading-relaxed text-slate-500">{order.seller.address}</span>
                   </div>
                 )}
+                {order.seller.bankDetails && (
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+                    <p className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Registered Payout Account:</p>
+                    <p>Method: {order.seller.bankDetails.paymentOption || "AfriMoney / Bank"}</p>
+                    {order.seller.bankDetails.bankName && <p>Bank: {order.seller.bankDetails.bankName}</p>}
+                    {order.seller.bankDetails.accountHolderName && <p>Holder: {order.seller.bankDetails.accountHolderName}</p>}
+                    {order.seller.bankDetails.accountNumber && <p>Acc: {order.seller.bankDetails.accountNumber}</p>}
+                    {order.seller.bankDetails.mobileNumber && <p>Mobile: {order.seller.bankDetails.mobileNumber}</p>}
+                  </div>
+                )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Settlement & Payout Audit Card */}
+          <Card className="rounded-[2rem] border-none shadow-xl bg-background">
+            <CardHeader className="bg-slate-50/50 border-b border-muted/20 pb-4">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Banknote className="w-5 h-5 text-emerald-600" /> Platform Settlement
+                </CardTitle>
+                {order.settlementStatus === "PAID_OUT" ? (
+                  <Badge className="bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider">
+                    PAID OUT
+                  </Badge>
+                ) : order.settlementStatus === "YET_TO_PAY" ? (
+                  <Badge className="bg-amber-500 text-white font-bold text-[10px] uppercase tracking-wider">
+                    YET TO PAY
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                    ESCROW HELD
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-3 text-xs font-semibold">
+              <div className="flex justify-between text-slate-600">
+                <span>Food Gross Subtotal:</span>
+                <span className="font-bold text-slate-900">{formatCurrency(order.subtotal ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Delivery Charge:</span>
+                <span className="font-bold text-slate-900">{formatCurrency(order.deliveryFee ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-600">
+                <span>Platform Commission ({order.commissionRate ?? 10}%):</span>
+                <span className="font-bold">+{formatCurrency(order.commissionAmount ?? 0)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-sm">
+                <span className="font-black text-slate-900">Net Restaurant Payout:</span>
+                <span className="font-black text-emerald-600 text-base">{formatCurrency(order.sellerNetPayout ?? 0)}</span>
+              </div>
+              {order.payoutReference && (
+                <div className="pt-2 text-[10px] font-mono text-emerald-600 font-bold">
+                  Payout Reference: {order.payoutReference}
+                  {order.payoutDisbursedAt && ` (${formatDate(order.payoutDisbursedAt)})`}
+                </div>
+              )}
+
+              {order.settlementStatus === "YET_TO_PAY" && order.restaurantSellerId && (
+                <div className="pt-2">
+                  <Button
+                    onClick={() => setDisburseModalOpen(true)}
+                    className="w-full text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Banknote className="w-4 h-4" /> Mark Payout Disbursed
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Disburse Modal */}
+      {disburseModalOpen && order.restaurantSellerId && (
+        <AdminDisburseModal
+          isOpen={disburseModalOpen}
+          onClose={() => setDisburseModalOpen(false)}
+          onSuccess={fetchOrder}
+          sellerSector="RESTAURANT"
+          sellerId={order.restaurantSellerId}
+          sellerName={order.seller.restaurantName}
+          suggestedAmount={order.sellerNetPayout ?? 0}
+          defaultPayoutMethod={order.seller.bankDetails?.paymentOption || "AfriMoney"}
+          defaultAccountSnapshot={
+            order.seller.bankDetails
+              ? [
+                  order.seller.bankDetails.paymentOption && `Method: ${order.seller.bankDetails.paymentOption}`,
+                  order.seller.bankDetails.bankName && `Bank: ${order.seller.bankDetails.bankName}`,
+                  order.seller.bankDetails.accountHolderName && `Holder: ${order.seller.bankDetails.accountHolderName}`,
+                  order.seller.bankDetails.accountNumber && `Acc: ${order.seller.bankDetails.accountNumber}`,
+                  order.seller.bankDetails.mobileNumber && `Mobile: ${order.seller.bankDetails.mobileNumber}`,
+                ]
+                  .filter(Boolean)
+                  .join(" • ")
+              : undefined
+          }
+          foodOrderId={order.id}
+        />
+      )}
     </div>
   )
 }

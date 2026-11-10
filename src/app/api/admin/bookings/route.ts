@@ -46,8 +46,18 @@ export async function GET(request: NextRequest) {
         ...(isExport ? {} : { skip, take }),
         include: {
           room: true,
-          hotel: true,
-          user: { select: { name: true, email: true } }
+          hotel: {
+            include: {
+              hotelSeller: {
+                include: {
+                  bankDetails: true,
+                  businessInfo: true,
+                  user: { select: { name: true, email: true, phone: true } },
+                },
+              },
+            },
+          },
+          user: { select: { name: true, email: true, phone: true } }
         },
         orderBy: { createdAt: "desc" }
       }),

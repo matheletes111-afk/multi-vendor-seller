@@ -442,7 +442,9 @@ export async function initiateAfriMoneyPushUssd(
 
   // Format phone number (e.g. 033600171 or 077928995)
   let cleanMsisdn = params.payerMsisdn.replace(/[^0-9]/g, "")
-  if (cleanMsisdn.startsWith("232")) {
+  if (cleanMsisdn.startsWith("2320")) {
+    cleanMsisdn = cleanMsisdn.slice(3)
+  } else if (cleanMsisdn.startsWith("232")) {
     cleanMsisdn = "0" + cleanMsisdn.slice(3)
   } else if (!cleanMsisdn.startsWith("0") && cleanMsisdn.length === 8) {
     cleanMsisdn = "0" + cleanMsisdn
@@ -451,7 +453,7 @@ export async function initiateAfriMoneyPushUssd(
   const targetEndpoint = `${config.bridgeUrl}/push-ussd/merchant-payment/v1.0`
 
   const payload = {
-    request_amount: params.amount,
+    request_amount: Number(Number(params.amount).toFixed(2)),
     remarks: params.remarks || "MEEEM Payment",
     external_reference_id: params.externalReferenceId,
     payer_msisdn: cleanMsisdn,

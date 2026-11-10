@@ -1,0 +1,444 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM - DEVELOPER IMPLEMENTATION GUIDE (WEB & MOBILE API)
+PANEL: CUSTOMER APPLICATION (WEB, iOS & ANDROID)
+SUBJECT: UNIFIED AFRIMONEY (USSD PUSH) & COD CHECKOUT, PAYMENT POLLING,
+         CANCELLATION ROLLBACKS, AND PRICE & PAYMENT BREAKUP ACROSS ALL 4 SECTORS
+DATE: NOVEMBER 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & CORE RULES
+--------------------------------------------------------------------------------
+Customers can now pay using two standardized payment methods across all 4
+platform checkout verticals (Products, Services, Hotels, and Restaurants):
+  1. "AFRIMONEY" — Real-time Africell Mobile Money USSD Push payment.
+  2. "COD"       — Cash on Delivery / Pay on Service / Pay at Hotel.
+
+STRICT PRIVACY & FINANCIAL RULES FOR CUSTOMER PANEL:
+  * Platform Commission is STRICTLY HIDDEN from all Customer APIs and UIs.
+    Customers never see `commissionRate`, `commissionAmount`, or `sellerNetPayout`.
+  * Customers only see their transparent Price & Payment Breakup:
+      - Items / Room / Service Subtotal
+      - GST / Tax (if applicable)
+      - Delivery / Shipping Fee (with per-seller package breakdown)
+      - Coupon Code & Discount Amount
+      - Final Total Paid / Payable (`totalAmount` or `totalPrice`)
+      - Payment Method (`AFRIMONEY` | `COD`)
+      - Payment Status (`PENDING` | `COMPLETED` | `FAILED` | `REFUNDED`)
+      - AfriMoney Transaction ID (`afriTxnId`), External Ref (`afriFtxnId`),
+        Payer Phone (`afriMsisdn`), and Payment Timestamp (`paidAt`).
+  * Deferred Cart Clearing & Confirmation Emails (AfriMoney):
+      - When a customer initiates an `AFRIMONEY` checkout, the order/booking is
+        created in `PENDING` state (`paymentStatus: "PENDING"`).
+      - The customer's shopping cart is NOT cleared yet, and confirmation emails
+        are deferred until payment is verified (`paymentStatus: "COMPLETED"`).
+      - If the USSD push fails immediately at the gateway, the pending order is
+        rolled back (stock restored, service slots freed, coupon usage deleted)
+        so the customer can retry immediately.
+
+--------------------------------------------------------------------------------
+2. AFIRMONEY PHONE NUMBER VALIDATION RULES
+--------------------------------------------------------------------------------
+When `paymentMethod === "AFRIMONEY"`, the customer must provide `afriPhone`:
+  * Normalized to 8 local Sierra Leone digits (strips `+232`, `232`, or leading `0`).
+  * Must match valid Africell Sierra Leone prefix:
+    `^(30|33|34|77|80|88|99)\d{6}$` (e.g., `077123456` or `77123456` -> `77123456`).
+
+================================================================================
+SECTION A: PRODUCT & SERVICE CHECKOUT (E-COMMERCE & SERVICES)
+================================================================================
+
+--------------------------------------------------------------------------------
+A1. PLACE ORDER (PRODUCTS & SERVICES)
+--------------------------------------------------------------------------------
+Web Endpoint:    POST /api/customer/checkout/place-order
+Mobile Endpoint: POST /mobileapi/customer/checkout/place-order
+Auth:            Session Cookie (Web) | Bearer Token (Mobile)
+
+Request Payload:
+{
+  "addressId": "cuid_address_123",          // Required if cart has physical products
+  "paymentMethod": "AFRIMONEY",             // "AFRIMONEY" | "COD"
+  "afriPhone": "077123456",                 // Required if paymentMethod === "AFRIMONEY"
+  "couponCode": "SAVE20",                   // Optional
+  "buyerLat": 8.4657,                       // Optional (fallback if address has no coords)
+  "buyerLng": -13.2317                      // Optional
+}
+
+Response (200 OK — COD):
+{
+  "success": true,
+  "orderId": "cuid_order_abc123",
+  "paymentMethod": "COD",
+  "paymentStatus": "PENDING",
+  "requiresPaymentVerification": false
+}
+
+Response (200 OK — AFRIMONEY USSD Push Initiated):
+{
+  "success": true,
+  "orderId": "cuid_order_abc123",
+  "paymentMethod": "AFRIMONEY",
+  "paymentStatus": "PENDING",               // Or "COMPLETED" if instant TS response
+  "requiresPaymentVerification": true,      // Mobile/Web UI must open USSD polling screen
+  "afriFtxnId": "ORD_cuid_order_abc123",
+  "afriTxnId": "MM261110.1234.A12345",
+  "message": "A USSD payment prompt has been sent to your AfriMoney phone. Please enter your PIN to complete the order."
+}
+
+Response (402 Payment Required — Immediate Gateway Push Failure):
+{
+  "error": "AfriMoney payment initiation failed: Insufficient balance or invalid subscriber."
+}
+(Note: On 402, backend automatically restores product stock, unbooks service
+slots, and removes coupon usage so the customer can retry right away.)
+
+--------------------------------------------------------------------------------
+A2. POLL / VERIFY ORDER PAYMENT STATUS
+--------------------------------------------------------------------------------
+Web Endpoint:    GET /api/customer/orders/[id]/verify-payment
+Mobile Endpoint: GET /mobileapi/customer/orders/[id]/verify-payment
+Auth:            Session Cookie (Web) | Bearer Token (Mobile)
+
+Mobile/Web Polling Flow:
+  * Call this endpoint every 4 seconds for up to 90 seconds while waiting for
+    the customer to enter their AfriMoney PIN on their phone.
+  * This endpoint checks the database first (in case the `/api/afrimoney/callback`
+    webhook already arrived) and actively queries the AfriMoney Transaction
+    Enquiry API if still `PENDING`.
+  * Once `paymentStatus === "COMPLETED"`, backend clears the customer's cart,
+    marks items `CONFIRMED` with `settlementStatus: "ESCROW_HELD"`, and records
+    `orderItemStatusHistory`.
+
+Response:
+{
+  "success": true,
+  "paymentStatus": "COMPLETED",             // "PENDING" | "COMPLETED" | "FAILED"
+  "status": "CONFIRMED",                    // "PENDING" | "CONFIRMED" | "CANCELLED"
+  "paidAt": "2026-11-10T12:00:00.000Z",
+  "afriTxnId": "MM261110.1234.A12345"
+}
+
+--------------------------------------------------------------------------------
+A3. CANCEL PENDING AFRIMONEY ORDER (USER ABORTS OR TIMED OUT)
+--------------------------------------------------------------------------------
+Web Endpoint:    POST /api/customer/orders/[id]/cancel-pending
+Mobile Endpoint: POST /mobileapi/customer/orders/[id]/cancel-pending
+Auth:            Session Cookie (Web) | Bearer Token (Mobile)
+
+Behavior:
+  * Only cancels if `paymentMethod === "AFRIMONEY"` and `paymentStatus === "PENDING"`.
+  * Restores product/variant stock, frees booked service slots (`isBooked: false`),
+    deletes `couponUsage`, and marks order `CANCELLED` & `paymentStatus: "FAILED"`.
+
+Response:
+{
+  "success": true,
+  "message": "Pending order cancelled and stock restored."
+}
+
+--------------------------------------------------------------------------------
+A4. CUSTOMER ORDERS LIST & DETAIL (WITH PRICE & PAYMENT BREAKUP)
+--------------------------------------------------------------------------------
+Web List:        GET /api/customer/orders
+Mobile List:     GET /mobileapi/customer/orders
+Web Detail:      GET /api/customer/orders/[id]
+Mobile Detail:   GET /mobileapi/customer/orders/[id]
+
+Order Detail Response Structure (Commission Strictly Excluded):
+{
+  "success": true,
+  "data": {
+    "id": "cuid_order_abc123",
+    "orderNumber": "ORD-1762776000-AB12",
+    "status": "CONFIRMED",
+    "paymentMethod": "AFRIMONEY",
+    "paymentStatus": "COMPLETED",
+    "afriTxnId": "MM261110.1234.A12345",
+    "afriFtxnId": "ORD_cuid_order_abc123",
+    "afriMsisdn": "77123456",
+    "paidAt": "2026-11-10T12:00:00.000Z",
+    "subtotal": 250,
+    "tax": 0,
+    "shipping": 35,
+    "couponCode": "SAVE20",
+    "couponDiscount": 20,
+    "totalAmount": 265,
+    "shippingBreakup": {
+      "totalShipping": 35,
+      "sellerPackages": [
+        {
+          "sellerId": "cuid_seller_1",
+          "storeName": "Freetown Electronics",
+          "shippingAmount": 35
+        }
+      ]
+    },
+    "items": [
+      {
+        "id": "cuid_item_1",
+        "productNameSnapshot": "Wireless Headphones",
+        "quantity": 1,
+        "price": 250,
+        "subtotal": 250,
+        "gstAmount": 0,
+        "subtotalInclGst": 250,
+        "shippingAmount": 35,
+        "itemStatus": "CONFIRMED"
+        // NOTE: commissionAmount & commissionRateSnapshot are NEVER returned here
+      }
+    ]
+  }
+}
+
+================================================================================
+SECTION B: HOTEL ROOM BOOKING CHECKOUT
+================================================================================
+
+--------------------------------------------------------------------------------
+B1. BOOK HOTEL ROOM (AFRIMONEY OR PAY AT HOTEL / COD)
+--------------------------------------------------------------------------------
+Web Endpoint:    POST /api/hotels/rooms/[id]/book
+Mobile Endpoint: POST /mobileapi/customer/hotels/rooms/[id]/book
+Auth:            Session Cookie (Web) | Bearer Token (Mobile)
+
+Request Payload:
+{
+  "guestName": "John Kamara",
+  "guestPhone": "+23277123456",
+  "checkIn": "2026-12-01",
+  "checkOut": "2026-12-03",
+  "adults": 2,
+  "children": 0,
+  "numberOfRooms": 1,
+  "couponCode": "HOTEL10",                  // Optional
+  "paymentMethod": "AFRIMONEY",             // "AFRIMONEY" | "COD" (Pay at Hotel)
+  "afriPhone": "077123456"                  // Required if paymentMethod === "AFRIMONEY"
+}
+
+Response (201 Created):
+{
+  "success": true,
+  "data": {
+    "id": "cuid_booking_xyz",
+    "status": "PENDING",                    // "CONFIRMED" if COD, "PENDING" if AFRIMONEY
+    "paymentMethod": "AFRIMONEY",
+    "paymentStatus": "PENDING",
+    "subtotal": 1200,
+    "couponCode": "HOTEL10",
+    "couponDiscount": 120,
+    "totalPrice": 1080
+  },
+  "requiresPaymentVerification": true,      // true if AFRIMONEY pending
+  "bookingId": "cuid_booking_xyz"
+}
+
+--------------------------------------------------------------------------------
+B2. VERIFY / CANCEL PENDING HOTEL BOOKING
+--------------------------------------------------------------------------------
+Verify Payment:
+  Web:    GET /api/customer/hotel-bookings/[id]/verify-payment
+  Mobile: GET /mobileapi/customer/hotel-bookings/[id]/verify-payment
+  * On success (`TS`), marks booking `status: "CONFIRMED"`, `paymentStatus: "COMPLETED"`,
+    `settlementStatus: "ESCROW_HELD"`, and credits Hotel Seller ledger (`YET_TO_PAY`).
+  * On failure (`TF`), marks `status: "CANCELLED"`, `paymentStatus: "FAILED"`,
+    and releases room availability dates day-by-day.
+
+Cancel Pending Booking:
+  Web:    POST /api/customer/hotel-bookings/[id]/cancel-pending
+  Mobile: POST /mobileapi/customer/hotel-bookings/[id]/cancel-pending
+
+--------------------------------------------------------------------------------
+B3. CUSTOMER HOTEL BOOKINGS LIST & DETAIL
+--------------------------------------------------------------------------------
+Web List:      GET /api/customer/hotel-bookings
+Mobile List:   GET /mobileapi/customer/hotel-bookings
+Web Detail:    GET /api/customer/hotel-bookings/[id]
+Mobile Detail: GET /mobileapi/customer/hotel-bookings/[id]
+
+Customer Booking Object (Sanitized — Commission Hidden):
+{
+  "id": "cuid_booking_xyz",
+  "guestName": "John Kamara",
+  "guestPhone": "+23277123456",
+  "checkIn": "2026-12-01T00:00:00.000Z",
+  "checkOut": "2026-12-03T00:00:00.000Z",
+  "numberOfRooms": 1,
+  "adults": 2,
+  "children": 0,
+  "subtotal": 1200,
+  "couponCode": "HOTEL10",
+  "couponDiscount": 120,
+  "totalPrice": 1080,
+  "status": "CONFIRMED",
+  "paymentMethod": "AFRIMONEY",
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": "MM261110.9988.B54321",
+  "paidAt": "2026-11-10T12:15:00.000Z",
+  "room": { "id": "...", "name": "Deluxe Ocean Suite", "price": 600 },
+  "hotel": { "id": "...", "name": "Radisson Blu Freetown", "city": "Freetown" }
+}
+
+================================================================================
+SECTION C: RESTAURANT FOOD ORDERING CHECKOUT
+================================================================================
+
+--------------------------------------------------------------------------------
+C1. PLACE FOOD ORDER (AFRIMONEY OR COD)
+--------------------------------------------------------------------------------
+Web Endpoint:    POST /api/customer/foods/orders
+Mobile Endpoint: POST /mobileapi/customer/foods/orders
+Auth:            Session Cookie (Web) | Bearer Token (Mobile)
+
+Request Payload:
+{
+  "restaurantSellerId": "cuid_rest_seller_1",
+  "items": [
+    { "foodItemId": "cuid_food_1", "quantity": 2 }
+  ],
+  "deliveryFullName": "Mariama Sesay",
+  "deliveryPhone": "+23277123456",
+  "deliveryAddressLine1": "15 Wilkinson Road",
+  "deliveryCity": "Freetown",
+  "deliveryState": "Western Area",
+  "deliveryPostalCode": "00000",
+  "deliveryCountry": "Sierra Leone",
+  "deliveryLatitude": 8.479,
+  "deliveryLongitude": -13.267,
+  "orderNotes": "Extra spicy please",
+  "couponCode": "FOOD50",                   // Optional
+  "paymentMethod": "AFRIMONEY",             // "AFRIMONEY" | "COD"
+  "afriPhone": "077123456"                  // Required if paymentMethod === "AFRIMONEY"
+}
+
+Response (201 Created):
+{
+  "success": true,
+  "data": {
+    "id": "cuid_food_order_1",
+    "orderNumber": "F-1762776500-987",
+    "status": "PENDING",
+    "paymentMethod": "AFRIMONEY",
+    "paymentStatus": "PENDING",
+    "subtotal": 300,
+    "deliveryFee": 30,
+    "couponCode": "FOOD50",
+    "couponDiscount": 50,
+    "totalAmount": 280
+  },
+  "requiresPaymentVerification": true,
+  "foodOrderId": "cuid_food_order_1"
+}
+
+--------------------------------------------------------------------------------
+C2. VERIFY / CANCEL PENDING FOOD ORDER
+--------------------------------------------------------------------------------
+Verify Payment:
+  Web:    GET /api/customer/foods/orders/[id]/verify-payment
+  Mobile: GET /mobileapi/customer/foods/orders/[id]/verify-payment
+  * On success (`TS`), marks `status: "CONFIRMED"`, `paymentStatus: "COMPLETED"`,
+    and `settlementStatus: "ESCROW_HELD"`.
+
+Cancel Pending Food Order:
+  Web:    POST /api/customer/foods/orders/[id]/cancel-pending
+  Mobile: POST /mobileapi/customer/foods/orders/[id]/cancel-pending
+
+--------------------------------------------------------------------------------
+C3. CUSTOMER FOOD ORDERS LIST & DETAIL
+--------------------------------------------------------------------------------
+Web List:      GET /api/customer/foods/orders
+Mobile List:   GET /mobileapi/customer/foods/orders
+Web Detail:    GET /api/customer/foods/orders/[id]
+Mobile Detail: GET /mobileapi/customer/foods/orders/[id]
+
+Customer Food Order Object (Sanitized — Commission Hidden):
+{
+  "id": "cuid_food_order_1",
+  "orderNumber": "F-1762776500-987",
+  "subtotal": 300,
+  "deliveryFee": 30,
+  "couponCode": "FOOD50",
+  "couponDiscount": 50,
+  "totalAmount": 280,
+  "status": "CONFIRMED",
+  "paymentMethod": "AFRIMONEY",
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": "MM261110.5544.C11223",
+  "paidAt": "2026-11-10T12:30:00.000Z",
+  "restaurantName": "Crown Bakery & Kitchen",
+  "items": [
+    {
+      "id": "cuid_fi_1",
+      "foodItemId": "cuid_food_1",
+      "foodName": "Jollof Rice & Grilled Chicken",
+      "quantity": 2,
+      "price": 150,
+      "subtotal": 300
+    }
+  ]
+}
+
+================================================================================
+SECTION D: MOBILE APP UI IMPLEMENTATION CHECKLIST FOR CUSTOMER APP
+================================================================================
+1. Checkout Screen (All 4 Verticals):
+   - Display a 2-card radio selector:
+     [ (o) AfriMoney Mobile Money (Instant USSD Push) ]
+     [ ( ) Cash on Delivery / Pay at Hotel (COD)      ]
+   - When "AfriMoney" is selected, show an input field for "AfriMoney Phone Number"
+     with `+232` prefix badge and validate 8 local digits (`30, 33, 34, 77, 80, 88, 99`).
+
+2. USSD Waiting & Polling Modal:
+   - When `requiresPaymentVerification === true` is returned after checkout:
+     * Show a modal: "Approve Payment on Your Phone — Check your handset for the
+       AfriMoney USSD prompt and enter your PIN."
+     * Poll `GET .../verify-payment` every 4 seconds (up to 90 seconds).
+     * If `paymentStatus === "COMPLETED"`: show success animation, clear local cart
+       state, and navigate to Order Success / Details screen.
+     * If `paymentStatus === "FAILED"` or user taps "Cancel & Retry": call
+       `POST .../cancel-pending` and keep the user on the checkout screen with
+       their cart intact.
+
+3. Order / Booking Details Screen:
+   - Render the Payment Badge:
+     * `paymentMethod === "AFRIMONEY"` + `paymentStatus === "COMPLETED"` ->
+       Green Badge: "Paid via AfriMoney (Txn: <afriTxnId>)"
+     * `paymentMethod === "COD"` ->
+       Amber Badge: "Cash on Delivery / Pay at Property"
+   - Render the Price Breakup Card:
+     * Subtotal
+     * Delivery / Shipping Fee (expandable per seller package if multi-vendor)
+     * Discount (`- SLE <couponDiscount>` if coupon applied)
+     * Total Amount
+
+================================================================================
+SECTION E: AFRIMONEY SERVER-TO-SERVER WEBHOOK CALLBACK
+================================================================================
+Webhook Endpoint: POST /api/afrimoney/callback
+Health Check:     GET  /api/afrimoney/callback
+
+1. Purpose:
+   - Receives asynchronous transaction confirmations (`TS` = Success, `TF` = Failed)
+     directly from the Africell AfriMoney gateway even if the user closes their
+     browser or mobile app during USSD PIN entry.
+
+2. Automatic Reference Prefix Routing (`ftxn_id` / `external_reference_id`):
+   - `ORD_<orderId>` or `meeem...` -> Product & Service Orders (`Order` & `OrderItem`)
+     * On `TS`: Marks `paymentStatus: "COMPLETED"`, `status: "CONFIRMED"`,
+       `settlementStatus: "ESCROW_HELD"`, clears customer's cart, and logs status history.
+     * On `TF`: Marks `paymentStatus: "FAILED"`, `status: "CANCELLED"`, restores
+       product variant stock, unbooks service slots, and deletes `couponUsage`.
+   - `HOTEL_<bookingId>`           -> Hotel Room Bookings (`HotelBooking`)
+     * On `TS`: Marks `paymentStatus: "COMPLETED"`, `status: "CONFIRMED"`,
+       `settlementStatus: "ESCROW_HELD"`, and calls `creditHotelSellerForBooking`
+       (`settlementStatus -> "YET_TO_PAY"`, increments `hotelSeller.netBalance`).
+     * On `TF`: Marks `status: "CANCELLED"`, `paymentStatus: "FAILED"`, decrements
+       `roomAvailability.bookedCount` for each night, and deletes `couponUsage`.
+   - `FOOD_<foodOrderId>` or `F-`  -> Restaurant Food Orders (`FoodOrder`)
+     * On `TS`: Marks `paymentStatus: "COMPLETED"`, `status: "CONFIRMED"`,
+       and `settlementStatus: "ESCROW_HELD"`.
+     * On `TF`: Marks `status: "CANCELLED"`, `paymentStatus: "FAILED"`, and
+       deletes `couponUsage`.
+   - `AD_<adId>`                   -> Seller Sponsored Ads (`SellerAd`)
+   - `SUB_...`                     -> Seller Subscriptions (`SubscriptionPurchase`)
+================================================================================

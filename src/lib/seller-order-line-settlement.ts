@@ -38,6 +38,11 @@ export async function applySellerCreditForOrderLineDelivered(
       commissionAmount: true,
       itemStatus: true,
       isSelfDelivery: true,
+      order: {
+        select: {
+          paymentMethod: true,
+        },
+      },
     },
   })
   if (!item?.sellerId || item.itemStatus !== "DELIVERED") return
@@ -57,23 +62,39 @@ export async function applySellerCreditForOrderLineDelivered(
   )
   if (creditAmount <= EPS) return
 
-  await tx.seller.update({
-    where: { id: item.sellerId },
-    data: { netBalance: { increment: creditAmount } },
+  const isPrepaid = item.order?.paymentMethod === "AFRIMONEY"
+  const isService = Boolean(item.serviceId)
+
+  // If prepaid (AfriMoney) or platform rider delivery (where platform collects customer shipping/COD),
+  // platform holds the funds and owes the seller -> YET_TO_PAY.
+  // If self-delivery product COD or service COD, seller/provider collected the cash directly -> COD_COLLECTED_BY_SELLER.
+  const newSettlementStatus = isPrepaid || (!isSelf && !isService) ? "YET_TO_PAY" : "COD_COLLECTED_BY_SELLER"
+
+  await tx.orderItem.update({
+    where: { id: item.id },
+    data: { settlementStatus: newSettlementStatus },
   })
-  await tx.sellerBalanceTransaction.create({
-    data: {
-      sellerId: item.sellerId,
-      amount: creditAmount,
-      kind: "CREDIT",
-      reason: SELLER_BALANCE_REASON_ORDER_LINE_DELIVERED,
-      orderItemId: item.id,
-      orderId: item.orderId,
-      note: item.productId
-        ? isSelf
-          ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) + delivery charge credited (${roundMoney(shippingFee)}) − platform commission (${roundMoney(comm)}) [Self-Delivery Fulfilled]`
-          : `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`
-        : `Seller net credit: Service line incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`,
-    },
-  })
+
+  // ONLY increment seller netBalance and create CREDIT transaction if platform owes payout (YET_TO_PAY)
+  if (newSettlementStatus === "YET_TO_PAY") {
+    await tx.seller.update({
+      where: { id: item.sellerId },
+      data: { netBalance: { increment: creditAmount } },
+    })
+    await tx.sellerBalanceTransaction.create({
+      data: {
+        sellerId: item.sellerId,
+        amount: creditAmount,
+        kind: "CREDIT",
+        reason: SELLER_BALANCE_REASON_ORDER_LINE_DELIVERED,
+        orderItemId: item.id,
+        orderId: item.orderId,
+        note: item.productId
+          ? isSelf
+            ? `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) + delivery charge credited (${roundMoney(shippingFee)}) − platform commission (${roundMoney(comm)}) [Self-Delivery Fulfilled]`
+            : `Seller net credit: Item incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`
+          : `Seller net credit: Service line incl. GST (${roundMoney(lineIncl)}) − platform commission (${roundMoney(comm)})`,
+      },
+    })
+  }
 }

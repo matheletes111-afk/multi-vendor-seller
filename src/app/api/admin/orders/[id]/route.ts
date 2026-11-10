@@ -101,7 +101,7 @@ export async function GET(
       },
       items: {
         include: {
-          seller: { include: { store: { select: { name: true } }, user: { select: { name: true, email: true, phone: true, phoneCountryCode: true } } } },
+          seller: { include: { store: { select: { name: true } }, user: { select: { name: true, email: true, phone: true, phoneCountryCode: true } }, bankDetails: true } },
           product: { select: { images: true } },
           productVariant: { select: { images: true, returnType: true, replacementAllowed: true } },
           service: { select: { images: true } },
@@ -215,20 +215,50 @@ export async function GET(
       returnRequestStatus: returnAvailable ? req?.status ?? null : null,
       pickupStatus: returnAvailable ? req?.pickupStatus ?? "NOT_REQUESTED" : null,
       refundStatus: returnAvailable ? req?.refundStatus ?? "NOT_REQUESTED" : null,
+      settlementStatus: (row as any).settlementStatus ?? "PENDING",
+      payoutDisbursedAt: (row as any).payoutDisbursedAt ? (row as any).payoutDisbursedAt.toISOString() : null,
+      payoutReference: (row as any).payoutReference || null,
     }
   })
+
+  // Check pending payout requests for sellers on this order
+  const sellerIdsOnOrder = Array.from(new Set(order.items.map((i) => i.sellerId).filter(Boolean))) as string[]
+  const pendingRequestsForOrder = sellerIdsOnOrder.length > 0
+    ? await prisma.sellerPayoutRequest.findMany({
+        where: { sellerId: { in: sellerIdsOnOrder }, status: "PENDING" },
+        select: { sellerId: true },
+      })
+    : []
+  const pendingSellerIdSet = new Set(pendingRequestsForOrder.map((r) => r.sellerId))
+
+  function formatBankSnapshot(bank: any): string {
+    if (!bank) return "No bank details on file"
+    const parts: string[] = []
+    if (bank.paymentOption) parts.push(`Method: ${bank.paymentOption}`)
+    if (bank.bankName) parts.push(`Bank: ${bank.bankName}`)
+    if (bank.accountHolderName) parts.push(`Holder: ${bank.accountHolderName}`)
+    if (bank.accountNumber) parts.push(`Acc: ${bank.accountNumber}`)
+    if (bank.mobileNumber) parts.push(`Mobile: ${bank.mobileNumber}`)
+    if (bank.mobileMoneyOption) parts.push(`Wallet: ${bank.mobileMoneyOption}`)
+    return parts.join(" • ") || "No bank details on file"
+  }
 
   const sellerGroupMap = new Map<
     string,
     {
       sellerId: string | null
       sellerStoreName: string | null
+      sellerSector: "PRODUCT" | "SERVICE"
+      bankDetails: any
       subtotal: number
       tax: number
       shipping: number
       commission: number
       total: number
+      sellerNetPayout: number
       statuses: import("@prisma/client").OrderStatus[]
+      settlementStatuses: string[]
+      payoutReference: string | null
       itemCount: number
     }
   >()
@@ -237,28 +267,55 @@ export async function GET(
     const current = sellerGroupMap.get(key) ?? {
       sellerId: item.sellerId ?? null,
       sellerStoreName: item.seller?.store?.name ?? null,
+      sellerSector: item.seller?.type === "SERVICE" ? "SERVICE" : "PRODUCT",
+      bankDetails: item.seller?.bankDetails ?? null,
       subtotal: 0,
       tax: 0,
       shipping: 0,
       commission: 0,
       total: 0,
+      sellerNetPayout: 0,
       statuses: [],
+      settlementStatuses: [],
+      payoutReference: null,
       itemCount: 0,
     }
+    const itemGross = (item.subtotalInclGst ?? item.subtotal + item.gstAmount)
+    const isSelf = Boolean((item as any).isSelfDelivery)
+    const ship = item.productId != null ? item.shippingAmount : 0
+    const net = isSelf ? itemGross + ship - item.commissionAmount : itemGross - item.commissionAmount
+
     current.subtotal += item.subtotal
     current.tax += item.gstAmount
     current.shipping += item.shippingAmount
     current.commission += item.commissionAmount
-    current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
+    current.total += itemGross + item.shippingAmount
+    current.sellerNetPayout += Math.max(0, net)
     current.statuses.push(item.itemStatus)
+    current.settlementStatuses.push((item as any).settlementStatus || "PENDING")
+    if ((item as any).payoutReference && !current.payoutReference) {
+      current.payoutReference = (item as any).payoutReference
+    }
     current.itemCount += 1
     sellerGroupMap.set(key, current)
   }
   const sellerGroups = [...sellerGroupMap.values()].map((group) => {
     const statusSummary = summarizeSellerItemStatuses(group.statuses)
+    let aggregatedSettlement = "ESCROW_HELD"
+    if (group.settlementStatuses.every((s) => s === "PAID_OUT")) {
+      aggregatedSettlement = "PAID_OUT"
+    } else if (group.settlementStatuses.some((s) => s === "YET_TO_PAY")) {
+      aggregatedSettlement = "YET_TO_PAY"
+    } else if (group.settlementStatuses.some((s) => s === "COD_COLLECTED_BY_SELLER")) {
+      aggregatedSettlement = "COD_COLLECTED_BY_SELLER"
+    }
+
+    const payoutMethod = group.bankDetails?.paymentOption || group.bankDetails?.preferredPayoutMethod || "AfriMoney / Bank"
+
     return {
       sellerId: group.sellerId,
       sellerStoreName: group.sellerStoreName,
+      sellerSector: group.sellerSector,
       summary: {
         subtotal: group.subtotal,
         tax: group.tax,
@@ -266,6 +323,12 @@ export async function GET(
         commission: group.commission,
         total: group.total,
       },
+      sellerNetPayout: group.sellerNetPayout,
+      settlementStatus: aggregatedSettlement,
+      payoutReference: group.payoutReference,
+      payoutAccountSnapshot: formatBankSnapshot(group.bankDetails),
+      payoutMethod,
+      hasPendingPayoutRequest: group.sellerId ? pendingSellerIdSet.has(group.sellerId) : false,
       itemStatuses: statusSummary.counts,
       derivedStatus: statusSummary.derivedStatus,
       itemCount: group.itemCount,
@@ -310,6 +373,8 @@ export async function GET(
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: (order as any).afriTxnId || null,
+    paidAt: (order as any).paidAt ? (order as any).paidAt.toISOString() : null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,

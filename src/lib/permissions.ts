@@ -97,6 +97,14 @@ export const BACKOFFICE_MODULES: PermissionModule[] = [
     allowedPrefixes: ["/admin/coupons", "/api/admin/coupons"],
   },
   {
+    key: "payouts",
+    label: "Seller Payouts & Liabilities",
+    category: "Master",
+    description: "Seller payout requests, Yet to Pay ledger liabilities, and disbursement approvals",
+    basePath: "/admin/payouts",
+    allowedPrefixes: ["/admin/payouts", "/api/admin/payouts"],
+  },
+  {
     key: "seller-drip-campaigns",
     label: "Seller Daily Emails",
     category: "Master",

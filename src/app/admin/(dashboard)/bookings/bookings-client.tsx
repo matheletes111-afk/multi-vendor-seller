@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Search, Calendar, MapPin, Eye, RefreshCw, X, ShoppingCart, User, Phone, CheckCircle2, Users, Filter, FileSpreadsheet } from "lucide-react"
+import { Search, Calendar, MapPin, Eye, RefreshCw, X, ShoppingCart, User, Phone, CheckCircle2, Users, Filter, FileSpreadsheet, Banknote } from "lucide-react"
 import { Input } from "@/ui/input"
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
-import { formatCurrency } from "@/lib/utils"
+import { Badge } from "@/ui/badge"
+import { formatCurrency, formatDate } from "@/lib/utils"
 import { buildAdminPageUrl } from "@/lib/admin-pagination"
 import { AdminPagination } from "@/components/admin/admin-pagination"
 import { exportBookingsToExcel } from "@/lib/admin-module-export"
+import { AdminDisburseModal } from "@/components/admin/admin-disburse-modal"
 
 type Booking = {
   id: string
@@ -25,6 +27,17 @@ type Booking = {
   createdAt: string
   couponCode?: string | null
   couponDiscount?: number | null
+  subtotal?: number
+  commissionRate?: number
+  commissionAmount?: number
+  sellerNetPayout?: number
+  settlementStatus?: string
+  payoutDisbursedAt?: string | null
+  payoutReference?: string | null
+  paymentMethod?: string | null
+  paymentStatus?: string
+  afriTxnId?: string | null
+  paidAt?: string | null
   room: {
     id: string
     name: string
@@ -33,10 +46,18 @@ type Booking = {
     id: string
     name: string
     city: string | null
+    hotelSellerId?: string
+    hotelSeller?: {
+      id: string
+      bankDetails?: any
+      businessInfo?: any
+      user?: { name: string | null; email: string; phone?: string | null }
+    }
   }
   user: {
     name: string | null
     email: string
+    phone?: string | null
   }
 }
 
@@ -73,6 +94,7 @@ export function AdminBookingsClient() {
   const [checkInDate, setCheckInDate] = useState(checkInParam)
   const [checkOutDate, setCheckOutDate] = useState(checkOutParam)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [disburseModalBooking, setDisburseModalBooking] = useState<Booking | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [exportMessage, setExportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
@@ -407,10 +429,25 @@ export function AdminBookingsClient() {
                     <td className="px-6 py-4 text-slate-900 font-black">
                       {formatCurrency(booking.totalPrice)}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center space-y-1">
                       <span className={`inline-flex items-center border rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getStatusBadgeClass(booking.status)}`}>
                         {booking.status}
                       </span>
+                      <div>
+                        {booking.settlementStatus === "PAID_OUT" ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            PAID OUT
+                          </span>
+                        ) : booking.settlementStatus === "YET_TO_PAY" ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+                            YET TO PAY
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-600">
+                            ESCROW HELD
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <Button
@@ -510,19 +547,125 @@ export function AdminBookingsClient() {
                   </div>
                 </>
               ) : null}
-              <div className="flex justify-between">
+              <div className="flex justify-between border-b border-slate-100 pb-2.5">
                 <span>Total Cost Paid:</span>
                 <span className="font-black text-emerald-600 text-base">{formatCurrency(selectedBooking.totalPrice)}</span>
               </div>
+
+              {/* Settlement & Payout Details */}
+              <div className="pt-2 border-t border-dashed border-slate-200 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider">Settlement Status:</span>
+                  {selectedBooking.settlementStatus === "PAID_OUT" ? (
+                    <Badge className="bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider">
+                      PAID OUT
+                    </Badge>
+                  ) : selectedBooking.settlementStatus === "YET_TO_PAY" ? (
+                    <Badge className="bg-amber-500 text-white font-bold text-[10px] uppercase tracking-wider">
+                      YET TO PAY
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                      ESCROW HELD
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex justify-between text-xs text-emerald-600 font-bold">
+                  <span>Platform Commission ({selectedBooking.commissionRate ?? 10}%):</span>
+                  <span>+{formatCurrency(selectedBooking.commissionAmount ?? (selectedBooking.totalPrice * 0.1))}</span>
+                </div>
+                <div className="flex justify-between text-xs font-black text-slate-900">
+                  <span>Hotel Net Payout:</span>
+                  <span className="text-emerald-700 text-sm">
+                    {formatCurrency(selectedBooking.sellerNetPayout ?? (selectedBooking.totalPrice * 0.9))}
+                  </span>
+                </div>
+                {selectedBooking.payoutReference && (
+                  <div className="text-[10px] font-mono text-emerald-600 font-bold">
+                    Payout Ref: {selectedBooking.payoutReference}
+                  </div>
+                )}
+                {selectedBooking.paymentMethod && (
+                  <div className="flex justify-between text-[11px] text-slate-500 font-semibold pt-1">
+                    <span>Payment Method:</span>
+                    <span className="uppercase font-bold text-slate-700">
+                      {selectedBooking.paymentMethod} ({selectedBooking.paymentStatus || "PAID"})
+                    </span>
+                  </div>
+                )}
+                {selectedBooking.afriTxnId && (
+                  <div className="flex justify-between text-[11px] font-mono text-emerald-600 font-semibold">
+                    <span>AfriMoney Txn:</span>
+                    <span>{selectedBooking.afriTxnId}</span>
+                  </div>
+                )}
+                {selectedBooking.hotel.hotelSeller?.bankDetails && (
+                  <div className="pt-2 text-[10px] text-slate-500 font-medium">
+                    <span className="font-bold text-slate-700 block mb-0.5">Hotel Payout Details:</span>
+                    <span>
+                      {[
+                        selectedBooking.hotel.hotelSeller.bankDetails.paymentOption && `Method: ${selectedBooking.hotel.hotelSeller.bankDetails.paymentOption}`,
+                        selectedBooking.hotel.hotelSeller.bankDetails.bankName && `Bank: ${selectedBooking.hotel.hotelSeller.bankDetails.bankName}`,
+                        selectedBooking.hotel.hotelSeller.bankDetails.accountHolderName && `Holder: ${selectedBooking.hotel.hotelSeller.bankDetails.accountHolderName}`,
+                        selectedBooking.hotel.hotelSeller.bankDetails.accountNumber && `Acc: ${selectedBooking.hotel.hotelSeller.bankDetails.accountNumber}`,
+                        selectedBooking.hotel.hotelSeller.bankDetails.mobileNumber && `Mobile: ${selectedBooking.hotel.hotelSeller.bankDetails.mobileNumber}`,
+                      ].filter(Boolean).join(" • ")}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
-              <Button onClick={() => setSelectedBooking(null)} className="bg-slate-950 hover:bg-slate-900 text-white rounded-xl h-10 px-5">
+            <div className="pt-2 flex flex-col sm:flex-row justify-between gap-2">
+              {selectedBooking.settlementStatus === "YET_TO_PAY" && (selectedBooking.hotel.hotelSeller?.id || selectedBooking.hotel.hotelSellerId) && (
+                <Button
+                  onClick={() => {
+                    const b = selectedBooking
+                    setSelectedBooking(null)
+                    setDisburseModalBooking(b)
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-10 px-4 text-xs font-bold flex items-center justify-center gap-1.5"
+                >
+                  <Banknote className="w-4 h-4" /> Mark Payout Disbursed
+                </Button>
+              )}
+              <Button onClick={() => setSelectedBooking(null)} className="bg-slate-950 hover:bg-slate-900 text-white rounded-xl h-10 px-5 sm:ml-auto">
                 Close Details
               </Button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Disburse Modal */}
+      {disburseModalBooking && (
+        <AdminDisburseModal
+          isOpen={!!disburseModalBooking}
+          onClose={() => setDisburseModalBooking(null)}
+          onSuccess={() => {
+            fetchBookings()
+            setDisburseModalBooking(null)
+          }}
+          sellerSector="HOTEL"
+          sellerId={disburseModalBooking.hotel.hotelSeller?.id || disburseModalBooking.hotel.hotelSellerId || ""}
+          sellerName={disburseModalBooking.hotel.name}
+          suggestedAmount={disburseModalBooking.sellerNetPayout ?? (disburseModalBooking.totalPrice * 0.9)}
+          defaultPayoutMethod={disburseModalBooking.hotel.hotelSeller?.bankDetails?.paymentOption || "AfriMoney"}
+          defaultAccountSnapshot={
+            disburseModalBooking.hotel.hotelSeller?.bankDetails
+              ? [
+                  disburseModalBooking.hotel.hotelSeller.bankDetails.paymentOption && `Method: ${disburseModalBooking.hotel.hotelSeller.bankDetails.paymentOption}`,
+                  disburseModalBooking.hotel.hotelSeller.bankDetails.bankName && `Bank: ${disburseModalBooking.hotel.hotelSeller.bankDetails.bankName}`,
+                  disburseModalBooking.hotel.hotelSeller.bankDetails.accountHolderName && `Holder: ${disburseModalBooking.hotel.hotelSeller.bankDetails.accountHolderName}`,
+                  disburseModalBooking.hotel.hotelSeller.bankDetails.accountNumber && `Acc: ${disburseModalBooking.hotel.hotelSeller.bankDetails.accountNumber}`,
+                  disburseModalBooking.hotel.hotelSeller.bankDetails.mobileNumber && `Mobile: ${disburseModalBooking.hotel.hotelSeller.bankDetails.mobileNumber}`,
+                ]
+                  .filter(Boolean)
+                  .join(" • ")
+              : undefined
+          }
+          bookingId={disburseModalBooking.id}
+        />
       )}
     </div>
   )

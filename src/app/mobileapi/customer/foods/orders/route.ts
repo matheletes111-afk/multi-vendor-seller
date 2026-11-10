@@ -5,6 +5,7 @@ import { sendFoodOrderConfirmationEmail, sendRestaurantNewOrderEmail, sendAdminN
 import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
+import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 
 export const dynamic = "force-dynamic"
 
@@ -50,6 +51,14 @@ export async function GET(request: NextRequest) {
       id: o.id,
       orderNumber: o.orderNumber,
       totalAmount: o.totalAmount,
+      subtotal: o.subtotal,
+      deliveryFee: o.deliveryFee,
+      couponCode: o.couponCode,
+      couponDiscount: o.couponDiscount,
+      paymentMethod: o.paymentMethod ?? "COD",
+      paymentStatus: o.paymentStatus,
+      afriTxnId: o.afriTxnId,
+      paidAt: o.paidAt,
       status: o.status,
       createdAt: o.createdAt,
       restaurantName: o.restaurantSeller.businessInfo?.businessName || o.restaurantSeller.user.name || "Restaurant"
@@ -85,8 +94,17 @@ export async function POST(request: NextRequest) {
       deliveryState,
       deliveryPostalCode,
       deliveryCountry,
-      couponCode
+      couponCode,
+      paymentMethod,
+      payerMsisdn
     } = body
+
+    const requestedPaymentMethod = paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+    const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : ""
+
+    if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
+      return NextResponse.json({ success: false, error: "AfriMoney phone number (payerMsisdn) is required for AfriMoney payment" }, { status: 400 })
+    }
 
     if (!restaurantSellerId || !items || !Array.isArray(items) || items.length === 0 || !deliveryFullName || !deliveryPhone || !deliveryAddressLine1 || !deliveryCity || !deliveryState || !deliveryPostalCode || !deliveryCountry) {
       return NextResponse.json({ success: false, error: "Missing required order checkout details" }, { status: 400 })
@@ -171,11 +189,25 @@ export async function POST(request: NextRequest) {
       const randomStr = Math.floor(1000 + Math.random() * 9000).toString()
       const orderNumber = `F-${dateStr}-${randomStr}`
 
+      const globalSetting = await tx.globalSetting.findFirst().catch(() => null)
+      const defaultRate = globalSetting?.restaurantBaseCommission ?? 10.0
+      const commRate = typeof seller.commissionRate === "number" ? seller.commissionRate : defaultRate
+      const commAmount = Number(((subtotalAmount * commRate) / 100).toFixed(2))
+      const sellerNetPayout = Math.max(0, Number((subtotalAmount - commAmount).toFixed(2)))
+
       const order = await tx.foodOrder.create({
         data: {
           orderNumber,
           customerId: userId,
           restaurantSellerId,
+          subtotal: subtotalAmount,
+          deliveryFee: 0,
+          commissionRate: commRate,
+          commissionAmount: commAmount,
+          sellerNetPayout,
+          paymentMethod: requestedPaymentMethod,
+          paymentStatus: "PENDING",
+          settlementStatus: requestedPaymentMethod === "AFRIMONEY" ? "ESCROW_HELD" : "PENDING",
           totalAmount: finalAmount,
           deliveryFullName,
           deliveryPhone,
@@ -208,100 +240,154 @@ export async function POST(request: NextRequest) {
       return order
     })
 
-    // ── Send Email Notifications ───────────────────────────────────────────────
-    try {
-      const fullFoodOrder = await prisma.foodOrder.findUnique({
-        where: { id: result.id },
-        include: {
-          customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
-          restaurantSeller: {
-            include: {
-              user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
-              businessInfo: { select: { businessName: true } }
-            }
-          },
-          items: {
-            include: {
-              foodItem: { select: { name: true } }
+    let afriTxnId: string | undefined = undefined
+    let ussdPromptSent = false
+    let pushMessage = ""
+
+    if (requestedPaymentMethod === "AFRIMONEY") {
+      const externalRef = `FOOD_${result.id}`
+      try {
+        const pushResult = await initiateAfriMoneyPushUssd({
+          amount: result.totalAmount,
+          payerMsisdn: payerPhone,
+          externalReferenceId: externalRef,
+          remarks: `Food Order ${result.orderNumber}`,
+        })
+
+        if (pushResult.success) {
+          ussdPromptSent = true
+          afriTxnId = pushResult.txnId
+          pushMessage = pushResult.message || "USSD push prompt sent to your phone. Please enter your AfriMoney PIN."
+          await prisma.foodOrder.update({
+            where: { id: result.id },
+            data: {
+              afriFtxnId: externalRef,
+              afriTxnId: pushResult.txnId || null,
+              afriMsisdn: payerPhone,
+            },
+          })
+        } else {
+          await prisma.couponUsage.deleteMany({
+            where: { foodOrderId: result.id },
+          }).catch(() => null)
+          await prisma.foodOrder.delete({ where: { id: result.id } }).catch(() => null)
+          return NextResponse.json(
+            { success: false, error: pushResult.message || "Failed to initiate AfriMoney USSD payment. Please check your phone number and try again." },
+            { status: 400 }
+          )
+        }
+      } catch (pushErr: any) {
+        await prisma.couponUsage.deleteMany({
+          where: { foodOrderId: result.id },
+        }).catch(() => null)
+        await prisma.foodOrder.delete({ where: { id: result.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: `AfriMoney connection error: ${pushErr?.message || "Payment service unavailable"}` },
+          { status: 502 }
+        )
+      }
+    }
+
+    // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
+    if (requestedPaymentMethod !== "AFRIMONEY") {
+      try {
+        const fullFoodOrder = await prisma.foodOrder.findUnique({
+          where: { id: result.id },
+          include: {
+            customer: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
+            restaurantSeller: {
+              include: {
+                user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
+                businessInfo: { select: { businessName: true } }
+              }
+            },
+            items: {
+              include: {
+                foodItem: { select: { name: true } }
+              }
             }
           }
-        }
-      })
-
-      if (fullFoodOrder && fullFoodOrder.customer) {
-        const deliveryAddress = [
-          fullFoodOrder.deliveryFullName,
-          fullFoodOrder.deliveryPhone,
-          fullFoodOrder.deliveryAddressLine1,
-          fullFoodOrder.deliveryAddressLine2,
-          `${fullFoodOrder.deliveryCity}, ${fullFoodOrder.deliveryState} ${fullFoodOrder.deliveryPostalCode}`,
-          fullFoodOrder.deliveryCountry
-        ].filter(Boolean).join(", ")
-
-        const emailItems = fullFoodOrder.items.map(item => ({
-          name: item.foodItem.name,
-          quantity: item.quantity,
-          price: item.price,
-          subtotal: item.subtotal
-        }))
-
-        await sendFoodOrderConfirmationEmail({
-          to: fullFoodOrder.customer.email,
-          toPhone: fullFoodOrder.customer.phone,
-          phoneCountryCode: fullFoodOrder.customer.phoneCountryCode,
-          name: fullFoodOrder.customer.name ?? "Customer",
-          orderNumber: fullFoodOrder.orderNumber,
-          items: emailItems,
-          totalAmount: fullFoodOrder.totalAmount,
-          deliveryAddress,
-          paymentMethod: "COD"
         })
 
-        if (fullFoodOrder.restaurantSeller?.user?.email || fullFoodOrder.restaurantSeller?.user?.phone) {
-          await sendRestaurantNewOrderEmail({
-            to: fullFoodOrder.restaurantSeller.user?.email,
-            toPhone: fullFoodOrder.restaurantSeller.user?.phone,
-            phoneCountryCode: fullFoodOrder.restaurantSeller.user?.phoneCountryCode,
-            restaurantName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user?.name ?? "Restaurant",
-            orderNumber: fullFoodOrder.orderNumber,
-            items: emailItems.map(i => ({ name: i.name, quantity: i.quantity })),
-            customerName: fullFoodOrder.customer.name ?? "Customer",
-            deliveryAddress,
-            deliveryPhone: fullFoodOrder.deliveryPhone
-          })
-        }
+        if (fullFoodOrder && fullFoodOrder.customer) {
+          const deliveryAddress = [
+            fullFoodOrder.deliveryFullName,
+            fullFoodOrder.deliveryPhone,
+            fullFoodOrder.deliveryAddressLine1,
+            fullFoodOrder.deliveryAddressLine2,
+            `${fullFoodOrder.deliveryCity}, ${fullFoodOrder.deliveryState} ${fullFoodOrder.deliveryPostalCode}`,
+            fullFoodOrder.deliveryCountry
+          ].filter(Boolean).join(", ")
 
-        const admins = await prisma.user.findMany({
-          where: { role: "ADMIN" },
-          select: { email: true, phone: true, phoneCountryCode: true }
-        })
-        const adminItems = emailItems.map(i => ({
-          name: i.name,
-          quantity: i.quantity,
-          sellerStoreName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user.name ?? "Restaurant",
-          subtotal: i.subtotal
-        }))
-        for (const admin of admins) {
-          await sendAdminNewOrderEmail({
-            to: admin.email,
-            toPhone: admin.phone,
-            phoneCountryCode: admin.phoneCountryCode,
+          const emailItems = fullFoodOrder.items.map(item => ({
+            name: item.foodItem.name,
+            quantity: item.quantity,
+            price: item.price,
+            subtotal: item.subtotal
+          }))
+
+          await sendFoodOrderConfirmationEmail({
+            to: fullFoodOrder.customer.email,
+            toPhone: fullFoodOrder.customer.phone,
+            phoneCountryCode: fullFoodOrder.customer.phoneCountryCode,
+            name: fullFoodOrder.customer.name ?? "Customer",
             orderNumber: fullFoodOrder.orderNumber,
-            customerName: fullFoodOrder.customer.name ?? "Customer",
-            items: adminItems,
+            items: emailItems,
             totalAmount: fullFoodOrder.totalAmount,
-            commissionAmount: 0
+            deliveryAddress,
+            paymentMethod: requestedPaymentMethod
           })
+
+          if (fullFoodOrder.restaurantSeller?.user?.email || fullFoodOrder.restaurantSeller?.user?.phone) {
+            await sendRestaurantNewOrderEmail({
+              to: fullFoodOrder.restaurantSeller.user?.email,
+              toPhone: fullFoodOrder.restaurantSeller.user?.phone,
+              phoneCountryCode: fullFoodOrder.restaurantSeller.user?.phoneCountryCode,
+              restaurantName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user?.name ?? "Restaurant",
+              orderNumber: fullFoodOrder.orderNumber,
+              items: emailItems.map(i => ({ name: i.name, quantity: i.quantity })),
+              customerName: fullFoodOrder.customer.name ?? "Customer",
+              deliveryAddress,
+              deliveryPhone: fullFoodOrder.deliveryPhone
+            })
+          }
+
+          const admins = await prisma.user.findMany({
+            where: { role: "ADMIN" },
+            select: { email: true, phone: true, phoneCountryCode: true }
+          })
+          const adminItems = emailItems.map(i => ({
+            name: i.name,
+            quantity: i.quantity,
+            sellerStoreName: fullFoodOrder.restaurantSeller.businessInfo?.businessName ?? fullFoodOrder.restaurantSeller.user.name ?? "Restaurant",
+            subtotal: i.subtotal
+          }))
+          for (const admin of admins) {
+            await sendAdminNewOrderEmail({
+              to: admin.email,
+              toPhone: admin.phone,
+              phoneCountryCode: admin.phoneCountryCode,
+              orderNumber: fullFoodOrder.orderNumber,
+              customerName: fullFoodOrder.customer.name ?? "Customer",
+              items: adminItems,
+              totalAmount: fullFoodOrder.totalAmount,
+              commissionAmount: fullFoodOrder.commissionAmount || 0
+            })
+          }
         }
+      } catch (emailErr) {
+        console.error("Failed to send food order placement emails:", emailErr)
       }
-    } catch (emailErr) {
-      console.error("Failed to send food order placement emails:", emailErr)
     }
 
     return NextResponse.json({
       success: true,
       message: "Order placed successfully",
-      data: result
+      data: result,
+      paymentMethod: requestedPaymentMethod,
+      ussdPromptSent,
+      afriTxnId,
+      messageDetail: pushMessage
     }, { status: 201 })
   } catch (error: any) {
     console.error("Mobile place food order error:", error)

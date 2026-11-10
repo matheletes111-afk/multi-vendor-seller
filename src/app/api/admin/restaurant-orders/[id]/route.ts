@@ -46,7 +46,8 @@ export async function GET(
                 phone: true,
                 phoneCountryCode: true
               }
-            }
+            },
+            bankDetails: true
           }
         },
         items: {
@@ -96,6 +97,18 @@ export async function GET(
       orderNumber: order.orderNumber,
       status: order.status,
       totalAmount: order.totalAmount,
+      subtotal: order.subtotal > 0 ? order.subtotal : order.totalAmount,
+      deliveryFee: (order as any).deliveryFee ?? 0,
+      commissionRate: (order as any).commissionRate ?? 10.0,
+      commissionAmount: (order as any).commissionAmount ?? 0,
+      sellerNetPayout: (order as any).sellerNetPayout ?? 0,
+      settlementStatus: (order as any).settlementStatus ?? "PENDING",
+      payoutDisbursedAt: (order as any).payoutDisbursedAt ? (order as any).payoutDisbursedAt.toISOString() : null,
+      payoutReference: (order as any).payoutReference || null,
+      paymentMethod: (order as any).paymentMethod ?? "COD",
+      paymentStatus: (order as any).paymentStatus ?? "PENDING",
+      afriTxnId: (order as any).afriTxnId || null,
+      paidAt: (order as any).paidAt ? (order as any).paidAt.toISOString() : null,
       createdAt: order.createdAt.toISOString(),
       deliveryFullName: order.deliveryFullName,
       deliveryPhone: order.deliveryPhone,
@@ -107,6 +120,7 @@ export async function GET(
       deliveryCountry: order.deliveryCountry,
       couponCode: order.couponCode,
       couponDiscount: order.couponDiscount,
+      restaurantSellerId: order.restaurantSellerId,
       customer: {
         name: order.customer.name || "Customer",
         email: order.customer.email,
@@ -117,7 +131,8 @@ export async function GET(
         ownerName: order.restaurantSeller.user.name || "Seller",
         email: order.restaurantSeller.user.email,
         phone: order.restaurantSeller.user.phone ? `${order.restaurantSeller.user.phoneCountryCode || ""}${order.restaurantSeller.user.phone}` : "N/A",
-        address: `${order.restaurantSeller.businessInfo?.street || ""}, ${order.restaurantSeller.businessInfo?.city || ""}, ${order.restaurantSeller.businessInfo?.state || ""}`
+        address: `${order.restaurantSeller.businessInfo?.street || ""}, ${order.restaurantSeller.businessInfo?.city || ""}, ${order.restaurantSeller.businessInfo?.state || ""}`,
+        bankDetails: order.restaurantSeller.bankDetails || null,
       },
       items
     }

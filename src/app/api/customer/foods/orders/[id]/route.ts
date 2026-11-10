@@ -1,20 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    let customerId: string | null = null
     const session = await auth()
-    if (!session || !session.user || session.user.role !== "CUSTOMER") {
+    if (session?.user?.id && session.user.role === "CUSTOMER") {
+      customerId = session.user.id
+    } else {
+      const mobileAuth = await getMobileCustomerAuth(request)
+      if (mobileAuth.ok) {
+        customerId = mobileAuth.userId
+      }
+    }
+
+    if (!customerId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
     const { id } = await params
     const order = await prisma.foodOrder.findFirst({
-      where: { id, customerId: session.user.id },
+      where: { id, customerId },
       include: {
         items: {
           include: {
@@ -50,8 +63,16 @@ export async function GET(
     const formatted = {
       id: order.id,
       orderNumber: order.orderNumber,
+      subtotal: order.subtotal,
+      deliveryFee: order.deliveryFee,
+      couponCode: order.couponCode,
+      couponDiscount: order.couponDiscount,
       totalAmount: order.totalAmount,
       status: order.status,
+      paymentMethod: order.paymentMethod ?? "COD",
+      paymentStatus: order.paymentStatus,
+      afriTxnId: order.afriTxnId,
+      paidAt: order.paidAt,
       createdAt: order.createdAt,
       deliveryFullName: order.deliveryFullName,
       deliveryPhone: order.deliveryPhone,
@@ -82,8 +103,6 @@ export async function GET(
           subtotal: i.subtotal
         }
       }),
-      couponCode: order.couponCode,
-      couponDiscount: order.couponDiscount,
     }
 
     return NextResponse.json({ success: true, data: formatted })

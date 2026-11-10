@@ -6,7 +6,7 @@ import { CheckCircle2, Package, Truck, ShieldCheck, Home, ArrowRight, MapPin, Re
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Badge } from "@/ui/badge"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, cn } from "@/lib/utils"
 import { useCart } from "@/app/cart/cart-context"
 
 export type SerializedOrder = {
@@ -15,6 +15,11 @@ export type SerializedOrder = {
   totalAmount: number
   paymentMethod: string
   paymentStatus: string
+  afriTxnId?: string | null
+  afriMsisdn?: string | null
+  paidAt?: string | null
+  couponCode?: string | null
+  couponDiscount?: number
   shippingFullName: string | null
   shippingCity: string | null
   shippingState: string | null
@@ -97,8 +102,18 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 px-3 py-1 font-bold text-xs">
                     <CreditCard className="w-3 h-3 mr-1 text-emerald-600 inline" />
-                    {order.paymentMethod === "COD" ? "Cash On Delivery" : order.paymentMethod}
+                    {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod === "COD" ? "Cash On Delivery" : order.paymentMethod)}
                   </Badge>
+                  {order.paymentStatus && (
+                    <Badge variant="outline" className={cn(
+                      "px-2.5 py-0.5 font-bold text-xs",
+                      order.paymentStatus === "COMPLETED" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+                      order.paymentStatus === "FAILED" ? "bg-rose-100 text-rose-800 border-rose-200" :
+                      "bg-amber-100 text-amber-800 border-amber-200"
+                    )}>
+                      {order.paymentStatus}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -185,6 +200,13 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                     )}
                   </span>
                 </div>
+
+                {Boolean(order.couponDiscount && order.couponDiscount > 0) && (
+                  <div className="flex justify-between pt-2 border-t border-slate-200/60 font-semibold text-emerald-700">
+                    <span>Coupon Discount {order.couponCode ? `(${order.couponCode})` : ""}</span>
+                    <span className="font-mono">-{formatCurrency(order.couponDiscount || 0)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Total & Delivery Address */}
@@ -216,6 +238,16 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                   <p className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
                     {formatCurrency(order.totalAmount)}
                   </p>
+                  {order.afriTxnId && (
+                    <p className="text-[11px] font-mono font-bold text-slate-600 pt-1">
+                      Txn ID: {order.afriTxnId}
+                    </p>
+                  )}
+                  {order.paidAt && (
+                    <p className="text-[10px] text-slate-500">
+                      Paid: {new Date(order.paidAt).toLocaleTimeString()}
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -29,6 +29,7 @@ import {
   Briefcase,
   Menu,
   BadgeDollarSign,
+  Banknote,
   ImageIcon,
   ShoppingCart,
   Star,
@@ -165,6 +166,7 @@ export function AdminLayoutClient({
         "reviews",
         "settings",
         "coupons",
+        "payouts",
         "seller-drip-campaigns",
       ]) || isSuper ? (
         <div>
@@ -174,6 +176,7 @@ export function AdminLayoutClient({
           <div className="space-y-0.5">
             <NavItem href="/admin" label="Dashboard" icon={<LayoutDashboard className="h-4 w-4" />} moduleKey="dashboard" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/all-sellers" label="All Sellers" icon={<Users className="h-4 w-4" />} moduleKey="all-sellers" isSuperAdmin={isSuper} permissions={permissions} />
+            <NavItem href="/admin/payouts" label="Seller Payouts" icon={<Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />} moduleKey="payouts" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/riders" label="Riders" icon={<Bike className="h-4 w-4" />} moduleKey="riders" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/riders/live-track" label="Live Tracking" icon={<Radio className="h-4 w-4 text-emerald-600 animate-pulse" />} moduleKey="riders" isSuperAdmin={isSuper} permissions={permissions} />
             <NavItem href="/admin/support" label="Support Tickets" icon={<LifeBuoy className="h-4 w-4" />} moduleKey="support" isSuperAdmin={isSuper} permissions={permissions} />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import type { OrderDetailApi, OrderDetailItemApi } from "../types"
@@ -8,23 +9,38 @@ import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-stat
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 
-/** GET /api/customer/orders/[id] — get one order for current customer. CUSTOMER only. */
+function maskPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null
+  const clean = phone.trim()
+  if (clean.length <= 4) return clean
+  return clean.slice(0, 3) + "***" + clean.slice(-3)
+}
+
+/** GET /api/customer/orders/[id] — get one order for current customer. CUSTOMER only (Web & Mobile). */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let customerId: string | null = null
   const session = await auth()
-  if (!session?.user?.id) {
+  if (session?.user?.id && session.user.role === UserRole.CUSTOMER) {
+    customerId = session.user.id
+  } else {
+    const mobileAuth = await getMobileCustomerAuth(request)
+    if (mobileAuth.ok) {
+      customerId = mobileAuth.userId
+    }
+  }
+
+  if (!customerId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  if (session.user.role !== UserRole.CUSTOMER) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+
   const { id: orderId } = await params
 
   const [order, globalSetting] = await Promise.all([
     prisma.order.findFirst({
-      where: { id: orderId, customerId: session.user.id },
+      where: { id: orderId, customerId },
       include: {
         seller: { include: { store: true } },
         deliveryAssignments: {
@@ -218,7 +234,6 @@ export async function GET(
       subtotal: number
       tax: number
       shipping: number
-      commission: number
       total: number
       statuses: import("@prisma/client").OrderStatus[]
       itemCount: number
@@ -233,7 +248,6 @@ export async function GET(
       subtotal: 0,
       tax: 0,
       shipping: 0,
-      commission: 0,
       total: 0,
       statuses: [],
       itemCount: 0,
@@ -241,7 +255,6 @@ export async function GET(
     current.subtotal += item.subtotal
     current.tax += item.gstAmount
     current.shipping += item.shippingAmount
-    current.commission += item.commissionAmount
     current.total += (item.subtotalInclGst ?? item.subtotal + item.gstAmount) + item.shippingAmount
     current.statuses.push(item.itemStatus)
     current.itemCount += 1
@@ -370,7 +383,6 @@ export async function GET(
         subtotal: group.subtotal,
         tax: group.tax,
         shipping: group.shipping,
-        commission: group.commission,
         total: group.total,
       },
       shippingBreakup: breakup,
@@ -420,6 +432,10 @@ export async function GET(
     },
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId,
+    afriFtxnId: order.afriFtxnId,
+    afriMsisdn: maskPhone(order.afriMsisdn),
+    paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,

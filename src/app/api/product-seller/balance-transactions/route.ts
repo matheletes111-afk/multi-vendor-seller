@@ -20,30 +20,30 @@ export async function GET() {
 
   const [rows, creditsAgg, debitsAgg] = await Promise.all([
     prisma.sellerBalanceTransaction.findMany({
-    where: { sellerId: seller.id },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: {
-      returnRequest: {
-        select: {
-          orderItem: {
-            select: {
-              productNameSnapshot: true,
-              serviceNameSnapshot: true,
-              order: { select: { id: true, orderNumber: true } },
+      where: { sellerId: seller.id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        returnRequest: {
+          select: {
+            orderItem: {
+              select: {
+                productNameSnapshot: true,
+                serviceNameSnapshot: true,
+                order: { select: { id: true, orderNumber: true } },
+              },
             },
           },
         },
-      },
-      orderItem: {
-        select: {
-          productNameSnapshot: true,
-          serviceNameSnapshot: true,
-          order: { select: { id: true, orderNumber: true } },
+        orderItem: {
+          select: {
+            productNameSnapshot: true,
+            serviceNameSnapshot: true,
+            order: { select: { id: true, orderNumber: true } },
+          },
         },
       },
-    },
-  }),
+    }),
     prisma.sellerBalanceTransaction.aggregate({
       where: { sellerId: seller.id, kind: "CREDIT" },
       _sum: { amount: true },
@@ -54,8 +54,27 @@ export async function GET() {
     }),
   ])
 
+  // Batch load any standalone orderIds that weren't linked via orderItem/returnRequest
+  const standaloneOrderIds = Array.from(
+    new Set(
+      rows
+        .filter((r) => r.orderId && !r.orderItem?.order && !r.returnRequest?.orderItem?.order)
+        .map((r) => r.orderId as string)
+    )
+  )
+
+  const standaloneOrders = standaloneOrderIds.length > 0
+    ? await prisma.order.findMany({
+        where: { id: { in: standaloneOrderIds } },
+        select: { id: true, orderNumber: true },
+      })
+    : []
+  const orderMap = new Map<string, { id: string; orderNumber: string }>()
+  standaloneOrders.forEach((o) => orderMap.set(o.id, o))
+
   const transactions = rows.map((r) => {
-    const order = r.returnRequest?.orderItem?.order ?? r.orderItem?.order
+    const standaloneOrder = r.orderId ? orderMap.get(r.orderId) : null
+    const order = r.returnRequest?.orderItem?.order ?? r.orderItem?.order ?? standaloneOrder
     const lineName =
       r.returnRequest?.orderItem?.productNameSnapshot ??
       r.returnRequest?.orderItem?.serviceNameSnapshot ??

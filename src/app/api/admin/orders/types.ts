@@ -78,6 +78,9 @@ export type AdminOrderDetailItemApi = {
   returnRequestStatus: "REQUESTED" | "ACCEPTED" | "REJECTED" | null
   pickupStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
   refundStatus: "NOT_REQUESTED" | "PENDING" | "COMPLETED" | null
+  settlementStatus?: string | null
+  payoutDisbursedAt?: string | null
+  payoutReference?: string | null
 }
 
 export type AdminOrderSellerGroupApi = {
@@ -94,6 +97,13 @@ export type AdminOrderSellerGroupApi = {
   derivedStatus: string
   itemCount: number
   isSelfDelivery?: boolean
+  sellerNetPayout?: number
+  sellerSector?: "PRODUCT" | "SERVICE"
+  settlementStatus?: string
+  payoutReference?: string | null
+  payoutAccountSnapshot?: string | null
+  payoutMethod?: string | null
+  hasPendingPayoutRequest?: boolean
 }
 
 export type AdminOrderListItemApi = {
@@ -105,6 +115,8 @@ export type AdminOrderListItemApi = {
   commissionRate: number
   paymentMethod: string | null
   paymentStatus: string
+  afriTxnId?: string | null
+  paidAt?: string | null
   createdAt: string
   customerName: string | null
   customerEmail: string | null
@@ -148,6 +160,8 @@ export type AdminOrderDetailApi = {
   commissionRate: number
   paymentMethod: string | null
   paymentStatus: string
+  afriTxnId?: string | null
+  paidAt?: string | null
   shippingFullName: string | null
   shippingPhone: string | null
   shippingAddressLine1: string | null

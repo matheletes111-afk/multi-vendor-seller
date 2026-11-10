@@ -6,6 +6,7 @@ import { sendHotelBookingConfirmationEmail, sendHotelNewBookingEmail, sendAdminN
 import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
+import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,7 +21,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { id: roomId } = await params
     const body = await request.json().catch(() => ({}))
-    const { checkIn, checkOut, numberOfRooms = 1, guestName, guestPhone, adults = 2, children = 0, couponCode } = body
+    const {
+      checkIn,
+      checkOut,
+      numberOfRooms = 1,
+      guestName,
+      guestPhone,
+      adults = 2,
+      children = 0,
+      couponCode,
+      paymentMethod,
+      payerMsisdn,
+    } = body
+
+    const requestedPaymentMethod = paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+    const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : (guestPhone ? String(guestPhone).trim() : "")
+
+    if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
+      return NextResponse.json({ success: false, error: "AfriMoney phone number (payerMsisdn) is required for AfriMoney payment" }, { status: 400 })
+    }
 
     if (!checkIn || !checkOut || !guestName || !guestPhone) {
       return NextResponse.json({ success: false, error: "Missing required booking details (check-in, check-out, guest name/phone)" }, { status: 400 })
@@ -126,6 +145,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const finalPrice = Math.max(0, totalPrice - couponDiscount)
 
+    const hotelSellerRec = await prisma.hotelSeller.findUnique({
+      where: { id: room.hotel.hotelSellerId },
+      select: { commissionRate: true },
+    })
+    const globalSetting = await prisma.globalSetting.findFirst().catch(() => null)
+    const defaultRate = globalSetting?.hotelBaseCommission ?? 10.0
+    const commRate = typeof hotelSellerRec?.commissionRate === "number" ? hotelSellerRec.commissionRate : defaultRate
+    const commAmount = Number(((totalPrice * commRate) / 100).toFixed(2))
+    const sellerNetPayout = Math.max(0, Number((totalPrice - commAmount).toFixed(2)))
+
     // Perform transaction to create booking and update/upsert RoomAvailability records
     const booking = await prisma.$transaction(async (tx) => {
       // Create the HotelBooking record
@@ -141,11 +170,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           numberOfRooms: roomsToBook,
           adults,
           children,
+          subtotal: totalPrice,
+          commissionRate: commRate,
+          commissionAmount: commAmount,
+          sellerNetPayout,
+          paymentMethod: requestedPaymentMethod,
+          paymentStatus: "PENDING",
+          settlementStatus: requestedPaymentMethod === "AFRIMONEY" ? "ESCROW_HELD" : "PENDING",
           totalPrice: finalPrice,
           couponId: coupon ? coupon.id : null,
           couponCode: coupon ? coupon.code : null,
           couponDiscount,
-          status: "CONFIRMED"
+          status: requestedPaymentMethod === "AFRIMONEY" ? "PENDING" : "CONFIRMED"
         },
         include: { room: { include: { hotel: true } } }
       })
@@ -160,8 +196,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
       }
 
-      // Credit the hotel seller balance & create ledger transaction
-      await creditHotelSellerForBooking(tx, newBooking.id)
+      // Only credit the hotel seller immediately if Cash on Delivery/Arrival
+      if (requestedPaymentMethod !== "AFRIMONEY") {
+        await creditHotelSellerForBooking(tx, newBooking.id)
+      }
 
       // Increment bookedCount for each date
       for (const date of stayDates) {
@@ -187,8 +225,70 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return newBooking
     })
 
-    // ── Send Email Notifications ───────────────────────────────────────────────
-    try {
+    let afriTxnId: string | undefined = undefined
+    let ussdPromptSent = false
+    let pushMessage = ""
+
+    if (requestedPaymentMethod === "AFRIMONEY") {
+      const externalRef = `HOTEL_${booking.id}`
+      try {
+        const pushResult = await initiateAfriMoneyPushUssd({
+          amount: booking.totalPrice,
+          payerMsisdn: payerPhone,
+          externalReferenceId: externalRef,
+          remarks: `Hotel Booking ${booking.id}`,
+        })
+
+        if (pushResult.success) {
+          ussdPromptSent = true
+          afriTxnId = pushResult.txnId
+          pushMessage = pushResult.message || "USSD push prompt sent to your phone. Please enter your AfriMoney PIN."
+          await prisma.hotelBooking.update({
+            where: { id: booking.id },
+            data: {
+              afriFtxnId: externalRef,
+              afriTxnId: pushResult.txnId || null,
+              afriMsisdn: payerPhone,
+            },
+          })
+        } else {
+          // Rollback availability & coupon
+          for (const date of stayDates) {
+            await prisma.roomAvailability.updateMany({
+              where: { roomId: room.id, date },
+              data: { bookedCount: { decrement: roomsToBook } },
+            }).catch(() => null)
+          }
+          await prisma.couponUsage.deleteMany({
+            where: { hotelBookingId: booking.id },
+          }).catch(() => null)
+          await prisma.hotelBooking.delete({ where: { id: booking.id } }).catch(() => null)
+          return NextResponse.json(
+            { success: false, error: pushResult.message || "Failed to initiate AfriMoney USSD payment. Please check your phone number and try again." },
+            { status: 400 }
+          )
+        }
+      } catch (pushErr: any) {
+        for (const date of stayDates) {
+          await prisma.roomAvailability.updateMany({
+            where: { roomId: room.id, date },
+            data: { bookedCount: { decrement: roomsToBook } },
+          }).catch(() => null)
+        }
+        await prisma.couponUsage.deleteMany({
+          where: { hotelBookingId: booking.id },
+        }).catch(() => null)
+        await prisma.hotelBooking.delete({ where: { id: booking.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: `AfriMoney connection error: ${pushErr?.message || "Payment service unavailable"}` },
+          { status: 502 }
+        )
+      }
+    }
+
+    // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
+    if (requestedPaymentMethod !== "AFRIMONEY") {
+      try {
       const customerUser = await prisma.user.findUnique({
         where: { id: session.user.id! },
         select: { email: true, name: true, phone: true, phoneCountryCode: true }
@@ -256,15 +356,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             customerName: customerUser.name ?? "Customer",
             items: adminItems,
             totalAmount: finalPrice,
-            commissionAmount: 0
+            commissionAmount: commAmount,
           })
         }
       }
     } catch (emailErr) {
       console.error("Failed to send hotel booking confirmation emails:", emailErr)
     }
+  }
 
-    return NextResponse.json({ success: true, message: "Booking confirmed successfully", data: booking })
+    return NextResponse.json({
+      success: true,
+      message: requestedPaymentMethod === "AFRIMONEY" ? "AfriMoney prompt sent" : "Booking confirmed successfully",
+      data: booking,
+      paymentMethod: requestedPaymentMethod,
+      ussdPromptSent,
+      afriTxnId,
+      promptMessage: pushMessage,
+    })
   } catch (error) {
     console.error("Booking error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

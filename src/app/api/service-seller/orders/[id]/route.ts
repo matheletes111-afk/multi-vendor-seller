@@ -101,6 +101,15 @@ export async function GET(
       serviceSlotStartTime: slot?.startTime ? slot.startTime.toISOString() : null,
       serviceSlotEndTime: slot?.endTime ? slot.endTime.toISOString() : null,
       deliveryProofImage: row.deliveryProofImage ?? null,
+      commissionAmount: row.commissionAmount ?? 0,
+      commissionRateSnapshot: row.commissionRateSnapshot ?? 0,
+      settlementStatus: row.settlementStatus || "PENDING",
+      payoutReference: row.payoutReference ?? null,
+      payoutMethod: row.payoutMethod ?? null,
+      payoutAccountSnapshot: row.payoutAccountSnapshot ?? null,
+      payoutNote: row.payoutNote ?? null,
+      payoutRequestedAt: row.payoutRequestedAt?.toISOString() ?? null,
+      payoutDisbursedAt: row.payoutDisbursedAt?.toISOString() ?? null,
       statusHistory: row.statusHistory.map((h) => ({
         status: h.status,
         location: h.location ?? null,
@@ -140,6 +149,9 @@ export async function GET(
     commissionRate: order.commissionRate,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    afriTxnId: order.afriTxnId,
+    afriFtxnId: order.afriFtxnId,
+    paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,
     shippingAddressLine1: order.shippingAddressLine1,
@@ -238,10 +250,10 @@ export async function PATCH(
       data:
         status === "DELIVERED"
           ? {
-              itemStatus: status as OrderStatus,
-              deliveredAt: new Date(),
-              deliveryProofImage,
-            }
+            itemStatus: status as OrderStatus,
+            deliveredAt: new Date(),
+            deliveryProofImage,
+          }
           : { itemStatus: status as OrderStatus },
     })
     await tx.orderItemStatusHistory.createMany({
@@ -256,8 +268,27 @@ export async function PATCH(
       for (const id of targetItemIds) {
         await applySellerCreditForOrderLineDelivered(tx, id)
       }
+
+      // Check if all items across order are delivered
+      const allItems = await tx.orderItem.findMany({
+        where: { orderId },
+        select: { itemStatus: true },
+      })
+      const allDelivered = allItems.every((i) =>
+        ["DELIVERED", "CANCELLED", "REFUNDED"].includes(i.itemStatus)
+      )
+      if (allDelivered) {
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: "DELIVERED", paymentStatus: "COMPLETED" },
+        })
+      }
     }
     if (status === "CANCELLED") {
+      await tx.orderItem.updateMany({
+        where: { id: { in: targetItemIds } },
+        data: { settlementStatus: "CANCELLED" },
+      })
       await releaseServiceSlotsForOrderItems(tx, targetItemIds)
     }
   })

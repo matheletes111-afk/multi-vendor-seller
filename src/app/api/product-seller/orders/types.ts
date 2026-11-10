@@ -45,6 +45,13 @@ export type SellerOrderDetailItemApi = {
   netPayout: number
   deliveryFeeDeducted: number
   deliveryFeeEarned: number
+  settlementStatus?: string
+  payoutReference?: string | null
+  payoutMethod?: string | null
+  payoutAccountSnapshot?: string | null
+  payoutNote?: string | null
+  payoutRequestedAt?: string | null
+  payoutDisbursedAt?: string | null
   statusHistory: {
     status: string
     location: string | null
@@ -94,6 +101,9 @@ export type SellerOrderDetailApi = {
   commissionRate: number
   paymentMethod: string | null
   paymentStatus: string
+  afriTxnId?: string | null
+  afriFtxnId?: string | null
+  paidAt?: string | null
   shippingFullName: string | null
   shippingPhone: string | null
   shippingAddressLine1: string | null

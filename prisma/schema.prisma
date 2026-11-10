@@ -559,6 +559,23 @@ model HotelBooking {
   couponId       String?
   couponCode     String?
   couponDiscount Float    @default(0)
+  subtotal               Float     @default(0)
+  commissionRate         Float     @default(10.0)
+  commissionAmount       Float     @default(0)
+  sellerNetPayout        Float     @default(0)
+  paymentMethod          String?   @default("COD") // "AFRIMONEY" | "COD"
+  paymentStatus          PaymentStatus @default(PENDING)
+  afriTxnId              String?
+  afriFtxnId             String?
+  afriMsisdn             String?
+  paidAt                 DateTime?
+  settlementStatus       String    @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_SELLER
+  payoutRequestedAt      DateTime?
+  payoutDisbursedAt      DateTime?
+  payoutReference        String?
+  payoutMethod           String?
+  payoutAccountSnapshot  String?
+  payoutNote             String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1472,7 +1489,11 @@ model Order {
   commission      Float         @default(0)
   commissionRate  Float         // Store the commission rate at time of order
   paymentStatus   PaymentStatus @default(PENDING)
-  paymentMethod   String?       // e.g. "COD", "STRIPE"
+  paymentMethod   String?       // e.g. "COD", "STRIPE", "AFRIMONEY"
+  afriTxnId            String?
+  afriFtxnId           String?
+  afriMsisdn           String?
+  paidAt               DateTime?
   shippingAddress Json?         // Legacy; prefer snapshot columns below
   shippingFullName    String?
   shippingPhone       String?
@@ -1519,6 +1540,13 @@ model OrderItem {
   gstAmount           Float    @default(0)
   subtotalInclGst     Float?   // subtotal + gstAmount
   itemStatus          OrderStatus @default(PENDING)
+  settlementStatus       String    @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_SELLER
+  payoutRequestedAt      DateTime?
+  payoutDisbursedAt      DateTime?
+  payoutReference        String?
+  payoutMethod           String?
+  payoutAccountSnapshot  String?
+  payoutNote             String?
   shippingAmount      Float    @default(0)
   commissionAmount    Float    @default(0)
   commissionRateSnapshot Float @default(0)
@@ -1797,6 +1825,24 @@ model FoodOrder {
   customerId          String
   restaurantSellerId  String
   status              OrderStatus     @default(PENDING) // uses the standard OrderStatus enum
+  subtotal            Float           @default(0)
+  deliveryFee         Float           @default(0)
+  commissionRate      Float           @default(10.0)
+  commissionAmount    Float           @default(0)
+  sellerNetPayout     Float           @default(0)
+  paymentMethod       String?         @default("COD") // "AFRIMONEY" | "COD"
+  paymentStatus       PaymentStatus   @default(PENDING)
+  afriTxnId           String?
+  afriFtxnId          String?
+  afriMsisdn          String?
+  paidAt              DateTime?
+  settlementStatus    String          @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_SELLER
+  payoutRequestedAt   DateTime?
+  payoutDisbursedAt   DateTime?
+  payoutReference     String?
+  payoutMethod        String?
+  payoutAccountSnapshot String?
+  payoutNote          String?
   totalAmount         Float
   deliveryFullName    String
   deliveryPhone       String
@@ -2028,11 +2074,15 @@ model Rider {
   lastLocationUpdate  DateTime?
   isOnline            Boolean      @default(true)
 
+  // Financial Wallet & Payouts (Matches Sellers)
+  netBalance          Decimal      @default(0.00) @db.Decimal(14, 2)
+
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
   user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveryAssignments RiderDeliveryAssignment[]
+  balanceTransactions RiderBalanceTransaction[]
 
   @@index([userId])
   @@index([status])
@@ -2094,16 +2144,46 @@ model RiderDeliveryAssignment {
   cancellationReason    String?
   adminNotes            String?
 
+  // Financial Settlement & Payout Tracking (Matches OrderItem)
+  settlementStatus      String                   @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_RIDER
+  deliveryFee           Float                    @default(0)
+  codAmountCollected    Float?                   // Cash collected from customer at doorstep if COD
+  payoutRequestedAt     DateTime?
+  payoutDisbursedAt     DateTime?
+  payoutReference       String?
+  payoutMethod          String?
+  payoutAccountSnapshot String?
+  payoutNote            String?
+
   // Relations
   order                 Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   rider                 Rider                    @relation(fields: [riderId], references: [id], onDelete: Cascade)
   seller                Seller                   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  balanceTransactions   RiderBalanceTransaction[]
 
   @@index([orderId])
   @@index([riderId])
   @@index([sellerId])
   @@index([status])
   @@map("rider_delivery_assignments")
+}
+
+model RiderBalanceTransaction {
+  id              String               @id @default(cuid())
+  riderId         String
+  amount          Decimal              @db.Decimal(14, 2)
+  kind            SellerBalanceTxnKind @default(DEBIT)
+  reason          String
+  assignmentId    String?
+  orderId         String?
+  note            String?
+  createdAt       DateTime             @default(now())
+
+  rider           Rider                @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  assignment      RiderDeliveryAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@index([riderId, createdAt])
+  @@map("rider_balance_transactions")
 }
 
 // ==========================================
@@ -2196,4 +2276,24 @@ model SecurityRateLimit {
   @@index([key])
   @@index([expireAt])
   @@map("security_rate_limits")
+}
+
+model SellerPayoutRequest {
+  id                     String    @id @default(cuid())
+  sellerSector           String    // "PRODUCT" | "SERVICE" | "HOTEL" | "RESTAURANT"
+  sellerId               String    // Seller.id / HotelSeller.id / RestaurantSeller.id
+  requestedAmount        Float     // Net balance at time of request
+  status                 String    @default("PENDING") // "PENDING" | "DISBURSED" | "REJECTED"
+  sellerNote             String?   // Optional seller note
+  payoutMethod           String?   // "AfriMoney" | "Orange Money" | "Bank Transfer"
+  payoutAccountSnapshot  String?   // Snapshot of recipient bank/mobile money
+  payoutReference        String?   // Transaction ID / Bank Ref
+  adminNote              String?   // Optional admin note
+  requestedAt            DateTime  @default(now())
+  disbursedAt            DateTime?
+  disbursedByAdminId     String?
+
+  @@index([sellerSector, sellerId])
+  @@index([status])
+  @@map("seller_payout_requests")
 }

@@ -25,12 +25,24 @@ export async function GET(
   const userId = authStatus.userId
   
   try {
-    const seller = await prisma.hotelSeller.findUnique({
-      where: { userId }
-    })
+    const [seller, globalSetting] = await Promise.all([
+      prisma.hotelSeller.findUnique({
+        where: { userId },
+        select: { id: true, commissionRate: true }
+      }),
+      (prisma as any).globalSetting.findFirst({
+        select: { baseCommission: true, hotelBaseCommission: true }
+      }) as Promise<{ baseCommission?: number; hotelBaseCommission?: number } | null>
+    ])
     if (!seller) {
       return NextResponse.json({ success: false, error: "Hotel Seller profile not found" }, { status: 404 })
     }
+
+    const defaultCommissionRate =
+      seller.commissionRate ??
+      globalSetting?.hotelBaseCommission ??
+      globalSetting?.baseCommission ??
+      10.0
 
     const booking = await prisma.hotelBooking.findUnique({
       where: { id: bookingId },
@@ -50,9 +62,20 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Unauthorized access to this booking" }, { status: 403 })
     }
 
+    const commissionRate = booking.commissionRate ?? defaultCommissionRate
+    const commissionAmount = booking.commissionAmount ?? Math.round(booking.totalPrice * (commissionRate / 100) * 100) / 100
+    const sellerNetPayout = booking.sellerNetPayout ?? Math.max(0, Math.round((booking.totalPrice - commissionAmount) * 100) / 100)
+    const settlementStatus = booking.settlementStatus ?? (booking.status === "COMPLETED" ? "YET_TO_PAY" : "ESCROW_HELD")
+
     return NextResponse.json({
       success: true,
-      data: booking
+      data: {
+        ...booking,
+        commissionRate,
+        commissionAmount,
+        sellerNetPayout,
+        settlementStatus,
+      }
     })
   } catch (error) {
     console.error("Error fetching mobile hotel booking detail:", error)
