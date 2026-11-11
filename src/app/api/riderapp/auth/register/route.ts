@@ -11,17 +11,18 @@ import { getAppBaseUrl, sendEmailVerificationSms } from "@/lib/twilio-sms"
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json().catch(() => ({}))
+    const { name, email, phone, phoneCountryCode, password, turnstileToken } = body
+
     // 🛡️ Security Guard: IP rate limit (3/min), Turnstile bot check & Phone cooldown
     const sec = await validateRequestSecurity(request, {
       action: "register",
       isMobile: false,
+      turnstileToken: turnstileToken || body["cf-turnstile-response"],
     })
     if (!sec.allowed) {
       return (sec.response || NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 })) as any
     }
-
-    const body = await request.json()
-    const { name, email, phone, phoneCountryCode, password } = body
 
     if (!name?.trim() || !password) {
       return NextResponse.json(

@@ -17,6 +17,7 @@ export function RiderForgotPasswordClient() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,17 +31,21 @@ export function RiderForgotPasswordClient() {
     try {
       const res = await fetch("/api/riderapp/auth/forgot-password/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify(
           isEmail
-            ? { email: raw.toLowerCase() }
-            : { phone: raw }
+            ? { email: raw.toLowerCase(), turnstileToken }
+            : { phone: raw, turnstileToken }
         ),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         throw new Error(data.error || "Failed to send reset OTP.")
       }
 
@@ -52,6 +57,7 @@ export function RiderForgotPasswordClient() {
         router.push(`/riderapp/reset-password?${queryParam}`)
       }, 1200)
     } catch (err: any) {
+      setTurnstileResetKey((k) => k + 1)
       setError(err.message || "An unexpected error occurred.")
       setLoading(false)
     }
@@ -119,6 +125,8 @@ export function RiderForgotPasswordClient() {
                 />
               </div>
             </div>
+
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
 
             <Button
               type="submit"

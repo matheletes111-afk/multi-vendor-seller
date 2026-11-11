@@ -33,6 +33,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,11 +42,15 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
     try {
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify({ email: email.trim(), turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         setError(data.error || "Failed to send OTP.")
         return
       }
@@ -55,6 +60,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
       })
       router.push(`${config.verifyPath}?${q.toString()}`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
@@ -85,7 +91,7 @@ export function EmailOtpLoginRequestForm({ config }: { config: EmailOtpLoginConf
               <Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label>
               <Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" />
             </div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[240px]">
                 <Mail className="mr-2 h-4 w-4" />

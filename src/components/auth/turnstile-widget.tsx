@@ -27,9 +27,10 @@ interface TurnstileWidgetProps {
   onVerify: (token: string) => void
   theme?: "light" | "dark" | "auto"
   className?: string
+  resetKey?: any
 }
 
-export function TurnstileWidget({ onVerify, theme = "auto", className = "" }: TurnstileWidgetProps) {
+export function TurnstileWidget({ onVerify, theme = "auto", className = "", resetKey }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
   const [scriptLoaded, setScriptLoaded] = useState(false)
@@ -101,6 +102,18 @@ export function TurnstileWidget({ onVerify, theme = "auto", className = "" }: Tu
       }
     }
   }, [scriptLoaded, siteKey, theme, onVerify])
+
+  // 3. Reset widget when resetKey changes
+  useEffect(() => {
+    if (resetKey !== undefined && widgetIdRef.current && window.turnstile) {
+      try {
+        window.turnstile.reset(widgetIdRef.current)
+        onVerify("")
+      } catch (err) {
+        console.warn("[Turnstile] Reset error:", err)
+      }
+    }
+  }, [resetKey])
 
   return (
     <div className={`flex justify-center my-3 min-h-[65px] ${className}`}>

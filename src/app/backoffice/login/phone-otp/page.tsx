@@ -9,6 +9,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { CountryCodeSelect } from "@/ui/country-code-select"
 import { AlertCircle, Smartphone, ArrowRight, RefreshCw, ArrowLeft } from "lucide-react"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 
 function BackofficePhoneOtpRequestForm() {
   const router = useRouter()
@@ -18,6 +19,8 @@ function BackofficePhoneOtpRequestForm() {
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,12 +47,16 @@ function BackofficePhoneOtpRequestForm() {
     try {
       const res = await fetch("/api/backoffice/auth/phone-otp/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: fullPhoneNumber }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
+        body: JSON.stringify({ phone: fullPhoneNumber, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         throw new Error(data.error || "Failed to dispatch SMS OTP.")
       }
 
@@ -59,6 +66,7 @@ function BackofficePhoneOtpRequestForm() {
       })
       router.push(`/backoffice/login/phone-otp/verify?${q.toString()}`)
     } catch (err: any) {
+      setTurnstileResetKey((k) => k + 1)
       setError(err.message || "Failed to send SMS OTP.")
     } finally {
       setLoading(false)
@@ -122,6 +130,8 @@ function BackofficePhoneOtpRequestForm() {
                 />
               </div>
             </div>
+
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} theme="dark" />
 
             <Button
               type="submit"

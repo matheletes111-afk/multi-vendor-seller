@@ -30,6 +30,7 @@ export default function HotelSellerRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,16 +45,26 @@ export default function HotelSellerRegistrationPage() {
     try {
       const res = await fetch("/api/hotel-seller/auth/registration", { 
         method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
+        headers: { 
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        }, 
         body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password, turnstileToken }) 
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || "Registration failed"); return }
+      if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
+        setError(data.error || "Registration failed")
+        return
+      }
       const nextQuery = email.trim()
         ? `email=${encodeURIComponent(email.trim())}`
         : `phone=${encodeURIComponent(phoneValidation.cleanedPhone || "")}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode || "")}`
       router.push(`/hotel-seller/verify-otp?${nextQuery}&from=registration`)
-    } catch { setError("An error occurred. Please try again.") } finally { setLoading(false) }
+    } catch {
+      setTurnstileResetKey((k) => k + 1)
+      setError("An error occurred. Please try again.")
+    } finally { setLoading(false) }
   }
 
   return (
@@ -114,7 +125,7 @@ export default function HotelSellerRegistrationPage() {
                 </button>
               </div>
             </div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
                 {loading ? "Creating account..." : "Create Account"}

@@ -36,6 +36,7 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,17 +63,22 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
     try {
       const res = await fetch(config.sendOtpApi, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify({ phone: fullPhoneNumber, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         setError(data.error || "Failed to send OTP.")
         return
       }
       const q = new URLSearchParams({ phone: fullPhoneNumber, callbackUrl })
       router.push(`${config.verifyPath}?${q.toString()}`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
@@ -124,7 +130,7 @@ export function PhoneOtpLoginRequestForm({ config }: { config: PhoneOtpLoginConf
                 />
               </div>
             </div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[240px]">
                 <Smartphone className="mr-2 h-4 w-4" />
