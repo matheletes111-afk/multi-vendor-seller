@@ -1490,9 +1490,25 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
             </CardHeader>
             <CardContent className="p-5 sm:p-6 lg:p-7 space-y-6 min-w-0">
               <div className="grid gap-6 min-w-0">
-                <div className="flex justify-between items-center p-4 bg-muted/30 rounded-2xl border border-muted-foreground/10 hover:bg-muted/40 transition-colors gap-2">
-                  <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 min-w-0">Checkout Method</span>
-                  <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80 shrink-0">{order.paymentMethod ?? "COD"}</span>
+                <div className="p-4 bg-muted/30 rounded-2xl border border-muted-foreground/10 hover:bg-muted/40 transition-colors space-y-2">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 min-w-0">Checkout Method</span>
+                    <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80 shrink-0">
+                      {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                    </span>
+                  </div>
+                  {order.afriTxnId && (
+                    <div className="flex justify-between items-center text-xs text-emerald-600 font-mono">
+                      <span>AfriMoney Txn:</span>
+                      <span className="font-bold">{order.afriTxnId}</span>
+                    </div>
+                  )}
+                  {order.flotOrderId && (
+                    <div className="flex justify-between items-center text-xs text-blue-600 font-mono">
+                      <span>Float Order ID:</span>
+                      <span className="font-bold">{order.flotOrderId}</span>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Customer Section */}
@@ -1847,7 +1863,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       const settlementStatus = firstItem?.settlementStatus || "PENDING"
                       const isPaidOut = settlementStatus === "PAID_OUT"
                       const isYetToPay = settlementStatus === "YET_TO_PAY"
-                      const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && order.paymentMethod === "AFRIMONEY")
+                      const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && (order.paymentMethod === "AFRIMONEY" || order.paymentMethod === "FLOAT"))
                       const isCodSeller = settlementStatus === "COD_COLLECTED_BY_SELLER"
 
                       return (

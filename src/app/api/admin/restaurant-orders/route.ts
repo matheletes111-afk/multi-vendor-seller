@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
         paymentMethod: (o as any).paymentMethod ?? "COD",
         paymentStatus: (o as any).paymentStatus ?? "PENDING",
         afriTxnId: (o as any).afriTxnId || null,
+        flotOrderId: (o as any).flotOrderId || null,
         paidAt: (o as any).paidAt ? (o as any).paidAt.toISOString() : null,
         specialInstructions: (o as any).specialInstructions ?? null,
         createdAt: o.createdAt.toISOString(),

@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       afriTxnId: order.afriTxnId ?? null,
+      flotOrderId: order.flotOrderId ?? null,
+      flotPaymentLink: order.flotPaymentLink ?? null,
       paidAt: order.paidAt ? order.paidAt.toISOString() : null,
       status: deriveOrderStatus(relevantItems.map((item) => item.itemStatus)),
       seller: {

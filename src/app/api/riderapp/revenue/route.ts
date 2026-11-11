@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
         statusCategory, // "DELIVERED" | "IN_PROGRESS"
         isDelivered,
         paymentMethod: a.order?.paymentMethod || "COD",
-        settlementStatus: a.settlementStatus || (isDelivered ? (a.order?.paymentMethod === "AFRIMONEY" ? "YET_TO_PAY" : "COD_COLLECTED_BY_RIDER") : "PENDING"),
+        settlementStatus: a.settlementStatus || (isDelivered ? ((a.order?.paymentMethod === "AFRIMONEY" || a.order?.paymentMethod === "FLOAT") ? "YET_TO_PAY" : "COD_COLLECTED_BY_RIDER") : "PENDING"),
         codAmountCollected: a.codAmountCollected || null,
         payoutDisbursedAt: a.payoutDisbursedAt || null,
         payoutReference: a.payoutReference || null,
@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
         0
       )
       const fee = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
-      const isPrepaid = a.order?.paymentMethod === "AFRIMONEY"
+      const isPrepaid = a.order?.paymentMethod === "AFRIMONEY" || a.order?.paymentMethod === "FLOAT"
 
       if (a.status === "DELIVERED") {
         totalDeliveredRevenue += fee

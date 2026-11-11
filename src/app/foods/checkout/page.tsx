@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil, Banknote, Loader2 } from "lucide-react"
+import { ShieldCheck, Plus, MapPin, Check, CreditCard, ShieldAlert, Pencil, Banknote, Loader2, ExternalLink, RefreshCw } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -113,7 +113,7 @@ function CheckoutContent() {
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY">("COD")
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
   const [afriPhone, setAfriPhone] = useState("")
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
@@ -124,14 +124,71 @@ function CheckoutContent() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [waitingForFloat, setWaitingForFloat] = useState(false)
+  const [floatPaymentInfo, setFloatPaymentInfo] = useState<{
+    orderId: string
+    orderNumber: string
+    paymentLink: string
+    flotOrderId: string
+  } | null>(null)
+  const [floatChecking, setFloatChecking] = useState(false)
+  const floatPollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
       }
+      if (floatPollIntervalRef.current) {
+        clearInterval(floatPollIntervalRef.current)
+        floatPollIntervalRef.current = null
+      }
     }
   }, [])
+
+  const handleCancelFloat = async (orderIdToCancel?: string) => {
+    if (floatPollIntervalRef.current) {
+      clearInterval(floatPollIntervalRef.current)
+      floatPollIntervalRef.current = null
+    }
+    setWaitingForFloat(false)
+    setSubmittingOrder(false)
+    const targetId = orderIdToCancel || floatPaymentInfo?.orderId
+    if (targetId) {
+      try {
+        await fetch(`/api/customer/foods/orders/${encodeURIComponent(targetId)}/cancel-pending`, {
+          method: "POST",
+        })
+      } catch (err) {
+        console.warn("Error cancelling pending food order:", err)
+      }
+    }
+  }
+
+  const handleCheckFloatStatus = async (orderId?: string) => {
+    const targetId = orderId || floatPaymentInfo?.orderId
+    if (!targetId) return
+    setFloatChecking(true)
+    try {
+      const verifyRes = await fetch(`/api/customer/foods/orders/${encodeURIComponent(targetId)}/verify-payment`)
+      const verifyData = await verifyRes.json()
+      if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+        if (floatPollIntervalRef.current) {
+          clearInterval(floatPollIntervalRef.current)
+          floatPollIntervalRef.current = null
+        }
+        if (!isSingleItem) {
+          localStorage.removeItem("meeem-food-cart")
+        }
+        router.push("/customer/food-orders")
+      }
+    } catch (err) {
+      console.warn("Float food order status check error:", err)
+    } finally {
+      setFloatChecking(false)
+    }
+  }
 
   const handleCancelAfriMoney = async (orderIdToCancel?: string) => {
     if (pollIntervalRef.current) {
@@ -443,6 +500,51 @@ function CheckoutContent() {
           return
         }
 
+        if (paymentMethod === "FLOAT" && orderData.flotPaymentLink) {
+          setWaitingForFloat(true)
+          setFloatPaymentInfo({
+            orderId: orderData.data.id,
+            orderNumber: orderData.data.orderNumber,
+            paymentLink: orderData.flotPaymentLink,
+            flotOrderId: orderData.flotOrderId || "",
+          })
+
+          window.open(orderData.flotPaymentLink, "_blank")
+
+          const orderId = orderData.data.id
+          let floatAttempts = 0
+          const maxFloatAttempts = 40 // 40 * 3s = 120s
+          if (floatPollIntervalRef.current) clearInterval(floatPollIntervalRef.current)
+          floatPollIntervalRef.current = setInterval(async () => {
+            floatAttempts++
+            try {
+              const verifyRes = await fetch(`/api/customer/foods/orders/${encodeURIComponent(orderId)}/verify-payment`)
+              const verifyData = await verifyRes.json()
+              if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+                if (floatPollIntervalRef.current) {
+                  clearInterval(floatPollIntervalRef.current)
+                  floatPollIntervalRef.current = null
+                }
+                if (!isSingleItem) {
+                  localStorage.removeItem("meeem-food-cart")
+                }
+                router.push("/customer/food-orders")
+                return
+              }
+            } catch (err) {
+              console.warn("Food order Float verification error:", err)
+            }
+
+            if (floatAttempts >= maxFloatAttempts) {
+              if (floatPollIntervalRef.current) {
+                clearInterval(floatPollIntervalRef.current)
+                floatPollIntervalRef.current = null
+              }
+            }
+          }, 3000)
+          return
+        }
+
         if (!isSingleItem) {
           localStorage.removeItem("meeem-food-cart")
         }
@@ -455,7 +557,7 @@ function CheckoutContent() {
       setErrorMessage("An unexpected error occurred.")
       console.error(error)
     } finally {
-      if (paymentMethod !== "AFRIMONEY") {
+      if (paymentMethod !== "AFRIMONEY" && paymentMethod !== "FLOAT") {
         setSubmittingOrder(false)
       }
     }
@@ -963,7 +1065,7 @@ function CheckoutContent() {
               {/* Payment Method Selector */}
               <div className="border-t border-slate-100 pt-3 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Method</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("COD")}
@@ -989,11 +1091,11 @@ function CheckoutContent() {
                     onClick={() => setPaymentMethod("AFRIMONEY")}
                     className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
                       paymentMethod === "AFRIMONEY"
-                        ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40"
+                        ? "border-orange-500 bg-orange-50/70 ring-2 ring-orange-400/40"
                         : "border-slate-200 bg-white hover:bg-slate-50"
                     }`}
                   >
-                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-amber-600 bg-amber-600" : "border-slate-300"}`}>
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-orange-600 bg-orange-600" : "border-slate-300"}`}>
                       {paymentMethod === "AFRIMONEY" && <div className="w-1 h-1 rounded-full bg-white" />}
                     </div>
                     <div>
@@ -1001,6 +1103,26 @@ function CheckoutContent() {
                         <span>📱</span> AfriMoney
                       </p>
                       <p className="text-[9px] text-slate-500">Instant Push USSD</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("FLOAT")}
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                      paymentMethod === "FLOAT"
+                        ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-400/40"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "FLOAT" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                      {paymentMethod === "FLOAT" && <div className="w-1 h-1 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        <CreditCard className="h-3 w-3 text-blue-600" /> Float Card
+                      </p>
+                      <p className="text-[9px] text-slate-500">Debit / Credit Card</p>
                     </div>
                   </button>
                 </div>
@@ -1019,6 +1141,18 @@ function CheckoutContent() {
                     />
                     <p className="text-[9px] text-amber-800">
                       You will receive an instant prompt on your phone to enter your PIN and approve payment.
+                    </p>
+                  </div>
+                )}
+
+                {paymentMethod === "FLOAT" && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-2.5 space-y-1 mt-2">
+                    <p className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
+                      <CreditCard className="h-3.5 w-3.5 text-blue-600" />
+                      Card Payment via Float
+                    </p>
+                    <p className="text-[10px] text-blue-800">
+                      Supports Visa, Mastercard, and bank cards. You will be redirected to Float secure checkout.
                     </p>
                   </div>
                 )}
@@ -1042,17 +1176,29 @@ function CheckoutContent() {
             <Button
               onClick={handlePlaceOrder}
               disabled={submittingOrder}
-              className="bg-amber-500 hover:bg-amber-600 text-amber-950 rounded-2xl font-black text-xs uppercase tracking-widest w-full h-12 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 border border-amber-600/10"
+              className={`rounded-2xl font-black text-xs uppercase tracking-widest w-full h-12 flex items-center justify-center gap-2 shadow-lg border ${
+                paymentMethod === "FLOAT"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 border-blue-700/20"
+                  : "bg-amber-500 hover:bg-amber-600 text-amber-950 shadow-amber-500/25 border-amber-600/10"
+              }`}
             >
               {submittingOrder ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {paymentMethod === "AFRIMONEY" ? "Sending Prompt..." : "Placing Order..."}
+                  {paymentMethod === "AFRIMONEY"
+                    ? "Sending Prompt..."
+                    : paymentMethod === "FLOAT"
+                    ? "Connecting to Float Card Gateway..."
+                    : "Placing Order..."}
                 </>
               ) : (
                 <>
                   <ShieldCheck className="h-4.5 w-4.5" />
-                  {paymentMethod === "AFRIMONEY" ? "Pay with AfriMoney" : "Confirm & Place Order (COD)"}
+                  {paymentMethod === "AFRIMONEY"
+                    ? "Pay with AfriMoney"
+                    : paymentMethod === "FLOAT"
+                    ? "Pay with Float (Card)"
+                    : "Confirm & Place Order (COD)"}
                 </>
               )}
             </Button>
@@ -1098,6 +1244,63 @@ function CheckoutContent() {
             >
               Cancel / Choose Another Method
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Float Hosted Checkout Waiting Modal */}
+      {waitingForFloat && floatPaymentInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto ring-8 ring-blue-50">
+              <CreditCard className="h-7 w-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Finish Payment with Float</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Food Order <span className="font-bold text-slate-800">#{floatPaymentInfo.orderNumber}</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
+              <p className="font-semibold">Complete your card payment in the Float secure portal.</p>
+              <p className="text-[11px] text-blue-800/90">
+                This page is automatically monitoring payment status and will confirm your food order once received.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <Button
+                type="button"
+                onClick={() => window.open(floatPaymentInfo.paymentLink, "_blank")}
+                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Re-open Float Payment Portal
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={floatChecking}
+                onClick={() => handleCheckFloatStatus()}
+                className="w-full h-11 rounded-xl text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${floatChecking ? "animate-spin" : ""}`} />
+                {floatChecking ? "Checking Status…" : "I Have Paid / Check Status"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCancelFloat()}
+                className="w-full rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100"
+              >
+                Cancel / Choose Another Method
+              </Button>
+            </div>
           </div>
         </div>
       )}

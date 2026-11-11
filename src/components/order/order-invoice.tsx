@@ -35,6 +35,11 @@ export interface InvoiceData {
   grandTotal: number
   couponCode?: string | null
   couponDiscount?: number
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  flotOrderId?: string | null
+  paidAt?: string | null
 }
 
 interface OrderInvoiceProps {
@@ -71,6 +76,22 @@ export function OrderInvoice({ data, isLast }: OrderInvoiceProps) {
         <div className="text-right space-y-1">
           <p className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Order ID</p>
           <p className="font-mono text-lg font-bold">#{data.orderNumber}</p>
+          {data.paymentMethod && (
+            <p className="text-xs text-slate-600">
+              <span className="font-bold">Payment:</span>{" "}
+              {data.paymentMethod === "FLOAT"
+                ? "Float (Card / Online)"
+                : data.paymentMethod === "AFRIMONEY"
+                ? "AfriMoney Mobile Money"
+                : "Cash on Delivery"}
+              {data.paymentStatus && ` (${data.paymentStatus})`}
+            </p>
+          )}
+          {(data.flotOrderId || data.afriTxnId) && (
+            <p className="font-mono text-[11px] text-slate-500">
+              Ref: {data.flotOrderId || data.afriTxnId}
+            </p>
+          )}
         </div>
       </div>
 

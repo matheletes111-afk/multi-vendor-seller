@@ -173,6 +173,12 @@ export async function GET(request: NextRequest) {
       },
       couponCode: order.couponCode,
       couponDiscount: sellerCouponDiscount,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      afriTxnId: order.afriTxnId ?? null,
+      flotOrderId: order.flotOrderId ?? null,
+      flotPaymentLink: order.flotPaymentLink ?? null,
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
       items: sellerItems.map(item => {
         const imageUrl = firstImageUrl(item.productVariant?.images) ?? firstImageUrl(item.product?.images) ?? firstImageUrl(item.service?.images) ?? null
         const lineGross = Number((item.subtotalInclGst ?? item.subtotal + item.gstAmount).toFixed(2))

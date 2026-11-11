@@ -7,6 +7,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
+import { createFlotPaymentLink } from "@/lib/flot"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,7 +32,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       payerMsisdn,
     } = body
 
-    const requestedPaymentMethod = paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+    const requestedPaymentMethod =
+      paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : paymentMethod === "FLOAT" ? "FLOAT" : "COD"
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : (guestPhone ? String(guestPhone).trim() : "")
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       // Only credit hotel seller immediately if cash on arrival
-      if (requestedPaymentMethod !== "AFRIMONEY") {
+      if (requestedPaymentMethod !== "AFRIMONEY" && requestedPaymentMethod !== "FLOAT") {
         await creditHotelSellerForBooking(tx, newBooking.id)
       }
 
@@ -280,8 +282,55 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
-    if (requestedPaymentMethod !== "AFRIMONEY") {
+    let flotPaymentLink: string | null = null
+    let flotOrderId: string | null = null
+    let flotInternalOrderId: string | null = null
+
+    if (requestedPaymentMethod === "FLOAT") {
+      const extOrderId = `HOTEL_${booking.id}`
+      try {
+        const flotRes = await createFlotPaymentLink({
+          orderId: extOrderId,
+          amount: booking.totalPrice,
+          type: "card",
+        })
+
+        if (flotRes.link) {
+          flotPaymentLink = flotRes.link
+          flotOrderId = extOrderId
+          flotInternalOrderId = flotRes.id || null
+
+          await prisma.hotelBooking.update({
+            where: { id: booking.id },
+            data: {
+              flotOrderId,
+              flotInternalOrderId,
+              flotPaymentLink,
+            },
+          })
+        } else {
+          throw new Error("No payment link received from Float payment gateway")
+        }
+      } catch (flotErr: any) {
+        for (const date of stayDates) {
+          await prisma.roomAvailability.updateMany({
+            where: { roomId: room.id, date },
+            data: { bookedCount: { decrement: roomsToBook } },
+          }).catch(() => null)
+        }
+        await prisma.couponUsage.deleteMany({
+          where: { hotelBookingId: booking.id },
+        }).catch(() => null)
+        await prisma.hotelBooking.delete({ where: { id: booking.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: `Float gateway error: ${flotErr?.message || "Could not generate payment link"}` },
+          { status: 502 }
+        )
+      }
+    }
+
+    // ── Send Email Notifications (Only for COD here; for AfriMoney and Float, sent upon payment confirmation)
+    if (requestedPaymentMethod !== "AFRIMONEY" && requestedPaymentMethod !== "FLOAT") {
       try {
       const customerUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -361,11 +410,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       success: true,
-      message: requestedPaymentMethod === "AFRIMONEY" ? "AfriMoney prompt sent" : "Booking confirmed successfully",
+      message:
+        requestedPaymentMethod === "AFRIMONEY"
+          ? "AfriMoney prompt sent"
+          : requestedPaymentMethod === "FLOAT"
+          ? "Float payment link created"
+          : "Booking confirmed successfully",
       data: booking,
       paymentMethod: requestedPaymentMethod,
       ussdPromptSent,
       afriTxnId,
+      flotPaymentLink,
+      flotOrderId,
       promptMessage: pushMessage,
     })
   } catch (error) {

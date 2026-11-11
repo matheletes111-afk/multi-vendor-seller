@@ -1,4 +1,4 @@
-import { signFlotPayload, getFlotPrivateKey, getFlotConfig } from "../src/lib/flot"
+import { signFlotPayload, getFlotPrivateKey, getFlotConfig, createFlotPaymentLink } from "../src/lib/flot"
 
 async function testSignature() {
   console.log("--- Testing Flot Configuration & RSA-PSS Signing ---")

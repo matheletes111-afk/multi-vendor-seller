@@ -7,6 +7,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
+import { createFlotPaymentLink } from "@/lib/flot"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -34,7 +35,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       payerMsisdn,
     } = body
 
-    const requestedPaymentMethod = paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+    const requestedPaymentMethod =
+      paymentMethod === "AFRIMONEY"
+        ? "AFRIMONEY"
+        : paymentMethod === "FLOAT"
+        ? "FLOAT"
+        : "COD"
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : (guestPhone ? String(guestPhone).trim() : "")
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -197,7 +203,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
 
       // Only credit the hotel seller immediately if Cash on Delivery/Arrival
-      if (requestedPaymentMethod !== "AFRIMONEY") {
+      if (requestedPaymentMethod !== "AFRIMONEY" && requestedPaymentMethod !== "FLOAT") {
         await creditHotelSellerForBooking(tx, newBooking.id)
       }
 
@@ -228,6 +234,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let afriTxnId: string | undefined = undefined
     let ussdPromptSent = false
     let pushMessage = ""
+    let flotPaymentLink: string | null = null
+    let flotOrderId: string | null = null
 
     if (requestedPaymentMethod === "AFRIMONEY") {
       const externalRef = `HOTEL_${booking.id}`
@@ -284,10 +292,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           { status: 502 }
         )
       }
+    } else if (requestedPaymentMethod === "FLOAT") {
+      const externalRef = `HOTEL_${booking.id}`
+      try {
+        const flotRes = await createFlotPaymentLink({
+          orderId: externalRef,
+          amount: booking.totalPrice,
+          currency: "SLE",
+          type: "card",
+        })
+
+        flotPaymentLink = flotRes.link
+        flotOrderId = externalRef
+
+        await prisma.hotelBooking.update({
+          where: { id: booking.id },
+          data: {
+            flotOrderId: externalRef,
+            flotInternalOrderId: flotRes.id,
+            flotPaymentLink: flotRes.link,
+            paymentMethod: "FLOAT",
+          },
+        })
+      } catch (flotErr: any) {
+        for (const date of stayDates) {
+          await prisma.roomAvailability.updateMany({
+            where: { roomId: room.id, date },
+            data: { bookedCount: { decrement: roomsToBook } },
+          }).catch(() => null)
+        }
+        await prisma.couponUsage.deleteMany({
+          where: { hotelBookingId: booking.id },
+        }).catch(() => null)
+        await prisma.hotelBooking.delete({ where: { id: booking.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: `Float payment initiation failed: ${flotErr?.message || "Payment service unavailable"}` },
+          { status: 502 }
+        )
+      }
     }
 
-    // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
-    if (requestedPaymentMethod !== "AFRIMONEY") {
+    // ── Send Email Notifications (Only for COD here; for online prepaid (AfriMoney & Float), sent upon payment confirmation)
+    if (requestedPaymentMethod === "COD") {
       try {
       const customerUser = await prisma.user.findUnique({
         where: { id: session.user.id! },
@@ -367,11 +413,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       success: true,
-      message: requestedPaymentMethod === "AFRIMONEY" ? "AfriMoney prompt sent" : "Booking confirmed successfully",
+      message:
+        requestedPaymentMethod === "AFRIMONEY"
+          ? "AfriMoney prompt sent"
+          : requestedPaymentMethod === "FLOAT"
+          ? "Float card payment link generated"
+          : "Booking confirmed successfully",
       data: booking,
       paymentMethod: requestedPaymentMethod,
       ussdPromptSent,
       afriTxnId,
+      flotPaymentLink,
+      flotOrderId,
       promptMessage: pushMessage,
     })
   } catch (error) {

@@ -749,9 +749,11 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                       <div className="space-y-1 min-w-0 flex-1">
                          <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 truncate">Payment Intelligence</p>
                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <p className="font-bold text-xs uppercase tracking-wider text-foreground shrink-0">{order.paymentMethod ?? "COD"}</p>
+                            <p className="font-bold text-xs uppercase tracking-wider text-foreground shrink-0">
+                              {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                            </p>
                             <span className="text-muted-foreground/30">•</span>
-                            <Badge variant="outline" className="text-[9px] h-5 px-2.5 font-bold uppercase tracking-wider border-primary/20 bg-primary/5 text-primary shrink-0">
+                            <Badge variant="outline" className={`text-[9px] h-5 px-2.5 font-bold uppercase tracking-wider shrink-0 ${order.paymentMethod === "FLOAT" ? "border-blue-500/20 bg-blue-500/5 text-blue-600" : "border-primary/20 bg-primary/5 text-primary"}`}>
                                {order.paymentStatus}
                             </Badge>
                          </div>
@@ -759,6 +761,18 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                             <div className="pt-1.5 space-y-0.5 text-[11px] font-semibold text-muted-foreground">
                               <p className="text-emerald-600 dark:text-emerald-400 font-mono">
                                 <span className="font-bold">AfriMoney Txn:</span> {order.afriTxnId}
+                              </p>
+                              {order.paidAt && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Paid: {formatDate(order.paidAt)}
+                                </p>
+                              )}
+                            </div>
+                         )}
+                         {order.flotOrderId && (
+                            <div className="pt-1.5 space-y-0.5 text-[11px] font-semibold text-muted-foreground">
+                              <p className="text-blue-600 dark:text-blue-400 font-mono">
+                                <span className="font-bold">Float Order ID:</span> {order.flotOrderId}
                               </p>
                               {order.paidAt && (
                                 <p className="text-[10px] text-muted-foreground">

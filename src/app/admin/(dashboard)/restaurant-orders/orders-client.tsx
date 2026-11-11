@@ -49,6 +49,9 @@ type FoodOrder = {
   itemsCount: number
   settlementStatus?: string
   paymentMethod?: string
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  flotOrderId?: string | null
   items: FoodOrderItem[]
 }
 
@@ -405,8 +408,23 @@ export function AdminRestaurantOrdersClient() {
                       <TableCell className="hidden sm:table-cell text-slate-400 text-xs font-bold tabular-nums">
                         {formatDate(order.createdAt)}
                       </TableCell>
-                      <TableCell className="text-right font-black text-slate-900 text-base tabular-nums">
-                        {formatCurrency(order.totalAmount)}
+                      <TableCell className="text-right tabular-nums">
+                        <div className="font-black text-slate-900 text-base">{formatCurrency(order.totalAmount)}</div>
+                        <div className="mt-1">
+                          {order.paymentMethod === "FLOAT" || order.flotOrderId ? (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                              💳 Float
+                            </span>
+                          ) : order.paymentMethod === "AFRIMONEY" || order.afriTxnId ? (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              📱 AfriMoney
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              💵 COD
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center space-y-1">
                         <Badge 

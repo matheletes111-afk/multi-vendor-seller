@@ -16,6 +16,7 @@ export type SerializedOrder = {
   paymentMethod: string
   paymentStatus: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   afriMsisdn?: string | null
   paidAt?: string | null
   couponCode?: string | null
@@ -100,9 +101,9 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 px-3 py-1 font-bold text-xs">
-                    <CreditCard className="w-3 h-3 mr-1 text-emerald-600 inline" />
-                    {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod === "COD" ? "Cash On Delivery" : order.paymentMethod)}
+                  <Badge variant="outline" className={`px-3 py-1 font-bold text-xs ${order.paymentMethod === "FLOAT" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                    <CreditCard className={`w-3 h-3 mr-1 inline ${order.paymentMethod === "FLOAT" ? "text-blue-600" : "text-emerald-600"}`} />
+                    {order.paymentMethod === "FLOAT" ? "Float (Card / Online)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod === "COD" ? "Cash On Delivery" : order.paymentMethod)}
                   </Badge>
                   {order.paymentStatus && (
                     <Badge variant="outline" className={cn(
@@ -241,6 +242,11 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                   {order.afriTxnId && (
                     <p className="text-[11px] font-mono font-bold text-slate-600 pt-1">
                       Txn ID: {order.afriTxnId}
+                    </p>
+                  )}
+                  {order.flotOrderId && (
+                    <p className="text-[11px] font-mono font-bold text-blue-600 pt-1">
+                      Float Order ID: {order.flotOrderId}
                     </p>
                   )}
                   {order.paidAt && (

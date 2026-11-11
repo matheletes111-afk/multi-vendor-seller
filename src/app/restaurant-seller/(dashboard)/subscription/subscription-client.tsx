@@ -8,7 +8,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { SellerCouponInput, AppliedSellerCoupon } from "@/components/seller/seller-coupon-input"
 import { SellerSubscriptionHistoryTable } from "@/components/seller/seller-subscription-history-table"
 import { SubscriptionPaymentDialog } from "@/components/subscription/subscription-payment-dialog"
-import { History, Layers, Zap } from "lucide-react"
+import { History, Layers, Zap, Smartphone, CreditCard } from "lucide-react"
 
 type Plan = {
   id: string
@@ -47,6 +47,7 @@ export function RestaurantSubscriptionClient() {
   const [appliedCoupons, setAppliedCoupons] = useState<Record<string, AppliedSellerCoupon | null>>({})
   const [activeTab, setActiveTab] = useState<"plans" | "history">("plans")
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<Plan | null>(null)
+  const [selectedMethodForPayment, setSelectedMethodForPayment] = useState<"AFRIMONEY" | "FLOAT">("AFRIMONEY")
 
   const loadData = useCallback(async () => {
     try {
@@ -73,8 +74,9 @@ export function RestaurantSubscriptionClient() {
     loadData()
   }, [loadData])
 
-  const handleOpenPayment = (plan: Plan) => {
+  const handleOpenPayment = (plan: Plan, method: "AFRIMONEY" | "FLOAT" = "AFRIMONEY") => {
     if (plan.price <= 0) return
+    setSelectedMethodForPayment(method)
     setSelectedPlanForPayment(plan)
   }
 
@@ -217,22 +219,28 @@ export function RestaurantSubscriptionClient() {
                         <div className="w-full h-12 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px] flex items-center justify-center px-3 text-center select-none">
                           {isCurrent ? "Active Free Trial (1-Time Only)" : "1-Time Trial (On Approval Only)"}
                         </div>
-                      ) : isCurrent ? (
-                        <Button
-                          className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center justify-center gap-2"
-                          onClick={() => handleOpenPayment(plan)}
-                        >
-                          <Zap className="w-3.5 h-3.5" />
-                          Extend / Queue Pack
-                        </Button>
                       ) : (
-                        <Button
-                          className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-xs bg-slate-900 text-white hover:bg-slate-800 flex items-center justify-center gap-2"
-                          onClick={() => handleOpenPayment(plan)}
-                        >
-                          <Zap className="w-3.5 h-3.5" />
-                          {subscription ? "Switch / Recharge" : "Recharge Now"}
-                        </Button>
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">
+                            {isCurrent ? "Extend / Queue Pack" : subscription ? "Switch / Recharge" : "Select Payment Method"}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              className="h-11 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-orange-600 hover:bg-orange-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+                              onClick={() => handleOpenPayment(plan, "AFRIMONEY")}
+                            >
+                              <Smartphone className="w-3.5 h-3.5" />
+                              AfriMoney
+                            </Button>
+                            <Button
+                              className="h-11 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+                              onClick={() => handleOpenPayment(plan, "FLOAT")}
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              Float Card
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -243,12 +251,13 @@ export function RestaurantSubscriptionClient() {
         </>
       )}
 
-      {/* AfriMoney Push USSD Subscription Payment Dialog */}
+      {/* Subscription Payment Dialog */}
       <SubscriptionPaymentDialog
         open={!!selectedPlanForPayment}
         onOpenChange={(open) => !open && setSelectedPlanForPayment(null)}
         plan={selectedPlanForPayment}
         sellerType="RESTAURANT"
+        initialMethod={selectedMethodForPayment}
         currentSubscription={subscription}
         appliedCoupon={selectedPlanForPayment ? appliedCoupons[selectedPlanForPayment.id] : null}
         onSuccess={() => {

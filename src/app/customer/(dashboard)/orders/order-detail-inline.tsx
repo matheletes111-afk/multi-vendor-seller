@@ -865,6 +865,26 @@ export function OrderDetailInline({
               )}
             </span>
           </div>
+          <div className="border-t border-gray-100 pt-3 space-y-1.5 text-xs text-gray-600">
+            <div className="flex justify-between items-center">
+              <span>Payment Method:</span>
+              <span className="font-bold text-gray-800">
+                {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+              </span>
+            </div>
+            {order.afriTxnId && (
+              <div className="flex justify-between items-center text-slate-500 font-mono">
+                <span>AfriMoney Txn ID:</span>
+                <span className="font-bold text-slate-700">{order.afriTxnId}</span>
+              </div>
+            )}
+            {order.flotOrderId && (
+              <div className="flex justify-between items-center text-blue-600 font-mono">
+                <span>Float Order ID:</span>
+                <span className="font-bold">{order.flotOrderId}</span>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

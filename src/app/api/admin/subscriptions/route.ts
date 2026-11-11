@@ -353,6 +353,9 @@ export async function GET(request: NextRequest) {
         couponCode,
         couponDiscount,
         finalPaidAmount,
+        paymentMethod: s.paymentMethod || matchedPurchase?.paymentMethod || "AFRIMONEY",
+        flotOrderId: s.flotOrderId || matchedPurchase?.flotOrderId || null,
+        flotPaymentLink: s.flotPaymentLink || matchedPurchase?.flotPaymentLink || null,
       }
     })
 

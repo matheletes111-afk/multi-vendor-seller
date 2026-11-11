@@ -413,6 +413,7 @@ export async function GET(
     paymentStatus: order.paymentStatus,
     afriTxnId: order.afriTxnId,
     afriFtxnId: order.afriFtxnId,
+    flotOrderId: order.flotOrderId,
     paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,

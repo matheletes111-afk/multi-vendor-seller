@@ -72,6 +72,8 @@ export async function GET(request: NextRequest) {
       paymentMethod: b.paymentMethod ?? "COD",
       paymentStatus: b.paymentStatus,
       afriTxnId: b.afriTxnId,
+      flotOrderId: b.flotOrderId ?? null,
+      flotPaymentLink: b.flotPaymentLink ?? null,
       paidAt: b.paidAt,
       createdAt: b.createdAt,
       room: b.room,

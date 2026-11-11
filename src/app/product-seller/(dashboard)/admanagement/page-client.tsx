@@ -48,6 +48,7 @@ type Ad = {
   product: { id: string; name: string; slug: string } | null
   rejectionReason: string | null
   paymentStatus?: "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED" | string
+  paymentMethod?: string | null
   payableAmount?: number
   flotPaymentLink?: string | null
   flotOrderId?: string | null
@@ -246,7 +247,7 @@ export function ProductSellerAdmanagementPageClient() {
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           {statusBadge(ad)}
-                          <PaymentStatusBadge status={ad.paymentStatus} />
+                          <PaymentStatusBadge status={ad.paymentStatus} paymentMethod={ad.paymentMethod} />
                         </div>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground whitespace-nowrap">

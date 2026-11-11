@@ -41,6 +41,7 @@ type Ad = {
   creativeUrl: string
   status: string
   paymentStatus?: string
+  paymentMethod?: string | null
   flotPaymentLink?: string | null
   totalBudget: number
   spentAmount: number
@@ -237,7 +238,7 @@ export function HotelSellerAdmanagementPageClient() {
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           {statusBadge(ad)}
-                          <PaymentStatusBadge status={ad.paymentStatus} />
+                          <PaymentStatusBadge status={ad.paymentStatus} paymentMethod={ad.paymentMethod} />
                         </div>
                       </TableCell>
                       <TableCell className="hidden xl:table-cell text-xs text-muted-foreground whitespace-nowrap">

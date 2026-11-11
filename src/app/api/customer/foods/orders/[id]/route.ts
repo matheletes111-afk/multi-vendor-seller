@@ -72,6 +72,8 @@ export async function GET(
       paymentMethod: order.paymentMethod ?? "COD",
       paymentStatus: order.paymentStatus,
       afriTxnId: order.afriTxnId,
+      flotOrderId: order.flotOrderId,
+      flotPaymentLink: order.flotPaymentLink,
       paidAt: order.paidAt,
       createdAt: order.createdAt,
       deliveryFullName: order.deliveryFullName,

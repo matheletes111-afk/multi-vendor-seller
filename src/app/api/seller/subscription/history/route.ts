@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
           paidAt: p.paidAt,
           planSnapshot: snapshot,
           status: p.status,
-          provider: p.paymentMethod?.toLowerCase() || "afrimoney",
+          provider: p.paymentMethod?.toLowerCase() || (p.flotOrderId ? "float" : "afrimoney"),
           paymentMethod: p.paymentMethod,
           afriTxnId: p.afriTxnId || null,
           afriFtxnId: p.afriFtxnId || null,
@@ -172,6 +172,8 @@ export async function GET(request: NextRequest) {
         couponDiscount: q.discountAmount || 0,
         paymentMethod: q.paymentMethod,
         afriTxnId: q.afriTxnId,
+        flotOrderId: q.flotOrderId ?? null,
+        paidAt: q.paidAt,
       })),
       currentSubscription: currentSub ? {
         id: currentSub.id,

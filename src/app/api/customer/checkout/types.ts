@@ -37,6 +37,13 @@ export type PlaceOrderResponse =
       success: true
       orderIds: string[]
       orders: PlaceOrderOrderSummary[]
+      paymentMethod?: string
+      ussdPromptSent?: boolean
+      afriTxnId?: string
+      flotPaymentLink?: string | null
+      flotOrderId?: string | null
+      message?: string
+      shippingBreakup?: any
       error?: undefined
     }
   | {

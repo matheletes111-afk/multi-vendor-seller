@@ -48,7 +48,7 @@ export async function creditRestaurantSellerForDelivery(
     ? order.sellerNetPayout
     : Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100)
 
-  const isPrepaid = order.paymentMethod === "AFRIMONEY"
+  const isPrepaid = order.paymentMethod === "AFRIMONEY" || order.paymentMethod === "FLOAT"
   const newSettlementStatus = isPrepaid ? "YET_TO_PAY" : "COD_COLLECTED_BY_SELLER"
 
   await tx.foodOrder.update({

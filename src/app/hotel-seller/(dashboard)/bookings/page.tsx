@@ -18,6 +18,9 @@ type Booking = {
   numberOfRooms: number
   adults: number
   children: number
+  subtotal?: number | null
+  couponCode?: string | null
+  couponDiscount?: number | null
   totalPrice: number
   commissionRate?: number
   commissionAmount?: number
@@ -26,6 +29,7 @@ type Booking = {
   paymentMethod?: string | null
   paymentStatus?: string | null
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   payoutReference?: string | null
   payoutDisbursedAt?: string | null
@@ -250,8 +254,23 @@ function HotelSellerBookingsClient() {
                     <td className="px-6 py-4 text-center font-bold text-slate-800">
                       {booking.numberOfRooms}
                     </td>
-                    <td className="px-6 py-4 text-slate-900 font-black">
-                      {formatCurrency(booking.totalPrice)}
+                    <td className="px-6 py-4">
+                      <p className="text-slate-900 font-black">{formatCurrency(booking.totalPrice)}</p>
+                      <div className="mt-1">
+                        {booking.paymentMethod === "FLOAT" || booking.flotOrderId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            💳 Float
+                          </span>
+                        ) : booking.paymentMethod === "AFRIMONEY" || booking.afriTxnId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            📱 AfriMoney
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            💵 Pay at Hotel
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-amber-700 text-xs font-bold">-{formatCurrency(booking.commissionAmount ?? 0)}</p>
@@ -387,17 +406,23 @@ function HotelSellerBookingsClient() {
                 <div className="flex justify-between text-xs">
                   <span>Payment Method:</span>
                   <span className="font-bold text-slate-900">
-                    {selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Cash on Arrival")}
+                    {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float (Card)" : selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Cash on Arrival")}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span>Payment Status:</span>
-                  <span className="font-bold text-slate-900 uppercase">{selectedBooking.paymentStatus || "PENDING"}</span>
+                  <span className={`font-bold uppercase ${selectedBooking.paymentMethod === "FLOAT" ? "text-blue-600" : "text-slate-900"}`}>{selectedBooking.paymentStatus || "PENDING"}</span>
                 </div>
                 {selectedBooking.afriTxnId && (
                   <div className="flex justify-between text-xs text-slate-500 font-mono">
                     <span>AfriMoney Txn ID:</span>
                     <span>{selectedBooking.afriTxnId}</span>
+                  </div>
+                )}
+                {selectedBooking.flotOrderId && (
+                  <div className="flex justify-between text-xs text-blue-600 font-mono bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+                    <span>Float Order ID:</span>
+                    <span>{selectedBooking.flotOrderId}</span>
                   </div>
                 )}
                 {selectedBooking.paidAt && (
@@ -406,7 +431,19 @@ function HotelSellerBookingsClient() {
                     <span>{new Date(selectedBooking.paidAt).toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xs pt-1 border-t border-slate-100">
+                {selectedBooking.subtotal != null && selectedBooking.couponDiscount && Number(selectedBooking.couponDiscount) > 0 ? (
+                  <>
+                    <div className="flex justify-between text-xs pt-1 border-t border-slate-100">
+                      <span>Room Subtotal:</span>
+                      <span className="font-semibold text-slate-800">{formatCurrency(Number(selectedBooking.subtotal))}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-emerald-600">
+                      <span>Coupon Discount {selectedBooking.couponCode ? `(${selectedBooking.couponCode})` : ""}:</span>
+                      <span className="font-semibold">-{formatCurrency(Number(selectedBooking.couponDiscount))}</span>
+                    </div>
+                  </>
+                ) : null}
+                <div className={`flex justify-between text-xs pt-1 ${selectedBooking.couponDiscount && Number(selectedBooking.couponDiscount) > 0 ? "" : "border-t border-slate-100"}`}>
                   <span>Gross Booking Value:</span>
                   <span className="font-bold text-slate-900">{formatCurrency(selectedBooking.totalPrice)}</span>
                 </div>

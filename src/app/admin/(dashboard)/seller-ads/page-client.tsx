@@ -511,12 +511,19 @@ export function AdminSellerAdsPageClient() {
 
                           if (isFlot) {
                             return (
-                              <span
-                                className="text-[9px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded inline-flex items-center gap-1 cursor-help"
-                                title={ad.flotOrderId ? `Float Order: ${ad.flotOrderId}` : "Float"}
-                              >
-                                <span>💳</span> Float
-                              </span>
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className="text-[9px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded inline-flex items-center gap-1 cursor-help"
+                                  title={ad.flotOrderId ? `Float Order: ${ad.flotOrderId}` : "Float"}
+                                >
+                                  <span>💳</span> Float
+                                </span>
+                                {ad.flotOrderId && (
+                                  <span className="text-[9px] font-mono text-slate-400 truncate max-w-[120px]" title={ad.flotOrderId}>
+                                    {ad.flotOrderId}
+                                  </span>
+                                )}
+                              </div>
                             );
                           }
 

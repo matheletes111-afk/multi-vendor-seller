@@ -1077,7 +1077,7 @@ export async function handleRiderStatusUpdate(
         )
         const deliveryFee = itemsShippingSum > 0 ? itemsShippingSum : Number(assignment.order?.shipping || 0)
 
-        const isPrepaid = assignment.order?.paymentMethod === "AFRIMONEY"
+        const isPrepaid = assignment.order?.paymentMethod === "AFRIMONEY" || assignment.order?.paymentMethod === "FLOAT"
         const itemsSubtotalSum = assignedItems.reduce(
           (sum, item) => sum + (Number(item.subtotalInclGst || item.subtotal) || 0),
           0

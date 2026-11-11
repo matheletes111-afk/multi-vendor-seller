@@ -484,6 +484,7 @@ export function PayNowButton({
   className = "",
 }: PayNowButtonProps) {
   const [open, setOpen] = useState(false)
+  const [initialTab, setInitialTab] = useState<"afrimoney" | "flot">("afrimoney")
   const [flotVerifying, setFlotVerifying] = useState(false)
 
   if (paymentStatus === "COMPLETED") {
@@ -528,11 +529,27 @@ export function PayNowButton({
         <Button
           size={size}
           variant="default"
-          onClick={() => setOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-sm h-8 px-2.5"
+          onClick={() => {
+            setInitialTab("afrimoney")
+            setOpen(true)
+          }}
+          className="bg-orange-600 hover:bg-orange-700 text-white font-medium text-xs shadow-sm h-8 px-2.5 rounded-lg flex items-center gap-1"
         >
-          <CreditCard className="w-3.5 h-3.5 mr-1" />
-          Pay Now
+          <Smartphone className="w-3.5 h-3.5" />
+          Pay with AfriMoney
+        </Button>
+
+        <Button
+          size={size}
+          variant="default"
+          onClick={() => {
+            setInitialTab("flot")
+            setOpen(true)
+          }}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-sm h-8 px-2.5 rounded-lg flex items-center gap-1"
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          Pay with Float
         </Button>
 
         <Button
@@ -556,6 +573,7 @@ export function PayNowButton({
         adTitle={adTitle}
         amount={amount}
         flotPaymentLink={flotPaymentLink}
+        initialTab={initialTab}
         onSuccess={onStatusChanged}
       />
     </>

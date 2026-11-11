@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { queryAfriMoneyTransaction } from "@/lib/afrimoney"
+import { verifyFlotPaymentAttempt } from "@/lib/flot"
 import { creditHotelSellerForBooking } from "@/lib/hotel-ledger"
 
 export const dynamic = "force-dynamic"
@@ -39,6 +40,9 @@ export async function GET(
       status: booking.status,
       paidAt: booking.paidAt,
       afriTxnId: booking.afriTxnId,
+      flotOrderId: booking.flotOrderId,
+      paymentMethod: booking.paymentMethod,
+      data: booking,
     })
   }
 
@@ -116,6 +120,55 @@ export async function GET(
       }
     } catch (queryErr) {
       console.warn("[Mobile Verify Payment] AfriMoney transaction query error:", queryErr)
+    }
+  }
+
+  // Active query to Float gateway if Float identifiers exist
+  if (booking.flotOrderId && booking.flotInternalOrderId) {
+    try {
+      const attempt = await verifyFlotPaymentAttempt({
+        externalOrderId: booking.flotOrderId,
+        internalOrderId: booking.flotInternalOrderId,
+      })
+
+      if (attempt?.status === "completed") {
+        const updatedBooking = await prisma.hotelBooking.update({
+          where: { id: booking.id },
+          data: {
+            paymentStatus: "COMPLETED",
+            paymentMethod: "FLOAT",
+            status: "CONFIRMED",
+            settlementStatus: "ESCROW_HELD",
+            paidAt: new Date(),
+          },
+        })
+
+        // Ledger credit upon verified booking
+        await creditHotelSellerForBooking(prisma, booking.id).catch((err) =>
+          console.error("Error crediting hotel seller:", err)
+        )
+
+        return NextResponse.json({
+          success: true,
+          paymentStatus: "COMPLETED",
+          status: "CONFIRMED",
+          paidAt: updatedBooking.paidAt,
+          paymentMethod: "FLOAT",
+          flotOrderId: booking.flotOrderId,
+          data: updatedBooking,
+        })
+      } else if (attempt?.status === "failed") {
+        return NextResponse.json({
+          success: false,
+          paymentStatus: "FAILED",
+          status: booking.status,
+          flotOrderId: booking.flotOrderId,
+          paymentMethod: "FLOAT",
+          message: "Float card payment attempt was unsuccessful. You may retry or choose another payment method.",
+        })
+      }
+    } catch (flotQueryErr) {
+      console.warn("[Mobile Hotel Verify Payment] Float attempt query error:", flotQueryErr)
     }
   }
 

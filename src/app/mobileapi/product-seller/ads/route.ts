@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
         targetAudience: formData.get("targetAudience") ? parseInt(formData.get("targetAudience") as string) : undefined,
         expandAudience: formData.get("expandAudience") === "on" || formData.get("expandAudience") === "true",
         couponCode: (formData.get("couponCode") as string) || undefined,
+        paymentMethod: (formData.get("paymentMethod") as string) || undefined,
       }
     } else {
       body = await request.json()
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
         totalBudget,
         payableAmount,
         paymentStatus: payableAmount <= 0 ? "COMPLETED" : "PENDING",
-        paymentMethod: payableAmount <= 0 ? "COUPON_100_PERCENT" : "AFRIMONEY",
+        paymentMethod: payableAmount <= 0 ? "COUPON_100_PERCENT" : (String(body.paymentMethod || "").toUpperCase() === "FLOAT" ? "FLOAT" : "AFRIMONEY"),
         paidAt: payableAmount <= 0 ? new Date() : null,
         spentAmount: 0,
         maxCpc,
@@ -247,6 +248,17 @@ export async function POST(request: NextRequest) {
         expandAudience: Boolean(body.expandAudience),
       }
     })
+
+    let paymentUrl: string | null = null
+    let flotOrderId: string | null = null
+    if (ad.paymentMethod === "FLOAT" && payableAmount > 0) {
+      const { refreshAdPaymentLink } = await import("@/lib/ad-payment")
+      const flotRes = await refreshAdPaymentLink(ad.id).catch(() => null)
+      if (flotRes?.paymentUrl) {
+        paymentUrl = flotRes.paymentUrl
+        flotOrderId = flotRes.ad?.flotOrderId || null
+      }
+    }
 
     if (validatedCoupon) {
       const { recordSellerCouponUsage } = await import("@/lib/coupons")
@@ -261,6 +273,8 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         ...ad,
+        paymentUrl,
+        flotOrderId,
         payableAmount,
         couponDiscount,
         couponCode: validatedCoupon?.code || null,

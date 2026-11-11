@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { queryAfriMoneyTransaction } from "@/lib/afrimoney"
+import { verifyFlotPaymentAttempt } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -36,6 +37,8 @@ export async function GET(
       status: foodOrder.status,
       paidAt: foodOrder.paidAt,
       afriTxnId: foodOrder.afriTxnId,
+      flotOrderId: foodOrder.flotOrderId,
+      paymentMethod: foodOrder.paymentMethod,
     })
   }
 
@@ -89,6 +92,47 @@ export async function GET(
       }
     } catch (queryErr) {
       console.warn("[Mobile Verify Payment] AfriMoney transaction query error:", queryErr)
+    }
+  }
+
+  // Active query to Float gateway if Float identifiers exist
+  if (foodOrder.flotOrderId && foodOrder.flotInternalOrderId) {
+    try {
+      const attempt = await verifyFlotPaymentAttempt({
+        externalOrderId: foodOrder.flotOrderId,
+        internalOrderId: foodOrder.flotInternalOrderId,
+      })
+
+      if (attempt?.status === "completed") {
+        await prisma.foodOrder.update({
+          where: { id: foodOrder.id },
+          data: {
+            paymentStatus: "COMPLETED",
+            paymentMethod: "FLOAT",
+            status: "CONFIRMED",
+            settlementStatus: "ESCROW_HELD",
+            paidAt: new Date(),
+          },
+        })
+
+        return NextResponse.json({
+          success: true,
+          paymentStatus: "COMPLETED",
+          status: "CONFIRMED",
+          paidAt: new Date(),
+          paymentMethod: "FLOAT",
+          flotOrderId: foodOrder.flotOrderId,
+        })
+      } else if (attempt?.status === "failed") {
+        return NextResponse.json({
+          success: false,
+          paymentStatus: "FAILED",
+          status: foodOrder.status,
+          message: "Float card payment attempt was unsuccessful. You may retry or choose another payment method.",
+        })
+      }
+    } catch (flotQueryErr) {
+      console.warn("[Mobile Food Verify Payment] Float attempt query error:", flotQueryErr)
     }
   }
 

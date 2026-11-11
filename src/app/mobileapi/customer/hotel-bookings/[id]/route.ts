@@ -45,6 +45,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       paymentMethod: booking.paymentMethod ?? "COD",
       paymentStatus: booking.paymentStatus,
       afriTxnId: booking.afriTxnId,
+      flotOrderId: booking.flotOrderId,
+      flotPaymentLink: booking.flotPaymentLink,
       paidAt: booking.paidAt,
       createdAt: booking.createdAt,
       room: booking.room,

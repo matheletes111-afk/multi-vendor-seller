@@ -100,6 +100,8 @@ export type OrderDetailApi = {
   paymentStatus: string
   afriTxnId?: string | null
   afriFtxnId?: string | null
+  flotOrderId?: string | null
+  flotPaymentLink?: string | null
   afriMsisdn?: string | null
   paidAt?: string | null
   shippingFullName: string | null

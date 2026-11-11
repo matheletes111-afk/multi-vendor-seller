@@ -260,12 +260,12 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Payment Method</span>
               <span className="font-medium">
-                {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Payment Status</span>
-              <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className="uppercase text-[10px]">
+              <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className={`uppercase text-[10px] ${order.paymentMethod === "FLOAT" ? "border-blue-300 text-blue-600 bg-blue-50" : ""}`}>
                 {order.paymentStatus}
               </Badge>
             </div>
@@ -273,6 +273,12 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
               <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>AfriMoney Txn ID</span>
                 <span className="font-mono font-medium">{order.afriTxnId}</span>
+              </div>
+            )}
+            {order.flotOrderId && (
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Float Order ID</span>
+                <span className="font-mono font-medium text-blue-600">{order.flotOrderId}</span>
               </div>
             )}
             {order.paidAt && (
@@ -658,7 +664,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
             const settlementStatus = firstItem?.settlementStatus || "PENDING"
             const isPaidOut = settlementStatus === "PAID_OUT"
             const isYetToPay = settlementStatus === "YET_TO_PAY"
-            const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && order.paymentMethod === "AFRIMONEY")
+            const isEscrow = settlementStatus === "ESCROW_HELD" || (!isPaidOut && !isYetToPay && (order.paymentMethod === "AFRIMONEY" || order.paymentMethod === "FLOAT"))
             const isCodSeller = settlementStatus === "COD_COLLECTED_BY_SELLER"
 
             return (

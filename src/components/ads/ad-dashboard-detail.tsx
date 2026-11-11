@@ -35,6 +35,8 @@ type DashboardAd = {
   paymentStatus?: string | null
   paymentMethod?: string | null
   payableAmount?: number | null
+  couponCode?: string | null
+  couponDiscount?: number | null
   paidAt?: string | null
   afriTxnId?: string | null
   afriFtxnId?: string | null
@@ -329,6 +331,25 @@ export function AdDashboardDetail({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
+              {ad.couponDiscount && Number(ad.couponDiscount) > 0 ? (
+                <>
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="text-sm text-muted-foreground">Original Budget</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {formatCurrency(Number(ad.totalBudget))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b pb-2 text-emerald-600 dark:text-emerald-400">
+                    <span className="text-sm">
+                      Coupon Discount {ad.couponCode ? `(${ad.couponCode})` : ""}
+                    </span>
+                    <span className="font-semibold">
+                      -{formatCurrency(Number(ad.couponDiscount))}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+
               <div className="flex justify-between items-center border-b pb-2">
                 <span className="text-sm text-muted-foreground">Payable Amount</span>
                 <span className="font-bold text-slate-900 dark:text-white">
@@ -417,7 +438,7 @@ export function AdDashboardDetail({
                     <p className="text-[11px] text-muted-foreground">
                       This ad will only be approved and displayed once the payment is completed.
                     </p>
-                    <div className="pt-1">
+                    <div className="pt-1 flex flex-wrap gap-2">
                       <PayNowButton
                         adId={ad.id}
                         adTitle={ad.title}
@@ -427,7 +448,7 @@ export function AdDashboardDetail({
                         onStatusChanged={() => {
                           window.location.reload();
                         }}
-                        className="w-full"
+                        className="w-full justify-start"
                       />
                     </div>
                   </div>
