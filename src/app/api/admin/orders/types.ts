@@ -116,6 +116,7 @@ export type AdminOrderListItemApi = {
   paymentMethod: string | null
   paymentStatus: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   createdAt: string
   customerName: string | null
@@ -161,6 +162,7 @@ export type AdminOrderDetailApi = {
   paymentMethod: string | null
   paymentStatus: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   shippingFullName: string | null
   shippingPhone: string | null

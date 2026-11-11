@@ -103,6 +103,7 @@ export type SellerOrderDetailApi = {
   paymentStatus: string
   afriTxnId?: string | null
   afriFtxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   shippingFullName: string | null
   shippingPhone: string | null

@@ -51,6 +51,7 @@ export async function POST(
     data: {
       status: "CANCELLED",
       paymentStatus: "FAILED",
+      settlementStatus: "CANCELLED",
     },
   })
 

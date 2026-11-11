@@ -56,7 +56,7 @@ export async function creditHotelSellerForBooking(
     ? booking.sellerNetPayout
     : Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100)
 
-  const isPrepaid = booking.paymentMethod === "AFRIMONEY"
+  const isPrepaid = booking.paymentMethod === "AFRIMONEY" || booking.paymentMethod === "FLOAT"
   const newSettlementStatus = isPrepaid ? "YET_TO_PAY" : "COD_COLLECTED_BY_SELLER"
 
   await tx.hotelBooking.update({

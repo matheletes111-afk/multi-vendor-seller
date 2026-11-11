@@ -6,6 +6,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
+import { createFlotPaymentLink } from "@/lib/flot"
 
 export async function GET(request: NextRequest) {
   try {
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
       paymentMethod: o.paymentMethod ?? "COD",
       paymentStatus: o.paymentStatus,
       afriTxnId: o.afriTxnId,
+      flotOrderId: o.flotOrderId,
       paidAt: o.paidAt,
       status: o.status,
       createdAt: o.createdAt,
@@ -127,7 +129,12 @@ export async function POST(request: NextRequest) {
       payerMsisdn
     } = body
 
-    const requestedPaymentMethod = paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+    const requestedPaymentMethod =
+      paymentMethod === "AFRIMONEY"
+        ? "AFRIMONEY"
+        : paymentMethod === "FLOAT"
+        ? "FLOAT"
+        : "COD"
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : ""
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -268,6 +275,8 @@ export async function POST(request: NextRequest) {
     let afriTxnId: string | undefined = undefined
     let ussdPromptSent = false
     let pushMessage = ""
+    let flotPaymentLink: string | null = null
+    let flotOrderId: string | null = null
 
     if (requestedPaymentMethod === "AFRIMONEY") {
       const externalRef = `FOOD_${result.id}`
@@ -312,10 +321,42 @@ export async function POST(request: NextRequest) {
           { status: 502 }
         )
       }
+    } else if (requestedPaymentMethod === "FLOAT") {
+      const externalRef = `FOOD_${result.id}`
+      try {
+        const flotRes = await createFlotPaymentLink({
+          orderId: externalRef,
+          amount: result.totalAmount,
+          currency: "SLE",
+          type: "card",
+        })
+
+        flotPaymentLink = flotRes.link
+        flotOrderId = externalRef
+
+        await prisma.foodOrder.update({
+          where: { id: result.id },
+          data: {
+            flotOrderId: externalRef,
+            flotInternalOrderId: flotRes.id,
+            flotPaymentLink: flotRes.link,
+            paymentMethod: "FLOAT",
+          },
+        })
+      } catch (flotErr: any) {
+        await prisma.couponUsage.deleteMany({
+          where: { foodOrderId: result.id },
+        }).catch(() => null)
+        await prisma.foodOrder.delete({ where: { id: result.id } }).catch(() => null)
+        return NextResponse.json(
+          { success: false, error: `Float payment initiation failed: ${flotErr?.message || "Payment service unavailable"}` },
+          { status: 502 }
+        )
+      }
     }
 
-    // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
-    if (requestedPaymentMethod !== "AFRIMONEY") {
+    // ── Send Email Notifications (Only for COD here; for online prepaid (AfriMoney & Float), sent upon payment confirmation)
+    if (requestedPaymentMethod === "COD") {
       try {
         const fullFoodOrder = await prisma.foodOrder.findUnique({
           where: { id: result.id },
@@ -412,6 +453,8 @@ export async function POST(request: NextRequest) {
       paymentMethod: requestedPaymentMethod,
       ussdPromptSent,
       afriTxnId,
+      flotPaymentLink,
+      flotOrderId,
       message: pushMessage
     }, { status: 201 })
   } catch (error: any) {

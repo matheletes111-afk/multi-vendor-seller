@@ -37,6 +37,7 @@ type Booking = {
   paymentMethod?: string | null
   paymentStatus?: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   room: {
     id: string
@@ -426,8 +427,23 @@ export function AdminBookingsClient() {
                     <td className="px-6 py-4 text-center text-slate-600 text-xs">
                       {booking.adults} Ad / {booking.children} Ch
                     </td>
-                    <td className="px-6 py-4 text-slate-900 font-black">
-                      {formatCurrency(booking.totalPrice)}
+                    <td className="px-6 py-4">
+                      <p className="text-slate-900 font-black">{formatCurrency(booking.totalPrice)}</p>
+                      <div className="mt-1">
+                        {booking.paymentMethod === "FLOAT" || booking.flotOrderId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            💳 Float
+                          </span>
+                        ) : booking.paymentMethod === "AFRIMONEY" || booking.afriTxnId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            📱 AfriMoney
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            💵 Pay at Hotel
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center space-y-1">
                       <span className={`inline-flex items-center border rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getStatusBadgeClass(booking.status)}`}>
@@ -589,7 +605,7 @@ export function AdminBookingsClient() {
                   <div className="flex justify-between text-[11px] text-slate-500 font-semibold pt-1">
                     <span>Payment Method:</span>
                     <span className="uppercase font-bold text-slate-700">
-                      {selectedBooking.paymentMethod} ({selectedBooking.paymentStatus || "PAID"})
+                      {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float (Card)" : selectedBooking.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : selectedBooking.paymentMethod} ({selectedBooking.paymentStatus || "PAID"})
                     </span>
                   </div>
                 )}
@@ -597,6 +613,12 @@ export function AdminBookingsClient() {
                   <div className="flex justify-between text-[11px] font-mono text-emerald-600 font-semibold">
                     <span>AfriMoney Txn:</span>
                     <span>{selectedBooking.afriTxnId}</span>
+                  </div>
+                )}
+                {selectedBooking.flotOrderId && (
+                  <div className="flex justify-between text-[11px] font-mono text-blue-600 font-semibold">
+                    <span>Float Order ID:</span>
+                    <span>{selectedBooking.flotOrderId}</span>
                   </div>
                 )}
                 {selectedBooking.hotel.hotelSeller?.bankDetails && (

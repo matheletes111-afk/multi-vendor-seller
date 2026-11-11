@@ -127,6 +127,11 @@ export async function GET(
       grandTotal,
       couponCode: order.couponCode,
       couponDiscount: groupCouponDiscount,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      afriTxnId: order.afriTxnId ?? null,
+      flotOrderId: order.flotOrderId ?? null,
+      paidAt: order.paidAt ? order.paidAt.toISOString() : null,
     })
   }
 

@@ -108,6 +108,7 @@ export async function GET(
       paymentMethod: (order as any).paymentMethod ?? "COD",
       paymentStatus: (order as any).paymentStatus ?? "PENDING",
       afriTxnId: (order as any).afriTxnId || null,
+      flotOrderId: (order as any).flotOrderId || null,
       paidAt: (order as any).paidAt ? (order as any).paidAt.toISOString() : null,
       createdAt: order.createdAt.toISOString(),
       deliveryFullName: order.deliveryFullName,

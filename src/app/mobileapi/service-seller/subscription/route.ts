@@ -55,6 +55,9 @@ export async function GET(request: NextRequest) {
         couponCode: q.couponCode || null,
         discountAmount: q.discountAmount || 0,
         paymentMethod: q.paymentMethod,
+        afriTxnId: q.afriTxnId ?? null,
+        flotOrderId: q.flotOrderId ?? null,
+        paidAt: q.paidAt ? q.paidAt.toISOString() : null,
       }))
 
     const enrichedPlans = plans.map((p) => ({
@@ -68,6 +71,10 @@ export async function GET(request: NextRequest) {
       ? {
           ...subscription,
           canExtend: (subscription.plan?.price ?? 0) > 0,
+          paymentMethod: subscription.paymentMethod || activePurchase?.paymentMethod || null,
+          afriTxnId: subscription.afriTxnId || activePurchase?.afriTxnId || null,
+          flotOrderId: subscription.flotOrderId || activePurchase?.flotOrderId || null,
+          paidAt: subscription.paidAt || activePurchase?.paidAt || null,
           appliedCoupon: activePurchase?.couponCode
             ? {
                 code: activePurchase.couponCode,

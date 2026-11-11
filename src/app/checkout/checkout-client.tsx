@@ -13,7 +13,7 @@ import { getCartItemId } from "@/app/cart/cart-types"
 import { formatCurrency } from "@/lib/utils"
 import type { AddressApi } from "@/app/api/customer/checkout/types"
 import type { PlaceOrderResponse } from "@/app/api/customer/checkout/types"
-import { Plus, MapPin, Banknote, Loader2, ShoppingBag, Check, Pencil, X, ShieldCheck, Truck, Sparkles } from "lucide-react"
+import { Plus, MapPin, Banknote, Loader2, ShoppingBag, Check, Pencil, X, ShieldCheck, Truck, Sparkles, CreditCard, ExternalLink, RefreshCw } from "lucide-react"
 import { PageLoader } from "@/components/ui/page-loader"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
@@ -182,7 +182,7 @@ export function CheckoutClient() {
       .catch(() => {})
   }, [items, selectedAddressId])
 
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY">("COD")
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
   const [afriPhone, setAfriPhone] = useState("")
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
@@ -193,14 +193,69 @@ export function CheckoutClient() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [waitingForFloat, setWaitingForFloat] = useState(false)
+  const [floatPaymentInfo, setFloatPaymentInfo] = useState<{
+    orderId: string
+    orderNumber: string
+    paymentLink: string
+    flotOrderId: string
+  } | null>(null)
+  const [floatChecking, setFloatChecking] = useState(false)
+  const floatPollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
       }
+      if (floatPollIntervalRef.current) {
+        clearInterval(floatPollIntervalRef.current)
+        floatPollIntervalRef.current = null
+      }
     }
   }, [])
+
+  const handleCancelFloat = async (orderIdToCancel?: string) => {
+    if (floatPollIntervalRef.current) {
+      clearInterval(floatPollIntervalRef.current)
+      floatPollIntervalRef.current = null
+    }
+    setWaitingForFloat(false)
+    setPlacing(false)
+    const targetId = orderIdToCancel || floatPaymentInfo?.orderId
+    if (targetId) {
+      try {
+        await fetch(`/api/customer/orders/${encodeURIComponent(targetId)}/cancel-pending`, {
+          method: "POST",
+        })
+      } catch (err) {
+        console.warn("Error cancelling pending order:", err)
+      }
+    }
+  }
+
+  const handleCheckFloatStatus = async (orderId?: string) => {
+    const targetId = orderId || floatPaymentInfo?.orderId
+    if (!targetId) return
+    setFloatChecking(true)
+    try {
+      const verifyRes = await fetch(`/api/customer/orders/${encodeURIComponent(targetId)}/verify-payment`)
+      const verifyData = await verifyRes.json()
+      if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+        if (floatPollIntervalRef.current) {
+          clearInterval(floatPollIntervalRef.current)
+          floatPollIntervalRef.current = null
+        }
+        clearCart()
+        router.push("/order-success?orderId=" + encodeURIComponent(targetId))
+      }
+    } catch (err) {
+      console.warn("Float status check error:", err)
+    } finally {
+      setFloatChecking(false)
+    }
+  }
 
   const handleCancelAfriMoney = async (orderIdToCancel?: string) => {
     if (pollIntervalRef.current) {
@@ -255,6 +310,8 @@ export function CheckoutClient() {
         paymentMethod?: string
         ussdPromptSent?: boolean
         afriTxnId?: string
+        flotPaymentLink?: string | null
+        flotOrderId?: string | null
         message?: string
       }
       if (!res.ok) {
@@ -316,6 +373,51 @@ export function CheckoutClient() {
               setError("AfriMoney payment prompt timed out. Please try again or choose Cash on Delivery.")
             }
           }, 2500)
+          return
+        }
+
+        if (paymentMethod === "FLOAT" && data.flotPaymentLink) {
+          setWaitingForFloat(true)
+          setFloatPaymentInfo({
+            orderId: firstOrder.orderId,
+            orderNumber: firstOrder.orderNumber,
+            paymentLink: data.flotPaymentLink,
+            flotOrderId: data.flotOrderId || "",
+          })
+
+          // Open Float hosted checkout in a new window/tab
+          window.open(data.flotPaymentLink, "_blank")
+
+          // Poll Float status every 3 seconds
+          const orderId = firstOrder.orderId
+          let floatAttempts = 0
+          const maxFloatAttempts = 40 // 40 * 3s = 120s
+          if (floatPollIntervalRef.current) clearInterval(floatPollIntervalRef.current)
+          floatPollIntervalRef.current = setInterval(async () => {
+            floatAttempts++
+            try {
+              const verifyRes = await fetch(`/api/customer/orders/${encodeURIComponent(orderId)}/verify-payment`)
+              const verifyData = await verifyRes.json()
+              if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+                if (floatPollIntervalRef.current) {
+                  clearInterval(floatPollIntervalRef.current)
+                  floatPollIntervalRef.current = null
+                }
+                clearCart()
+                router.push("/order-success?orderId=" + encodeURIComponent(orderId))
+                return
+              }
+            } catch (err) {
+              console.warn("Float payment verification polling error:", err)
+            }
+
+            if (floatAttempts >= maxFloatAttempts) {
+              if (floatPollIntervalRef.current) {
+                clearInterval(floatPollIntervalRef.current)
+                floatPollIntervalRef.current = null
+              }
+            }
+          }, 3000)
           return
         }
 
@@ -1105,11 +1207,11 @@ export function CheckoutClient() {
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                       Payment Method
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("COD")}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${
+                        className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
                           paymentMethod === "COD"
                             ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40"
                             : "border-slate-200 bg-white hover:bg-slate-50"
@@ -1129,20 +1231,40 @@ export function CheckoutClient() {
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("AFRIMONEY")}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${
+                        className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
                           paymentMethod === "AFRIMONEY"
-                            ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40"
+                            ? "border-orange-500 bg-orange-50/70 ring-2 ring-orange-400/40"
                             : "border-slate-200 bg-white hover:bg-slate-50"
                         }`}
                       >
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-amber-600 bg-amber-600" : "border-slate-300"}`}>
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "AFRIMONEY" ? "border-orange-600 bg-orange-600" : "border-slate-300"}`}>
                           {paymentMethod === "AFRIMONEY" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
                             <span>📱</span> AfriMoney
                           </p>
-                          <p className="text-[10px] text-slate-500">Instant Push USSD PIN</p>
+                          <p className="text-[10px] text-slate-500">Push USSD PIN</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("FLOAT")}
+                        className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
+                          paymentMethod === "FLOAT"
+                            ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-400/40"
+                            : "border-slate-200 bg-white hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "FLOAT" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                          {paymentMethod === "FLOAT" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                            <CreditCard className="h-3.5 w-3.5 text-blue-600" /> Float Card
+                          </p>
+                          <p className="text-[10px] text-slate-500">Debit / Credit Card</p>
                         </div>
                       </button>
                     </div>
@@ -1164,6 +1286,18 @@ export function CheckoutClient() {
                         </p>
                       </div>
                     )}
+
+                    {paymentMethod === "FLOAT" && (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-1.5 mt-2 animate-in fade-in-50">
+                        <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                          <CreditCard className="h-4 w-4 text-blue-600" />
+                          Secure Card Checkout via Float
+                        </p>
+                        <p className="text-[11px] text-blue-800">
+                          Supports Visa, MasterCard, and online debit cards. You will be redirected to the secure Float portal to complete your payment.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-black text-slate-900">
@@ -1178,16 +1312,26 @@ export function CheckoutClient() {
                     type="button"
                     onClick={handlePlaceOrder}
                     disabled={placing || !selectedAddressId || productItems.length === 0}
-                    className="w-full h-12 sm:h-13 rounded-xl bg-amber-400 text-slate-950 font-black text-base hover:bg-amber-500 shadow-sm transition-all disabled:opacity-50"
+                    className={`w-full h-12 sm:h-13 rounded-xl font-black text-base shadow-sm transition-all disabled:opacity-50 ${
+                      paymentMethod === "FLOAT"
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-amber-400 text-slate-950 hover:bg-amber-500"
+                    }`}
                   >
                     {placing ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        {paymentMethod === "AFRIMONEY" ? "Sending AfriMoney Prompt…" : "Placing Order…"}
+                        {paymentMethod === "AFRIMONEY"
+                          ? "Sending AfriMoney Prompt…"
+                          : paymentMethod === "FLOAT"
+                          ? "Connecting to Float Card Gateway…"
+                          : "Placing Order…"}
                       </>
                     ) : (
                       paymentMethod === "AFRIMONEY"
                         ? `Pay with AfriMoney • ${formatCurrency(cartGrandTotal)}`
+                        : paymentMethod === "FLOAT"
+                        ? `Pay with Float (Card) • ${formatCurrency(cartGrandTotal)}`
                         : `Place Order (COD) • ${formatCurrency(cartGrandTotal)}`
                     )}
                   </Button>
@@ -1247,6 +1391,63 @@ export function CheckoutClient() {
             >
               Cancel / Choose Another Method
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Float Hosted Checkout Waiting Modal */}
+      {waitingForFloat && floatPaymentInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto ring-8 ring-blue-50">
+              <CreditCard className="h-7 w-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Finish Payment with Float</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Order <span className="font-bold text-slate-800">#{floatPaymentInfo.orderNumber}</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
+              <p className="font-semibold">Complete your card payment in the Float secure portal.</p>
+              <p className="text-[11px] text-blue-800/90">
+                This page is automatically waiting for confirmation and will redirect once payment is received.
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <Button
+                type="button"
+                onClick={() => window.open(floatPaymentInfo.paymentLink, "_blank")}
+                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Re-open Float Payment Portal
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={floatChecking}
+                onClick={() => handleCheckFloatStatus()}
+                className="w-full h-11 rounded-xl text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${floatChecking ? "animate-spin" : ""}`} />
+                {floatChecking ? "Checking Status…" : "I Have Paid / Check Status"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCancelFloat()}
+                className="w-full rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100"
+              >
+                Cancel / Choose Another Method
+              </Button>
+            </div>
           </div>
         </div>
       )}

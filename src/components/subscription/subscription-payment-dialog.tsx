@@ -11,6 +11,7 @@ import {
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Badge } from "@/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/ui/tabs"
 import { formatCurrency } from "@/lib/utils"
 import {
   Smartphone,
@@ -18,10 +19,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Sparkles,
   Clock,
   RefreshCw,
   Gift,
+  CreditCard,
+  ExternalLink,
 } from "lucide-react"
 
 export interface SubscriptionPaymentDialogProps {
@@ -47,6 +49,7 @@ export interface SubscriptionPaymentDialogProps {
     discountAmount: number
     finalAmount: number
   } | null
+  initialMethod?: "AFRIMONEY" | "FLOAT"
   onSuccess?: () => void
 }
 
@@ -57,13 +60,16 @@ export function SubscriptionPaymentDialog({
   sellerType = "PRODUCT_SERVICE",
   currentSubscription,
   appliedCoupon,
+  initialMethod = "AFRIMONEY",
   onSuccess,
 }: SubscriptionPaymentDialogProps) {
+  const [method, setMethod] = useState<"AFRIMONEY" | "FLOAT">(initialMethod)
   const [phone, setPhone] = useState("")
   const [state, setState] = useState<"idle" | "initiating" | "waiting" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [purchaseId, setPurchaseId] = useState<string | null>(null)
+  const [flotPaymentLink, setFlotPaymentLink] = useState<string | null>(null)
   const [activatedStatus, setActivatedStatus] = useState<"ACTIVE" | "QUEUED">("ACTIVE")
   const [isChecking, setIsChecking] = useState(false)
 
@@ -86,6 +92,12 @@ export function SubscriptionPaymentDialog({
   }, [])
 
   useEffect(() => {
+    if (initialMethod) {
+      setMethod(initialMethod)
+    }
+  }, [initialMethod, open])
+
+  useEffect(() => {
     if (!open) {
       stopPolling()
       if (state !== "success") {
@@ -93,6 +105,7 @@ export function SubscriptionPaymentDialog({
         setError("")
         setMessage("")
         setPurchaseId(null)
+        setFlotPaymentLink(null)
       }
     }
   }, [open, state])
@@ -159,7 +172,11 @@ export function SubscriptionPaymentDialog({
     pollTimeoutRef.current = setTimeout(() => {
       stopPolling()
       if (state === "waiting") {
-        setError("Payment confirmation timed out. If you entered your PIN, please click 'Verify Now'.")
+        setError(
+          method === "FLOAT"
+            ? "Payment confirmation timed out. If you finished payment in the Float portal, please click 'Verify Now'."
+            : "Payment confirmation timed out. If you entered your PIN, please click 'Verify Now'."
+        )
       }
     }, 90000)
   }
@@ -215,6 +232,50 @@ export function SubscriptionPaymentDialog({
     }
   }
 
+  // Initiate Float Card Payment
+  const handleInitiateFloatPayment = async () => {
+    setError("")
+    setState("initiating")
+
+    try {
+      const res = await fetch("/api/seller/subscription/pay-float", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          couponCode: appliedCoupon?.code,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok || !data.success) {
+        setState("error")
+        setError(data.error || data.message || "Failed to initiate Float card payment")
+        return
+      }
+
+      // If 100% coupon applied
+      if (data.payableAmount === 0 || !data.paymentUrl) {
+        setState("success")
+        setActivatedStatus(data.status === "QUEUED" ? "QUEUED" : "ACTIVE")
+        if (onSuccess) onSuccess()
+        return
+      }
+
+      setPurchaseId(data.purchaseId)
+      setFlotPaymentLink(data.paymentUrl)
+      setState("waiting")
+      setMessage("Float checkout initiated! Please finish entering your card details in the Float portal window.")
+
+      window.open(data.paymentUrl, "_blank")
+      startPolling(data.purchaseId)
+    } catch (err: any) {
+      setState("error")
+      setError(err?.message || "Could not connect to Float gateway. Please try again.")
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px] p-6 rounded-3xl">
@@ -224,7 +285,7 @@ export function SubscriptionPaymentDialog({
             Subscription Recharge
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground font-medium">
-            Prepaid mobile recharge for your seller store
+            Prepaid recharge pack for your seller store
           </DialogDescription>
         </DialogHeader>
 
@@ -291,23 +352,67 @@ export function SubscriptionPaymentDialog({
         {(state === "idle" || state === "initiating") && (
           <div className="space-y-4 pt-2">
             {payablePrice > 0 && (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-slate-500" />
-                  Africell Mobile Number (AfriMoney)
-                </label>
-                <Input
-                  type="tel"
-                  placeholder="e.g. 033600171 or 077..."
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  disabled={state === "initiating"}
-                  className="h-11 rounded-xl"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  AfriMoney Push USSD will prompt you on this phone to enter your PIN.
-                </p>
-              </div>
+              <Tabs
+                value={method}
+                onValueChange={(val) => setMethod(val as "AFRIMONEY" | "FLOAT")}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <TabsTrigger
+                    value="AFRIMONEY"
+                    className="flex items-center gap-1.5 font-bold text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    AfriMoney (Push USSD)
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="FLOAT"
+                    className="flex items-center gap-1.5 font-bold text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    Float (Card / Online)
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
+            {method === "AFRIMONEY" ? (
+              payablePrice > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Smartphone className="w-4 h-4 text-slate-500" />
+                    Africell Mobile Number (AfriMoney)
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="e.g. 033600171 or 077..."
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={state === "initiating"}
+                    className="h-11 rounded-xl"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    AfriMoney Push USSD will prompt you on this phone to enter your PIN.
+                  </p>
+                </div>
+              )
+            ) : (
+              payablePrice > 0 && (
+                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      Float Hosted Checkout
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-100/50 dark:bg-blue-950">
+                      Debit / Credit Card
+                    </Badge>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                    Clicking below will open Float's secure payment portal where you can pay using any local or international card.
+                  </p>
+                </div>
+              )
             )}
 
             {error && (
@@ -317,22 +422,41 @@ export function SubscriptionPaymentDialog({
               </div>
             )}
 
-            <Button
-              className="w-full h-12 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
-              disabled={state === "initiating"}
-              onClick={handleInitiatePayment}
-            >
-              {state === "initiating" ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending Push USSD...
-                </>
-              ) : payablePrice === 0 ? (
-                "Activate Now (Free with Coupon)"
-              ) : (
-                `Pay ${formatCurrency(payablePrice)} via AfriMoney`
-              )}
-            </Button>
+            {method === "AFRIMONEY" ? (
+              <Button
+                className="w-full h-12 rounded-xl font-bold bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-600/20"
+                disabled={state === "initiating"}
+                onClick={handleInitiatePayment}
+              >
+                {state === "initiating" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending Push USSD...
+                  </>
+                ) : payablePrice === 0 ? (
+                  "Activate Now (Free with Coupon)"
+                ) : (
+                  `Pay ${formatCurrency(payablePrice)} via AfriMoney`
+                )}
+              </Button>
+            ) : (
+              <Button
+                className="w-full h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
+                disabled={state === "initiating"}
+                onClick={handleInitiateFloatPayment}
+              >
+                {state === "initiating" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Opening Float Portal...
+                  </>
+                ) : payablePrice === 0 ? (
+                  "Activate Now (Free with Coupon)"
+                ) : (
+                  `Proceed to Float Card Checkout • ${formatCurrency(payablePrice)}`
+                )}
+              </Button>
+            )}
           </div>
         )}
 
@@ -342,22 +466,29 @@ export function SubscriptionPaymentDialog({
             <div className="relative mx-auto w-16 h-16 flex items-center justify-center">
               <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
               <div className="relative w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <Smartphone className="w-6 h-6 animate-pulse" />
+                {method === "FLOAT" ? (
+                  <CreditCard className="w-6 h-6 animate-pulse text-blue-600" />
+                ) : (
+                  <Smartphone className="w-6 h-6 animate-pulse text-orange-600" />
+                )}
               </div>
             </div>
 
             <div className="space-y-1">
               <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                USSD Prompt Sent!
+                {method === "FLOAT" ? "Float Checkout in Progress" : "USSD Prompt Sent!"}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                {message || "Please check your phone screen and enter your AfriMoney PIN to confirm payment."}
+                {message ||
+                  (method === "FLOAT"
+                    ? "Please complete your card details in the Float portal window."
+                    : "Please check your phone screen and enter your AfriMoney PIN to confirm payment.")}
               </p>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-              <span>Waiting for approval (checking every 3s)...</span>
+              <span>Waiting for payment confirmation (checking every 3s)...</span>
             </div>
 
             {error && (
@@ -368,16 +499,27 @@ export function SubscriptionPaymentDialog({
             )}
 
             <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                className="w-1/2 h-11 rounded-xl font-bold text-xs"
-                onClick={() => {
-                  stopPolling()
-                  setState("idle")
-                }}
-              >
-                Change Phone
-              </Button>
+              {method === "FLOAT" && flotPaymentLink ? (
+                <Button
+                  variant="outline"
+                  className="w-1/2 h-11 rounded-xl font-bold text-xs"
+                  onClick={() => window.open(flotPaymentLink, "_blank")}
+                >
+                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                  Re-open Portal
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-1/2 h-11 rounded-xl font-bold text-xs"
+                  onClick={() => {
+                    stopPolling()
+                    setState("idle")
+                  }}
+                >
+                  Change Details
+                </Button>
+              )}
               <Button
                 variant="default"
                 className="w-1/2 h-11 rounded-xl font-bold text-xs bg-slate-900 text-white"
@@ -442,7 +584,7 @@ export function SubscriptionPaymentDialog({
                 Payment Failed or Cancelled
               </h4>
               <p className="text-xs text-red-600 dark:text-red-400 max-w-sm mx-auto">
-                {error || "We could not confirm your payment. Please ensure your phone is active and try again."}
+                {error || "We could not confirm your payment. Please try again."}
               </p>
             </div>
 
@@ -462,4 +604,3 @@ export function SubscriptionPaymentDialog({
     </Dialog>
   )
 }
-

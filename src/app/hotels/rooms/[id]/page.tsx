@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Star, MapPin, CheckCircle2, User, Users, Coffee, Bed, ArrowLeft, Loader2, Calendar, Lock, AlertCircle, Building2, Banknote } from "lucide-react"
+import { Star, MapPin, CheckCircle2, User, Users, Coffee, Bed, ArrowLeft, Loader2, Calendar, Lock, AlertCircle, Building2, Banknote, CreditCard, ExternalLink, RefreshCw } from "lucide-react"
 import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
@@ -54,7 +54,7 @@ export default function RoomBookingPage() {
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [bookingSuccess, setBookingSuccess] = useState<any>(null)
 
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY">("COD")
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
   const [afriPhone, setAfriPhone] = useState("")
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
@@ -64,14 +64,86 @@ export default function RoomBookingPage() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [waitingForFlot, setWaitingForFlot] = useState(false)
+  const [flotPaymentInfo, setFlotPaymentInfo] = useState<{
+    bookingId: string
+    paymentLink: string
+    flotOrderId: string
+  } | null>(null)
+  const [flotPollingCountdown, setFlotPollingCountdown] = useState(300)
+  const [checkingFlotStatus, setCheckingFlotStatus] = useState(false)
+  const flotPollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
       }
+      if (flotPollIntervalRef.current) {
+        clearInterval(flotPollIntervalRef.current)
+        flotPollIntervalRef.current = null
+      }
     }
   }, [])
+
+  const handleCancelFlot = async (bookingIdToCancel?: string) => {
+    if (flotPollIntervalRef.current) {
+      clearInterval(flotPollIntervalRef.current)
+      flotPollIntervalRef.current = null
+    }
+    setWaitingForFlot(false)
+    setBookingLoading(false)
+    const targetId = bookingIdToCancel || flotPaymentInfo?.bookingId
+    if (targetId) {
+      try {
+        await fetch(`/api/customer/hotel-bookings/${encodeURIComponent(targetId)}/cancel-pending`, {
+          method: "POST",
+        })
+      } catch (err) {
+        console.warn("Error cancelling pending hotel booking on Float cancel:", err)
+      }
+    }
+  }
+
+  const handleManualCheckFlot = async () => {
+    if (!flotPaymentInfo) return
+    setCheckingFlotStatus(true)
+    try {
+      const res = await fetch(`/api/customer/hotel-bookings/${encodeURIComponent(flotPaymentInfo.bookingId)}/verify-payment`)
+      const data = await res.json()
+      if (data.success || data.paymentStatus === "COMPLETED") {
+        if (flotPollIntervalRef.current) {
+          clearInterval(flotPollIntervalRef.current)
+          flotPollIntervalRef.current = null
+        }
+        setWaitingForFlot(false)
+        setBookingSuccess(data.data || {
+          id: flotPaymentInfo.bookingId,
+          totalPrice: finalPrice,
+          subtotal: calculatedTotalPrice,
+          couponDiscount: appliedCoupon?.discountAmount ?? 0,
+          couponCode: appliedCoupon?.code ?? null,
+          paymentMethod: "FLOAT",
+          flotOrderId: flotPaymentInfo.flotOrderId,
+          checkIn: checkIn,
+          checkOut: checkOut,
+        })
+      } else if (data.paymentStatus === "FAILED") {
+        if (flotPollIntervalRef.current) {
+          clearInterval(flotPollIntervalRef.current)
+          flotPollIntervalRef.current = null
+        }
+        setWaitingForFlot(false)
+        setBookingLoading(false)
+        setBookingError("Float card payment was declined or failed. You may retry or choose another payment method.")
+      }
+    } catch (err) {
+      console.warn("Manual check error:", err)
+    } finally {
+      setCheckingFlotStatus(false)
+    }
+  }
 
   const handleCancelAfriMoney = async (bookingIdToCancel?: string) => {
     if (pollIntervalRef.current) {
@@ -305,11 +377,84 @@ export default function RoomBookingPage() {
         return
       }
 
+      if (paymentMethod === "FLOAT" && data.flotPaymentLink) {
+        setWaitingForFlot(true)
+        setFlotPaymentInfo({
+          bookingId: data.data.id,
+          paymentLink: data.flotPaymentLink,
+          flotOrderId: data.flotOrderId || `HOTEL_${data.data.id}`,
+        })
+        setFlotPollingCountdown(300)
+
+        try {
+          window.open(data.flotPaymentLink, "_blank", "noopener,noreferrer")
+        } catch (popupErr) {
+          console.warn("Could not auto-open Float payment portal:", popupErr)
+        }
+
+        const bookingId = data.data.id
+        let flotAttempts = 0
+        const maxFlotAttempts = 100 // 100 * 3s = 300s
+        if (flotPollIntervalRef.current) clearInterval(flotPollIntervalRef.current)
+        flotPollIntervalRef.current = setInterval(async () => {
+          flotAttempts++
+          setFlotPollingCountdown((prev) => Math.max(0, prev - 3))
+          try {
+            const verifyRes = await fetch(`/api/customer/hotel-bookings/${encodeURIComponent(bookingId)}/verify-payment`)
+            const verifyData = await verifyRes.json()
+            if (verifyData.success || verifyData.paymentStatus === "COMPLETED") {
+              if (flotPollIntervalRef.current) {
+                clearInterval(flotPollIntervalRef.current)
+                flotPollIntervalRef.current = null
+              }
+              setWaitingForFlot(false)
+              setBookingSuccess(verifyData.data || data.data || {
+                id: bookingId,
+                totalPrice: finalPrice,
+                subtotal: calculatedTotalPrice,
+                couponDiscount: appliedCoupon?.discountAmount ?? 0,
+                couponCode: appliedCoupon?.code ?? null,
+                paymentMethod: "FLOAT",
+                flotOrderId: data.flotOrderId,
+                checkIn: checkIn,
+                checkOut: checkOut,
+              })
+              return
+            } else if (verifyData.paymentStatus === "FAILED") {
+              if (flotPollIntervalRef.current) {
+                clearInterval(flotPollIntervalRef.current)
+                flotPollIntervalRef.current = null
+              }
+              setWaitingForFlot(false)
+              setBookingLoading(false)
+              setBookingError("Float card payment was declined or failed. You may retry or choose another payment method.")
+              return
+            }
+          } catch (err) {
+            console.warn("Hotel booking Float verification error:", err)
+          }
+
+          if (flotAttempts >= maxFlotAttempts) {
+            if (flotPollIntervalRef.current) {
+              clearInterval(flotPollIntervalRef.current)
+              flotPollIntervalRef.current = null
+            }
+            setWaitingForFlot(false)
+            setBookingLoading(false)
+            setBookingError("Float card payment session timed out. If you completed payment, your booking will be confirmed shortly.")
+            fetch(`/api/customer/hotel-bookings/${encodeURIComponent(bookingId)}/cancel-pending`, {
+              method: "POST",
+            }).catch(() => null)
+          }
+        }, 3000)
+        return
+      }
+
       setBookingSuccess(data.data)
     } catch (err: any) {
       setBookingError(err.message || "An unexpected error occurred during your booking.")
     } finally {
-      if (paymentMethod !== "AFRIMONEY") {
+      if (paymentMethod !== "AFRIMONEY" && paymentMethod !== "FLOAT") {
         setBookingLoading(false)
       }
     }
@@ -345,13 +490,63 @@ export default function RoomBookingPage() {
             <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
               <div>
                 <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">Check-in</span>
-                <span className="font-bold text-slate-900 text-base mt-0.5 block">{new Date(bookingSuccess.checkIn).toLocaleDateString()}</span>
+                <span className="font-bold text-slate-900 text-base mt-0.5 block">
+                  {bookingSuccess.checkIn && !isNaN(new Date(bookingSuccess.checkIn).getTime())
+                    ? new Date(bookingSuccess.checkIn).toLocaleDateString()
+                    : checkIn ? new Date(checkIn).toLocaleDateString() : "Confirmed"}
+                </span>
               </div>
               <div>
                 <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">Check-out</span>
-                <span className="font-bold text-slate-900 text-base mt-0.5 block">{new Date(bookingSuccess.checkOut).toLocaleDateString()}</span>
+                <span className="font-bold text-slate-900 text-base mt-0.5 block">
+                  {bookingSuccess.checkOut && !isNaN(new Date(bookingSuccess.checkOut).getTime())
+                    ? new Date(bookingSuccess.checkOut).toLocaleDateString()
+                    : checkOut ? new Date(checkOut).toLocaleDateString() : "Confirmed"}
+                </span>
               </div>
             </div>
+
+            <div className="flex justify-between border-b border-slate-100 pb-3">
+              <span>Payment Method:</span>
+              <div>
+                {bookingSuccess.paymentMethod === "FLOAT" || bookingSuccess.flotOrderId ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                    💳 Float (Card / Online)
+                  </span>
+                ) : bookingSuccess.paymentMethod === "AFRIMONEY" || bookingSuccess.afriTxnId ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    📱 AfriMoney
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    💵 Pay on Arrival
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {(bookingSuccess.flotOrderId || bookingSuccess.afriTxnId) && (
+              <div className="flex justify-between border-b border-slate-100 pb-3 text-xs">
+                <span>Transaction Ref ID:</span>
+                <span className="font-mono font-semibold text-slate-800 truncate max-w-xs">
+                  {bookingSuccess.flotOrderId || bookingSuccess.afriTxnId}
+                </span>
+              </div>
+            )}
+
+            {bookingSuccess.subtotal != null && bookingSuccess.couponDiscount && Number(bookingSuccess.couponDiscount) > 0 ? (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span>Room Subtotal:</span>
+                  <span>{formatCurrency(Number(bookingSuccess.subtotal))}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-600 border-b border-slate-100 pb-3">
+                  <span>Coupon Discount {bookingSuccess.couponCode ? `(${bookingSuccess.couponCode})` : ""}:</span>
+                  <span>-{formatCurrency(Number(bookingSuccess.couponDiscount))}</span>
+                </div>
+              </>
+            ) : null}
+
             <div className="flex justify-between">
               <span>Total Price Paid:</span>
               <span className="font-black text-emerald-600 text-lg">{formatCurrency(bookingSuccess.totalPrice)}</span>
@@ -645,7 +840,7 @@ export default function RoomBookingPage() {
                         {/* Payment Method Selector */}
                         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs space-y-2">
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Method</label>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <button
                               type="button"
                               onClick={() => setPaymentMethod("COD")}
@@ -683,6 +878,26 @@ export default function RoomBookingPage() {
                                   <span>📱</span> AfriMoney
                                 </p>
                                 <p className="text-[9px] text-slate-500">Instant Push USSD</p>
+                              </div>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod("FLOAT")}
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                                paymentMethod === "FLOAT"
+                                  ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-400/40"
+                                  : "border-slate-200 bg-white hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${paymentMethod === "FLOAT" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                                {paymentMethod === "FLOAT" && <div className="w-1 h-1 rounded-full bg-white" />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                                  <span>💳</span> Float (Card)
+                                </p>
+                                <p className="text-[9px] text-slate-500">Debit / Credit Card</p>
                               </div>
                             </button>
                           </div>
@@ -725,10 +940,18 @@ export default function RoomBookingPage() {
                       {bookingLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          {paymentMethod === "AFRIMONEY" ? "Sending AfriMoney Prompt..." : "Processing Booking..."}
+                          {paymentMethod === "AFRIMONEY"
+                            ? "Sending AfriMoney Prompt..."
+                            : paymentMethod === "FLOAT"
+                            ? "Opening Float Gateway..."
+                            : "Processing Booking..."}
                         </>
                       ) : (
-                        paymentMethod === "AFRIMONEY" ? "Pay with AfriMoney" : "Confirm Booking (Pay on Arrival)"
+                        paymentMethod === "AFRIMONEY"
+                          ? "Pay with AfriMoney"
+                          : paymentMethod === "FLOAT"
+                          ? "Pay with Float (Card)"
+                          : "Confirm Booking (Pay on Arrival)"
                       )}
                     </Button>
                   </form>
@@ -773,6 +996,69 @@ export default function RoomBookingPage() {
               variant="outline"
               size="sm"
               onClick={() => handleCancelAfriMoney()}
+              className="w-full rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel / Choose Another Method
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Float Card Payment Waiting Modal */}
+      {waitingForFlot && flotPaymentInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto ring-8 ring-blue-50">
+              <CreditCard className="h-7 w-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Approve Float Card Payment</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Hotel Room Booking &bull; Order #{flotPaymentInfo.flotOrderId}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
+              <p className="font-semibold">Complete your payment on the secure Float checkout tab.</p>
+              <div className="text-[11px] text-blue-800/90 space-y-0.5 text-left border-t border-blue-200/60 pt-2">
+                <p>1. Enter your Visa / Mastercard / Online details</p>
+                <p>2. Complete 3D secure verification with your bank</p>
+                <p>3. This window will automatically confirm your booking</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <Button
+                type="button"
+                onClick={() => window.open(flotPaymentInfo.paymentLink, "_blank", "noopener,noreferrer")}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-10 text-xs flex items-center justify-center gap-1.5"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Re-open Float Payment Portal
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={checkingFlotStatus}
+                onClick={handleManualCheckFlot}
+                className="w-full border-blue-200 hover:bg-blue-50 text-blue-700 font-semibold rounded-xl h-9 text-xs flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className={`h-3 w-3 ${checkingFlotStatus ? "animate-spin" : ""}`} />
+                {checkingFlotStatus ? "Checking..." : "I have completed payment — check now"}
+              </Button>
+            </div>
+
+            <div className="text-xs font-bold text-slate-400 flex items-center justify-center gap-1.5 pt-1">
+              <span>Time remaining:</span>
+              <span className="font-mono text-blue-600 text-sm font-black">{Math.ceil(flotPollingCountdown)}s</span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleCancelFlot()}
               className="w-full rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
             >
               Cancel / Choose Another Method

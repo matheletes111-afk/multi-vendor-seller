@@ -31,6 +31,10 @@ type Order = {
   commission: number
   /** Your net for this order (gross on your lines − platform commission). */
   sellerNet: number
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  afriTxnId?: string | null
+  flotOrderId?: string | null
   createdAt: string
   customer: { name: string | null; email: string | null }
   items: Array<{
@@ -292,7 +296,22 @@ export function ServiceOrdersClient() {
                       {formatDate(order.createdAt)}
                     </TableCell>
                     <TableCell className="text-right font-medium whitespace-nowrap text-muted-foreground">
-                      {formatCurrency(order.totalAmount)}
+                      <div>{formatCurrency(order.totalAmount)}</div>
+                      <div className="mt-1">
+                        {order.paymentMethod === "FLOAT" || order.flotOrderId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            💳 Float
+                          </span>
+                        ) : order.paymentMethod === "AFRIMONEY" || order.afriTxnId ? (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            📱 AfriMoney
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            💵 COD
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-semibold whitespace-nowrap text-emerald-800 tabular-nums">
                       {formatCurrency(order.sellerNet)}

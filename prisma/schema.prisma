@@ -568,6 +568,10 @@ model HotelBooking {
   afriTxnId              String?
   afriFtxnId             String?
   afriMsisdn             String?
+  flotOrderId            String?
+  flotInternalOrderId    String?
+  flotPaymentLink        String?
+  flotRequestId          String?
   paidAt                 DateTime?
   settlementStatus       String    @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_SELLER
   payoutRequestedAt      DateTime?
@@ -584,6 +588,7 @@ model HotelBooking {
   hotel          Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   balanceTransactions HotelBalanceTransaction[]
 
+  @@index([flotOrderId])
   @@map("hotel_bookings")
 }
 
@@ -1128,6 +1133,9 @@ model SubscriptionPurchase {
   afriFtxnId           String?                  // External Ref: SUB_PROD_{id}, SUB_HOTEL_{id}, SUB_REST_{id}
   afriMsisdn           String?                  // Payer mobile phone number
   flotOrderId          String?
+  flotInternalOrderId  String?
+  flotPaymentLink      String?
+  flotRequestId        String?
   paidAt               DateTime?
 
   // Admin & Support Tracking
@@ -1148,6 +1156,7 @@ model SubscriptionPurchase {
   @@index([status, periodEnd])
   @@index([afriFtxnId])
   @@index([afriTxnId])
+  @@index([flotOrderId])
   @@map("subscription_purchases")
 }
 
@@ -1493,6 +1502,10 @@ model Order {
   afriTxnId            String?
   afriFtxnId           String?
   afriMsisdn           String?
+  flotOrderId          String?
+  flotInternalOrderId  String?
+  flotPaymentLink      String?
+  flotRequestId        String?
   paidAt               DateTime?
   shippingAddress Json?         // Legacy; prefer snapshot columns below
   shippingFullName    String?
@@ -1519,6 +1532,7 @@ model Order {
   @@index([customerId])
   @@index([sellerId])
   @@index([status])
+  @@index([flotOrderId])
   @@map("orders")
 }
 
@@ -1835,6 +1849,10 @@ model FoodOrder {
   afriTxnId           String?
   afriFtxnId          String?
   afriMsisdn          String?
+  flotOrderId         String?
+  flotInternalOrderId String?
+  flotPaymentLink     String?
+  flotRequestId       String?
   paidAt              DateTime?
   settlementStatus    String          @default("PENDING") // PENDING | ESCROW_HELD | YET_TO_PAY | PAID_OUT | COD_COLLECTED_BY_SELLER
   payoutRequestedAt   DateTime?
@@ -1863,6 +1881,7 @@ model FoodOrder {
   items               FoodOrderItem[]
   balanceTransactions RestaurantBalanceTransaction[]
 
+  @@index([flotOrderId])
   @@map("food_orders")
 }
 

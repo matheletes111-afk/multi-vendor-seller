@@ -9,6 +9,7 @@ import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderE
 import { validateCoupon } from "@/lib/coupons"
 import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
+import { createFlotPaymentLink } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -74,7 +75,12 @@ export async function POST(request: NextRequest) {
   }
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
   const couponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
-  const requestedPaymentMethod = payload.paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : "COD"
+  const requestedPaymentMethod =
+    payload.paymentMethod === "AFRIMONEY"
+      ? "AFRIMONEY"
+      : payload.paymentMethod === "FLOAT"
+      ? "FLOAT"
+      : "COD"
   const payerMsisdn = typeof payload.payerMsisdn === "string" ? payload.payerMsisdn.trim() : ""
 
   if (requestedPaymentMethod === "AFRIMONEY" && !payerMsisdn) {
@@ -376,8 +382,8 @@ export async function POST(request: NextRequest) {
         hasGst: row.item.hasGst,
         gstAmount: row.item.totalGst,
         subtotalInclGst: lineTotalInclGst,
-        itemStatus: requestedPaymentMethod === "AFRIMONEY" ? "PENDING" : "CONFIRMED",
-        settlementStatus: requestedPaymentMethod === "AFRIMONEY" ? "ESCROW_HELD" : "PENDING",
+        itemStatus: (requestedPaymentMethod === "AFRIMONEY" || requestedPaymentMethod === "FLOAT") ? "PENDING" : "CONFIRMED",
+        settlementStatus: (requestedPaymentMethod === "AFRIMONEY" || requestedPaymentMethod === "FLOAT") ? "ESCROW_HELD" : "PENDING",
         shippingAmount: itemData.itemShippingAmount,
         commissionAmount: itemData.itemCommissionAmount,
         commissionRateSnapshot: itemData.effectiveRate,
@@ -387,8 +393,12 @@ export async function POST(request: NextRequest) {
     await prisma.orderItemStatusHistory.create({
       data: {
         orderItemId: createdOrderItem.id,
-        status: requestedPaymentMethod === "AFRIMONEY" ? "PENDING" : "CONFIRMED",
-        note: requestedPaymentMethod === "AFRIMONEY" ? "Order placed, awaiting AfriMoney payment" : "Order placed with Cash on Delivery",
+        status: (requestedPaymentMethod === "AFRIMONEY" || requestedPaymentMethod === "FLOAT") ? "PENDING" : "CONFIRMED",
+        note: requestedPaymentMethod === "AFRIMONEY"
+          ? "Order placed, awaiting AfriMoney payment"
+          : requestedPaymentMethod === "FLOAT"
+          ? "Order placed, awaiting Float card payment"
+          : "Order placed with Cash on Delivery",
         location: "Mobile Checkout",
       },
     }).catch(() => null)
@@ -404,6 +414,8 @@ export async function POST(request: NextRequest) {
   let afriTxnId: string | undefined = undefined
   let ussdPromptSent = false
   let pushMessage = ""
+  let flotPaymentLink: string | null = null
+  let flotOrderId: string | null = null
 
   if (requestedPaymentMethod === "AFRIMONEY") {
     const externalRef = `ORD_${order.id}`
@@ -475,6 +487,52 @@ export async function POST(request: NextRequest) {
         { status: 502 }
       )
     }
+  } else if (requestedPaymentMethod === "FLOAT") {
+    const externalRef = `ORD_${order.id}`
+    try {
+      const flotRes = await createFlotPaymentLink({
+        orderId: externalRef,
+        amount: totalAmount,
+        currency: "SLE",
+        type: "card",
+      })
+
+      flotPaymentLink = flotRes.link
+      flotOrderId = externalRef
+
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          flotOrderId: externalRef,
+          flotInternalOrderId: flotRes.id,
+          flotPaymentLink: flotRes.link,
+          paymentMethod: "FLOAT",
+        },
+      })
+    } catch (flotErr: any) {
+      for (const row of normalizedItems) {
+        if (row.item.productVariantId) {
+          await prisma.productVariant.update({
+            where: { id: row.item.productVariantId },
+            data: { stock: { increment: row.item.quantity } },
+          }).catch(() => null)
+        }
+        if (row.item.serviceSlotId) {
+          await prisma.serviceSlot.update({
+            where: { id: row.item.serviceSlotId },
+            data: { isBooked: false },
+          }).catch(() => null)
+        }
+      }
+      await prisma.couponUsage.deleteMany({
+        where: { orderId: order.id },
+      }).catch(() => null)
+      await prisma.order.delete({ where: { id: order.id } }).catch(() => null)
+      return NextResponse.json(
+        { success: false, error: `Float payment initiation failed: ${flotErr?.message || "Payment service unavailable"}` },
+        { status: 502 }
+      )
+    }
   }
 
   await prisma.payment.create({
@@ -483,19 +541,19 @@ export async function POST(request: NextRequest) {
       amount: totalAmount,
       status: "PENDING",
       method: requestedPaymentMethod,
-      gatewayReferenceId: afriTxnId || null,
+      gatewayReferenceId: flotOrderId || afriTxnId || null,
     },
   })
 
   // For COD, order is immediately confirmed so we clear the cart items.
-  // For AFRIMONEY, we keep cart items until payment verification succeeds
+  // For AFRIMONEY and FLOAT, we keep cart items until payment verification succeeds
   // so that if the user cancels or payment fails, their cart is preserved.
   if (requestedPaymentMethod === "COD") {
     await prisma.cartItem.deleteMany({ where: { userId: auth.userId } })
   }
 
-  // ── Send Email Notifications (Only for COD here; for AfriMoney, sent upon payment confirmation)
-  if (requestedPaymentMethod !== "AFRIMONEY") {
+  // ── Send Email Notifications (Only for COD here; for online prepaid (AfriMoney & Float), sent upon payment confirmation)
+  if (requestedPaymentMethod === "COD") {
     try {
       const customerUser = await prisma.user.findUnique({
       where: { id: auth.userId },
@@ -621,6 +679,8 @@ export async function POST(request: NextRequest) {
     paymentMethod: requestedPaymentMethod,
     ussdPromptSent,
     afriTxnId,
+    flotPaymentLink,
+    flotOrderId,
     message: pushMessage,
     shippingBreakup,
   })

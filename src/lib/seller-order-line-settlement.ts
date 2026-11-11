@@ -62,7 +62,7 @@ export async function applySellerCreditForOrderLineDelivered(
   )
   if (creditAmount <= EPS) return
 
-  const isPrepaid = item.order?.paymentMethod === "AFRIMONEY"
+  const isPrepaid = item.order?.paymentMethod === "AFRIMONEY" || item.order?.paymentMethod === "FLOAT"
   const isService = Boolean(item.serviceId)
 
   // If prepaid (AfriMoney) or platform rider delivery (where platform collects customer shipping/COD),

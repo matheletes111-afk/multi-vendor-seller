@@ -26,6 +26,7 @@ type Booking = {
   paymentMethod?: string | null
   paymentStatus?: string | null
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   createdAt: string
   room: {
@@ -424,13 +425,19 @@ function CustomerHotelBookingsClient() {
               <div className="flex justify-between border-b border-slate-100 pb-2.5">
                 <span>Payment Method:</span>
                 <span className="font-bold text-slate-900">
-                  {selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Pay on Arrival / Cash")}
+                  {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float (Card)" : selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Pay on Arrival / Cash")}
                 </span>
               </div>
               {selectedBooking.afriTxnId && (
                 <div className="flex justify-between border-b border-slate-100 pb-2.5 text-xs text-slate-500">
                   <span>AfriMoney Txn ID:</span>
                   <span className="font-mono font-bold text-slate-700">{selectedBooking.afriTxnId}</span>
+                </div>
+              )}
+              {selectedBooking.flotOrderId && (
+                <div className="flex justify-between border-b border-slate-100 pb-2.5 text-xs text-blue-600">
+                  <span>Float Order ID:</span>
+                  <span className="font-mono font-bold">{selectedBooking.flotOrderId}</span>
                 </div>
               )}
               {selectedBooking.paidAt && (

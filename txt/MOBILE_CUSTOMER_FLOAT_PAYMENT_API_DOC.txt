@@ -1,0 +1,576 @@
+================================================================================
+MEEEM MOBILE CUSTOMER - FLOAT PAYMENT GATEWAY API INTEGRATION SPECIFICATION
+================================================================================
+Document Version : 2.0.0
+Target Platform  : Meeem Mobile Customer App (iOS & Android)
+Base URL         : https://www.meeemsl.com (Production) / Localhost in Development
+Authorization    : Bearer <customer_jwt_token>
+Security Standard: All customer endpoints enforce Customer Role authorization.
+Gateway Covered  : Float Hosted Card Checkout (VISA / MasterCard / SLE)
+Coexistence Note : Operates alongside AfriMoney Mobile Money (USSD push) and COD.
+                   AfriMoney and COD pathways remain 100% untouched and functional.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. High-Level Mobile Checkout & Polling Architecture
+2. Product & Service Orders Flow
+   2.1. Place Order (Checkout)
+   2.2. Payment Verification & Polling
+   2.3. Cancel Pending Order (Modal Close / Timeout)
+   2.4. Order Details (Single Order)
+   2.5. Customer Orders List
+3. Restaurant Food Orders Flow
+   3.1. Place Food Order
+   3.2. Verify Food Order Payment
+   3.3. Cancel Pending Food Order
+   3.4. Food Order Details & List
+4. Hotel Room Bookings Flow
+   4.1. Book Room
+   4.2. Verify Hotel Booking Payment
+   4.3. Cancel Pending Hotel Booking
+   4.4. Hotel Booking Details & List
+5. Customer Ads Management Flow
+   5.1. Pay Float for Existing Ad
+   5.2. Verify Ad Payment Status
+6. Customer Price Breakdown & Privacy Guarantee
+7. Error Handling & Gateway Status Codes Reference
+
+================================================================================
+1. HIGH-LEVEL MOBILE CHECKOUT & POLLING ARCHITECTURE
+================================================================================
+When a customer selects "Float" (Card Payment) across any checkout section:
+1. Mobile App submits the order/booking creation request with `paymentMethod: "FLOAT"`.
+2. Backend creates the order in "PENDING" status with `settlementStatus: "ESCROW_HELD"`,
+   generates a Float hosted checkout link via Float Gateway API, and returns:
+   - `flotPaymentLink` (URL to Float hosted checkout)
+   - `flotOrderId` (Merchant Order Reference ID)
+3. Mobile App opens `flotPaymentLink` inside an in-app browser or Webview:
+   - Customer enters their Card details (Card Number, CVV, Expiry, 3D Secure OTP).
+4. Mobile App starts polling the dedicated `verify-payment` endpoint every 3–5 seconds.
+5. Once payment is confirmed by webhook or active gateway query:
+   - The verify endpoint returns `paymentStatus: "COMPLETED"`, `status: "CONFIRMED"`.
+   - Mobile app closes Webview and displays Order Success Screen with:
+     * Payment Method Badge ("FLOAT" / Card)
+     * Float Order ID reference
+     * Price breakup (Subtotal, Coupon Discount, Shipping, Total)
+6. If the customer closes the payment modal, taps "Cancel", or the 300-second (5 min)
+   timer elapses:
+   - Mobile App calls `POST .../cancel-pending` to release held inventory/rooms/coupons.
+
+================================================================================
+2. PRODUCT & SERVICE ORDERS FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. PLACE ORDER (CHECKOUT)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/checkout/place-order
+Auth    : Bearer <customer_token>
+Headers : Content-Type: application/json
+
+Request Body:
+{
+  "addressId": "c4b12345-6789-4abc-def0-1234567890ab",
+  "paymentMethod": "FLOAT",
+  "couponCode": "SAVE10" // Optional
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "orderIds": ["9f8e7d6c-5b4a-3210-fedc-ba9876543210"],
+  "orders": [
+    {
+      "orderId": "9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+      "orderNumber": "ORD-20261111-9988",
+      "sellerId": "MULTI",
+      "totalAmount": 285.00,
+      "itemCount": 3,
+      "couponCode": "SAVE10",
+      "couponDiscount": 15.00
+    }
+  ],
+  "paymentMethod": "FLOAT",
+  "ussdPromptSent": false,
+  "afriTxnId": null,
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_9988aabbcc",
+  "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000",
+  "message": null,
+  "shippingBreakup": {
+    "weightShippingFee": 12.00,
+    "dimensionShippingFee": 0.00,
+    "regionShippingFee": 8.00,
+    "totalShippingFee": 20.00
+  }
+}
+
+--------------------------------------------------------------------------------
+2.2. PAYMENT VERIFICATION & POLLING
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/orders/{id}/verify-payment
+Auth    : Bearer <customer_token>
+Params  : id = Order ID (UUID)
+
+Case A - Payment Completed (Customer successfully completed card 3DS):
+{
+  "success": true,
+  "paymentStatus": "COMPLETED",
+  "status": "CONFIRMED",
+  "paidAt": "2026-11-11T10:15:30.000Z",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000"
+}
+
+Case B - Still Pending (Customer still typing card details):
+{
+  "success": false,
+  "paymentStatus": "PENDING",
+  "status": "PENDING",
+  "requiresVerification": true
+}
+
+Case C - Payment Failed or Gateway Declined:
+{
+  "success": false,
+  "paymentStatus": "FAILED",
+  "status": "PENDING",
+  "message": "Float card payment attempt was unsuccessful. You may retry or choose another payment method."
+}
+
+--------------------------------------------------------------------------------
+2.3. CANCEL PENDING ORDER (MODAL CLOSE / 300s TIMEOUT)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/orders/{id}/cancel-pending
+Auth    : Bearer <customer_token>
+Params  : id = Order ID (UUID)
+
+Request Body: {} (Empty JSON)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Pending order cancelled and resources released."
+}
+* Note: Restores stock quantity, cancels pending escrow, and frees any applied coupon.
+
+--------------------------------------------------------------------------------
+2.4. ORDER DETAILS (SINGLE ORDER)
+--------------------------------------------------------------------------------
+Endpoints:
+- Product Order: GET /mobileapi/customer/orders/products/details/{id}
+- Service Order: GET /mobileapi/customer/orders/services/details/{id}
+Auth: Bearer <customer_token>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Order details fetched successfully",
+  "data": {
+    "id": "9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+    "orderNumber": "ORD-20261111-9988",
+    "status": "CONFIRMED",
+    "subtotal": 280.00,
+    "tax": 0.00,
+    "shipping": 20.00,
+    "shippingBreakup": {
+      "weightShippingFee": 12.00,
+      "dimensionShippingFee": 0.00,
+      "regionShippingFee": 8.00,
+      "totalShippingFee": 20.00
+    },
+    "totalAmount": 285.00,
+    "couponCode": "SAVE10",
+    "couponDiscount": 15.00,
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "COMPLETED",
+    "afriTxnId": null,
+    "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_9988aabbcc",
+    "paidAt": "2026-11-11T10:15:30.000Z",
+    "shippingFullName": "Jane Doe",
+    "shippingPhone": "+23276123456",
+    "shippingAddressLine1": "123 Main Street",
+    "shippingCity": "Freetown",
+    "shippingState": "Western Area Urban",
+    "shippingCountry": "Sierra Leone",
+    "createdAt": "2026-11-11T10:14:00.000Z",
+    "sellerGroups": [
+      {
+        "sellerId": "seller_uuid_1",
+        "sellerStoreName": "Freetown Mega Store",
+        "summary": { "subtotal": 280.00, "tax": 0, "shipping": 20.00, "total": 300.00 },
+        "derivedStatus": "CONFIRMED",
+        "itemCount": 3
+      }
+    ],
+    "items": [
+      {
+        "id": "item_uuid_1",
+        "productNameSnapshot": "Wireless Headset Pro",
+        "quantity": 1,
+        "price": 100.00,
+        "subtotal": 100.00,
+        "itemStatus": "CONFIRMED"
+      }
+    ]
+  }
+}
+
+--------------------------------------------------------------------------------
+2.5. CUSTOMER ORDERS LIST
+--------------------------------------------------------------------------------
+Endpoints:
+- Universal: GET /mobileapi/customer/orders?page=1&perPage=10
+- Products : GET /mobileapi/customer/orders/products/list?page=1&perPage=10
+- Services : GET /mobileapi/customer/orders/services/list?page=1&perPage=10
+Auth: Bearer <customer_token>
+
+* Serializes `flotOrderId`, `flotPaymentLink`, `paymentMethod`, `paymentStatus`, `paidAt`,
+  `subtotal`, `couponDiscount`, `totalAmount` for each order in the list.
+
+================================================================================
+3. RESTAURANT FOOD ORDERS FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1. PLACE FOOD ORDER
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/foods/orders
+Auth    : Bearer <customer_token>
+Headers : Content-Type: application/json
+
+Request Body:
+{
+  "restaurantSellerId": "rest_seller_uuid_1234",
+  "items": [
+    {
+      "foodItemId": "food_uuid_9988",
+      "quantity": 2
+    }
+  ],
+  "deliveryFullName": "Jane Doe",
+  "deliveryPhone": "+23276123456",
+  "deliveryAddressLine1": "45 Lumley Beach Road",
+  "deliveryAddressLine2": "Apartment 3A",
+  "deliveryCity": "Freetown",
+  "deliveryState": "Western Area Urban",
+  "deliveryPostalCode": "00232",
+  "deliveryCountry": "Sierra Leone",
+  "couponCode": "FOODIE10", // Optional
+  "paymentMethod": "FLOAT"
+}
+
+Success Response (201 Created):
+{
+  "success": true,
+  "message": "Order placed successfully",
+  "data": {
+    "id": "food_order_uuid_7766",
+    "orderNumber": "F-20261111-4321",
+    "subtotal": 120.00,
+    "deliveryFee": 0.00,
+    "couponCode": "FOODIE10",
+    "couponDiscount": 12.00,
+    "totalAmount": 108.00,
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "PENDING",
+    "settlementStatus": "ESCROW_HELD",
+    "flotOrderId": "FOOD_food_order_uuid_7766",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+    "status": "PENDING"
+  },
+  "paymentMethod": "FLOAT",
+  "ussdPromptSent": false,
+  "afriTxnId": null,
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+  "flotOrderId": "FOOD_food_order_uuid_7766",
+  "messageDetail": ""
+}
+
+--------------------------------------------------------------------------------
+3.2. VERIFY FOOD ORDER PAYMENT
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/foods/orders/{id}/verify-payment
+Auth    : Bearer <customer_token>
+Params  : id = Food Order ID (UUID)
+
+Case A - Payment Verified:
+{
+  "success": true,
+  "paymentStatus": "COMPLETED",
+  "status": "CONFIRMED",
+  "paidAt": "2026-11-11T10:20:00.000Z",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "FOOD_food_order_uuid_7766"
+}
+
+Case B - Pending:
+{
+  "success": false,
+  "paymentStatus": "PENDING",
+  "status": "PENDING"
+}
+
+--------------------------------------------------------------------------------
+3.3. CANCEL PENDING FOOD ORDER
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/foods/orders/{id}/cancel-pending
+Auth    : Bearer <customer_token>
+Params  : id = Food Order ID (UUID)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Pending food order cancelled and resources released."
+}
+
+--------------------------------------------------------------------------------
+3.4. FOOD ORDER DETAILS & LIST
+--------------------------------------------------------------------------------
+- Detail: GET /mobileapi/customer/foods/orders/{id}
+- List  : GET /mobileapi/customer/foods/orders
+Auth: Bearer <customer_token>
+
+Detail Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "food_order_uuid_7766",
+    "orderNumber": "F-20261111-4321",
+    "subtotal": 120.00,
+    "deliveryFee": 0.00,
+    "couponCode": "FOODIE10",
+    "couponDiscount": 12.00,
+    "totalAmount": 108.00,
+    "status": "CONFIRMED",
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "COMPLETED",
+    "afriTxnId": null,
+    "flotOrderId": "FOOD_food_order_uuid_7766",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+    "paidAt": "2026-11-11T10:20:00.000Z",
+    "restaurantName": "Bintumani Palm Dining",
+    "items": [
+      {
+        "id": "food_line_1",
+        "foodItemId": "food_uuid_9988",
+        "foodName": "Jollof Rice with Fried Fish",
+        "foodImage": "https://www.meeemsl.com/uploads/foods/jollof.jpg",
+        "quantity": 2,
+        "price": 60.00,
+        "subtotal": 120.00
+      }
+    ]
+  }
+}
+
+================================================================================
+4. HOTEL ROOM BOOKINGS FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1. BOOK ROOM
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/hotels/rooms/{id}/book
+Auth    : Bearer <customer_token>
+Params  : id = Room ID (UUID)
+Headers : Content-Type: application/json
+
+Request Body:
+{
+  "checkIn": "2026-12-01T00:00:00.000Z",
+  "checkOut": "2026-12-04T00:00:00.000Z",
+  "numberOfRooms": 1,
+  "guestName": "John Doe",
+  "guestPhone": "+23276123456",
+  "adults": 2,
+  "children": 0,
+  "couponCode": "HOTEL15", // Optional
+  "paymentMethod": "FLOAT"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Float payment link created",
+  "data": {
+    "id": "hotel_booking_uuid_1122",
+    "roomId": "room_uuid_5544",
+    "hotelId": "hotel_uuid_3322",
+    "guestName": "John Doe",
+    "guestPhone": "+23276123456",
+    "checkIn": "2026-12-01T00:00:00.000Z",
+    "checkOut": "2026-12-04T00:00:00.000Z",
+    "numberOfRooms": 1,
+    "adults": 2,
+    "children": 0,
+    "subtotal": 300.00,
+    "couponCode": "HOTEL15",
+    "couponDiscount": 45.00,
+    "totalPrice": 255.00,
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "PENDING",
+    "settlementStatus": "ESCROW_HELD",
+    "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+    "status": "PENDING"
+  },
+  "paymentMethod": "FLOAT",
+  "ussdPromptSent": false,
+  "afriTxnId": null,
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+  "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
+  "promptMessage": ""
+}
+
+--------------------------------------------------------------------------------
+4.2. VERIFY HOTEL BOOKING PAYMENT
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/hotel-bookings/{id}/verify-payment
+Auth    : Bearer <customer_token>
+Params  : id = Hotel Booking ID (UUID)
+
+Success Response:
+{
+  "success": true,
+  "paymentStatus": "COMPLETED",
+  "status": "CONFIRMED",
+  "paidAt": "2026-11-11T10:25:00.000Z",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
+  "data": {
+    "id": "hotel_booking_uuid_1122",
+    "status": "CONFIRMED",
+    "paymentStatus": "COMPLETED",
+    "paymentMethod": "FLOAT",
+    "totalPrice": 255.00,
+    "paidAt": "2026-11-11T10:25:00.000Z"
+  }
+}
+
+--------------------------------------------------------------------------------
+4.3. CANCEL PENDING HOTEL BOOKING (MODAL CLOSE / 300s TIMEOUT)
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/hotel-bookings/{id}/cancel-pending
+Auth    : Bearer <customer_token>
+Params  : id = Hotel Booking ID (UUID)
+
+Success Response:
+{
+  "success": true,
+  "message": "Pending booking cancelled and room released."
+}
+* Note: Automatically restores room inventory (decrements bookedCount on RoomAvailability),
+  releases coupon usage, and updates status to CANCELLED / FAILED.
+
+--------------------------------------------------------------------------------
+4.4. HOTEL BOOKING DETAILS & LIST
+--------------------------------------------------------------------------------
+- Detail: GET /mobileapi/customer/hotel-bookings/{id}
+- List  : GET /mobileapi/customer/hotel-bookings
+Auth: Bearer <customer_token>
+
+Detail Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "hotel_booking_uuid_1122",
+    "guestName": "John Doe",
+    "guestPhone": "+23276123456",
+    "checkIn": "2026-12-01T00:00:00.000Z",
+    "checkOut": "2026-12-04T00:00:00.000Z",
+    "numberOfRooms": 1,
+    "subtotal": 300.00,
+    "couponCode": "HOTEL15",
+    "couponDiscount": 45.00,
+    "totalPrice": 255.00,
+    "status": "CONFIRMED",
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "COMPLETED",
+    "afriTxnId": null,
+    "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+    "paidAt": "2026-11-11T10:25:00.000Z",
+    "room": {
+      "id": "room_uuid_5544",
+      "name": "Deluxe Ocean View Suite",
+      "price": 100.00
+    },
+    "hotel": {
+      "id": "hotel_uuid_3322",
+      "name": "The Radisson Blu Mammy Yoko Hotel"
+    }
+  }
+}
+
+================================================================================
+5. CUSTOMER ADS MANAGEMENT FLOW
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1. PAY FLOAT FOR EXISTING AD
+--------------------------------------------------------------------------------
+Endpoint: POST /mobileapi/customer/ads/{id}/pay-float
+Auth    : Bearer <customer_token>
+Params  : id = SellerAd ID (UUID)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "paid": false,
+  "paymentStatus": "PENDING",
+  "paymentMethod": "FLOAT",
+  "paymentUrl": "https://flot.pay.me/checkout/session/flot_chk_ad_1234",
+  "flotOrderId": "AD_ad_uuid_1731320000000",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_ad_1234"
+}
+
+--------------------------------------------------------------------------------
+5.2. VERIFY AD PAYMENT STATUS
+--------------------------------------------------------------------------------
+Endpoint: GET /mobileapi/customer/ads/{id}/verify-payment
+Auth    : Bearer <customer_token>
+Params  : id = SellerAd ID (UUID)
+
+Case A - Paid:
+{
+  "success": true,
+  "paid": true,
+  "paymentStatus": "COMPLETED",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "AD_ad_uuid_1731320000000",
+  "paidAt": "2026-11-11T10:30:00.000Z"
+}
+
+Case B - Pending:
+{
+  "success": true,
+  "paid": false,
+  "paymentStatus": "PENDING",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "AD_ad_uuid_1731320000000"
+}
+
+================================================================================
+6. CUSTOMER PRICE BREAKDOWN & PRIVACY GUARANTEE
+================================================================================
+All mobile customer endpoints strictly return user-facing billing fields:
+- Subtotal: Amount before discounts and delivery charges
+- Coupon Code & Discount: Explicit deduction applied
+- Shipping Fee & Breakup: Weight, dimension, and region shipping fees
+- Total Amount: Final price charged to card
+* IMPORTANT: Platform commission rates, seller commission amounts, and seller net
+  payouts are strictly withheld from all customer responses to prevent internal data exposure.
+
+================================================================================
+7. ERROR HANDLING & GATEWAY STATUS CODES REFERENCE
+================================================================================
+- 400 Bad Request          : Invalid inputs, expired/invalid coupon, or missing parameters.
+- 401 Unauthorized         : Missing or expired Bearer JWT token in Authorization header.
+- 403 Forbidden            : Token belongs to another user or role.
+- 404 Not Found            : Order, booking, room, or food item not found.
+- 502 Bad Gateway          : Float Gateway connection timeout or external API unreachable.
+- 500 Internal Server Error: Database or unhandled server exception.
+================================================================================
+

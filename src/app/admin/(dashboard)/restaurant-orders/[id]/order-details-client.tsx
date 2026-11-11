@@ -42,6 +42,7 @@ type OrderDetails = {
   paymentMethod?: string | null
   paymentStatus?: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   createdAt: string
   deliveryFullName: string
@@ -188,8 +189,10 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                   <div className="flex justify-between items-center pt-2 text-xs">
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Payment Method:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold uppercase text-slate-800">{order.paymentMethod ?? "COD"}</span>
-                      <Badge variant="outline" className="text-[10px] font-bold">
+                      <span className="font-bold uppercase text-slate-800">
+                        {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                      </span>
+                      <Badge variant="outline" className={`text-[10px] font-bold ${order.paymentMethod === "FLOAT" ? "border-blue-300 text-blue-600 bg-blue-50" : ""}`}>
                         {order.paymentStatus ?? "PENDING"}
                       </Badge>
                     </div>
@@ -198,6 +201,12 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                     <div className="pt-1 text-[11px] font-semibold text-emerald-600 font-mono flex justify-between">
                       <span>AfriMoney Txn:</span>
                       <span>{order.afriTxnId}</span>
+                    </div>
+                  )}
+                  {order.flotOrderId && (
+                    <div className="pt-1 text-[11px] font-semibold text-blue-600 font-mono flex justify-between">
+                      <span>Float Order ID:</span>
+                      <span>{order.flotOrderId}</span>
                     </div>
                   )}
                 </div>

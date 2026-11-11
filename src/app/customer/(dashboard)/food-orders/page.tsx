@@ -50,6 +50,7 @@ type FoodOrderDetails = {
   paymentMethod?: string
   paymentStatus?: string
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   createdAt: string
   deliveryFullName: string
@@ -430,13 +431,19 @@ export default function CustomerFoodOrdersPage() {
                                         <div className="flex justify-between items-center">
                                           <span className="text-slate-500">Method:</span>
                                           <span className="font-bold text-slate-800">
-                                            {details.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (details.paymentMethod || "Cash on Delivery")}
+                                            {details.paymentMethod === "FLOAT" ? "💳 Float (Card)" : details.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (details.paymentMethod || "Cash on Delivery")}
                                           </span>
                                         </div>
                                         {details.afriTxnId && (
                                           <div className="flex justify-between items-center text-[11px] text-slate-500">
                                             <span>Txn ID:</span>
                                             <span className="font-mono font-bold text-slate-700">{details.afriTxnId}</span>
+                                          </div>
+                                        )}
+                                        {details.flotOrderId && (
+                                          <div className="flex justify-between items-center text-[11px] text-blue-600 font-mono">
+                                            <span>Float Order ID:</span>
+                                            <span className="font-bold">{details.flotOrderId}</span>
                                           </div>
                                         )}
                                         {details.paidAt && (

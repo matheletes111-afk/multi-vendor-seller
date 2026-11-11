@@ -1012,7 +1012,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600 font-medium">Payment Method</span>
                   <span className="font-bold text-slate-900 inline-flex items-center gap-1.5">
-                    {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                    {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
@@ -1030,6 +1030,12 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   <div className="flex justify-between items-center text-xs text-gray-500">
                     <span>Transaction ID</span>
                     <span className="font-mono font-bold text-slate-700">{order.afriTxnId}</span>
+                  </div>
+                )}
+                {order.flotOrderId && (
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Float Order ID</span>
+                    <span className="font-mono font-bold text-blue-600">{order.flotOrderId}</span>
                   </div>
                 )}
                 {order.afriMsisdn && (

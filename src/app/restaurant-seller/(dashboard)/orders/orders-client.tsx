@@ -27,6 +27,7 @@ type Order = {
   paymentMethod?: string | null
   paymentStatus?: string | null
   afriTxnId?: string | null
+  flotOrderId?: string | null
   paidAt?: string | null
   commissionRate?: number
   commissionAmount?: number
@@ -276,9 +277,9 @@ export function RestaurantOrdersClient() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-500 font-medium">Payment:</span>
                             <span className="text-xs font-bold text-slate-800">
-                              {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                              {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
                             </span>
-                            <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className="text-[10px] uppercase">
+                            <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className={`text-[10px] uppercase ${order.paymentMethod === "FLOAT" ? "border-blue-300 text-blue-600 bg-blue-50" : ""}`}>
                               {order.paymentStatus || "PENDING"}
                             </Badge>
                           </div>
@@ -287,6 +288,12 @@ export function RestaurantOrdersClient() {
                         {order.afriTxnId && (
                           <div className="flex flex-wrap justify-between items-center text-xs text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg">
                             <span>AfriMoney Txn ID: {order.afriTxnId}</span>
+                            {order.paidAt && <span>Paid At: {new Date(order.paidAt).toLocaleString()}</span>}
+                          </div>
+                        )}
+                        {order.flotOrderId && (
+                          <div className="flex flex-wrap justify-between items-center text-xs text-blue-600 font-mono bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                            <span>Float Order ID: {order.flotOrderId}</span>
                             {order.paidAt && <span>Paid At: {new Date(order.paidAt).toLocaleString()}</span>}
                           </div>
                         )}

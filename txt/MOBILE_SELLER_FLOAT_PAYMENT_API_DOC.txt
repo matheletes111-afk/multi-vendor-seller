@@ -1,0 +1,521 @@
+================================================================================
+MEEEM MOBILE ALL 4 SELLERS - FLOAT PAYMENT GATEWAY API INTEGRATION SPECIFICATION
+================================================================================
+Document Version : 2.0.0
+Target Platform  : Meeem Mobile Seller Apps (iOS & Android)
+Seller Modules   : 1. Product Seller    (Role: SELLER_PRODUCT)
+                   2. Service Seller    (Role: SELLER_SERVICE)
+                   3. Hotel Seller      (Role: SELLER_HOTEL)
+                   4. Restaurant Seller (Role: SELLER_RESTAURANT)
+Base URL         : https://www.meeemsl.com (Production) / Localhost in Development
+Authorization    : Bearer <seller_jwt_token>
+Security Standard: Endpoints enforce strict seller role checks via JWT claims.
+Gateway Covered  : Float Hosted Card Checkout (VISA / MasterCard / SLE)
+Coexistence Note : Operates alongside AfriMoney Mobile Money (Push USSD).
+                   AfriMoney subscription and ad flows remain 100% intact.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. High-Level Architecture for Sellers
+2. Seller Subscriptions Flow (All 4 Sellers)
+   2.1. Pay Float for Subscription Plan (Initiation)
+   2.2. Verify Subscription Payment Status (Polling)
+   2.3. Subscription Status, Queued Packs & Current Plan Details
+3. Seller Ads Management Flow (All 4 Sellers)
+   3.1. Create New Ad with Float Payment
+   3.2. Pay Float for Existing Ad (Pay Now / Retry)
+   3.3. Verify Ad Payment Status (Polling)
+   3.4. Ad Details & Ad Lists (Price Breakup & Audit Fields)
+4. Seller Orders & Bookings Financial Breakdown & Audit Fields
+   4.1. Product Seller Orders (List & Detail)
+   4.2. Service Seller Orders (List & Detail)
+   4.3. Hotel Seller Bookings (List & Detail)
+   4.4. Restaurant Seller Food Orders (List & Detail)
+5. Summary of Endpoints Matrix
+6. Error Handling & Gateway Status Codes Reference
+
+================================================================================
+1. HIGH-LEVEL ARCHITECTURE FOR SELLERS
+================================================================================
+All four seller types on Meeem can use the Float Card Payment Gateway for:
+1. Subscriptions: Purchasing or renewing monthly / annual seller membership plans
+   or queuing upcoming packs with discount coupon support.
+2. Seller Ads: Creating sponsored campaigns or paying for pending ads.
+3. Order & Booking Audit Trail: Reviewing complete buyer payment identifiers
+   (`flotOrderId`, `flotPaymentLink`, `paymentMethod`, `paymentStatus`, `paidAt`)
+   alongside seller net earnings, commission rates, and escrow settlement status.
+
+================================================================================
+2. SELLER SUBSCRIPTIONS FLOW (ALL 4 SELLERS)
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. PAY FLOAT FOR SUBSCRIPTION PLAN (INITIATION)
+--------------------------------------------------------------------------------
+Endpoints Available (Both module-specific and universal routes are supported):
+- Product Seller   : POST /mobileapi/product-seller/subscription/pay-float
+- Service Seller   : POST /mobileapi/service-seller/subscription/pay-float
+- Hotel Seller     : POST /mobileapi/hotel-seller/subscription/pay-float
+- Restaurant Seller: POST /mobileapi/restaurant-seller/subscription/pay-float
+- Universal Seller : POST /mobileapi/seller/subscription/pay-float
+
+Auth   : Bearer <seller_token>
+Headers: Content-Type: application/json
+
+Request Body:
+{
+  "planId": "plan_uuid_4455",
+  "couponCode": "SELLERDISCOUNT20" // Optional
+}
+
+Case A - Standard Paid Subscription Response (200 OK):
+{
+  "success": true,
+  "purchaseId": "sub_purchase_uuid_9988",
+  "payableAmount": 80.00,
+  "planName": "Product Seller Premium Plan",
+  "paymentUrl": "https://flot.pay.me/checkout/session/flot_sub_chk_9988aabbcc",
+  "flotOrderId": "PROD_sub_purchase_uuid_9988_1731321000000",
+  "message": "Float checkout link generated successfully"
+}
+* Mobile Action: Open `paymentUrl` in an in-app browser or Webview, and initiate
+  polling to the verify endpoint using the returned `purchaseId`.
+
+Case B - 100% Free Coupon Applied (Activated / Queued instantly without checkout):
+{
+  "success": true,
+  "purchaseId": "sub_purchase_uuid_9988",
+  "status": "ACTIVE", // or "QUEUED" if seller has an active pack running
+  "payableAmount": 0,
+  "planName": "Product Seller Premium Plan",
+  "message": "100% coupon applied! Your plan is activated successfully."
+}
+
+--------------------------------------------------------------------------------
+2.2. VERIFY SUBSCRIPTION PAYMENT STATUS (POLLING)
+--------------------------------------------------------------------------------
+Endpoints Available:
+- Module-Specific: GET /mobileapi/{product-seller|service-seller|hotel-seller|restaurant-seller}/subscription/verify-payment?purchaseId={purchaseId}
+- Universal      : GET /mobileapi/seller/subscription/verify-payment?purchaseId={purchaseId}
+Auth: Bearer <seller_token>
+
+Case A - Payment Confirmed (Gateway 3DS completed):
+{
+  "success": true,
+  "paid": true,
+  "status": "ACTIVE", // or "QUEUED" if an active plan was already running
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "PROD_sub_purchase_uuid_9988_1731321000000",
+  "paidAt": "2026-11-11T10:45:00.000Z"
+}
+* Mobile Action: Close Webview, show "Subscription Activated" banner, and refresh
+  seller dashboard.
+
+Case B - Pending (User currently on 3D Secure / OTP):
+{
+  "success": true,
+  "paid": false,
+  "status": "PENDING_PAYMENT",
+  "message": "Payment is being processed by Float gateway. Please complete verification."
+}
+
+--------------------------------------------------------------------------------
+2.3. SUBSCRIPTION STATUS, QUEUED PACKS & CURRENT PLAN DETAILS
+--------------------------------------------------------------------------------
+Endpoints Available:
+- Product Seller   : GET /mobileapi/product-seller/subscription
+- Service Seller   : GET /mobileapi/service-seller/subscription
+- Hotel Seller     : GET /mobileapi/hotel-seller/subscription
+- Restaurant Seller: GET /mobileapi/restaurant-seller/subscription
+Auth: Bearer <seller_token>
+
+Success Response (200 OK):
+{
+  "currentSubscription": {
+    "id": "sub_uuid_1111",
+    "planId": "plan_uuid_4455",
+    "status": "ACTIVE",
+    "canExtend": true,
+    "paymentMethod": "FLOAT",
+    "flotOrderId": "PROD_sub_purchase_uuid_1111_1730419200000",
+    "afriTxnId": null,
+    "paidAt": "2026-11-01T00:05:00.000Z",
+    "appliedCoupon": {
+      "code": "SELLERDISCOUNT20",
+      "discountAmount": 20.00,
+      "finalPaidAmount": 80.00
+    }
+  },
+  "queuedPacks": [
+    {
+      "id": "sub_purchase_uuid_9988",
+      "planId": "plan_uuid_4455",
+      "planName": "Premium Plan",
+      "status": "QUEUED",
+      "periodStart": "2026-12-01T00:00:00.000Z",
+      "periodEnd": "2026-12-31T00:00:00.000Z",
+      "durationDays": 30,
+      "price": 100.00,
+      "paidPrice": 80.00,
+      "couponCode": "SELLERDISCOUNT20",
+      "discountAmount": 20.00,
+      "paymentMethod": "FLOAT",
+      "flotOrderId": "PROD_sub_purchase_uuid_9988_1731321000000",
+      "afriTxnId": null,
+      "paidAt": "2026-11-11T10:45:00.000Z"
+    }
+  ],
+  "availablePlans": [ ...availablePlansList... ]
+}
+
+================================================================================
+3. SELLER ADS MANAGEMENT FLOW (ALL 4 SELLERS)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1. CREATE NEW AD WITH FLOAT PAYMENT
+--------------------------------------------------------------------------------
+Endpoints:
+- Product Seller   : POST /mobileapi/product-seller/ads
+- Service Seller   : POST /mobileapi/service-seller/ads
+- Hotel Seller     : POST /mobileapi/hotel-seller/admanagement
+- Restaurant Seller: POST /mobileapi/restaurant-seller/admanagement
+
+Auth   : Bearer <seller_token>
+Headers: Content-Type: application/json (or multipart/form-data when uploading creativeFile / mobileCreativeFile)
+
+Request Body:
+{
+  "adType": "promote_product", // or "promote_service" or "own_ad"
+  "productId": "prod_uuid_1234", // Use serviceId / hotelId / foodItemId for respective modules (omit if own_ad)
+  "title": "Grand Summer Promotion",
+  "description": "50% off all items",
+  "placements": ["WEB", "MOBILE"],
+  "creativeType": "IMAGE", // "IMAGE" or "VIDEO"
+  "creativeUrl": "https://www.meeemsl.com/uploads/ads/promo_web.jpg",
+  "mobileCreativeType": "IMAGE",
+  "mobileCreativeUrl": "https://www.meeemsl.com/uploads/ads/promo_mobile.jpg",
+  "totalBudget": 100.00,
+  "maxCpc": 2.00,
+  "startAt": "2026-12-01T00:00:00.000Z",
+  "endAt": "2026-12-08T00:00:00.000Z",
+  "couponCode": "ADSPROMO10", // Optional
+  "paymentMethod": "FLOAT"
+}
+
+Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "ad_uuid_8877",
+    "title": "Grand Summer Promotion",
+    "totalBudget": 100.00,
+    "payableAmount": 90.00,
+    "couponCode": "ADSPROMO10",
+    "couponDiscount": 10.00,
+    "spentAmount": 0.00,
+    "maxCpc": 2.00,
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "PENDING",
+    "status": "PENDING_APPROVAL",
+    "paymentUrl": "https://flot.pay.me/checkout/session/flot_ad_chk_8877",
+    "flotOrderId": "AD_ad_uuid_8877_1731322000000"
+  }
+}
+
+--------------------------------------------------------------------------------
+3.2. PAY FLOAT FOR EXISTING AD (PAY NOW / RETRY)
+--------------------------------------------------------------------------------
+Endpoints:
+- Product Seller   : POST /mobileapi/product-seller/ads/{id}/pay-float
+- Service Seller   : POST /mobileapi/service-seller/ads/{id}/pay-float
+- Hotel Seller     : POST /mobileapi/hotel-seller/admanagement/{id}/pay-float
+- Restaurant Seller: POST /mobileapi/restaurant-seller/admanagement/{id}/pay-float
+- Universal Seller : POST /mobileapi/seller/ads/{id}/pay-float
+
+Auth: Bearer <seller_token>
+Params: id = Ad ID (UUID)
+
+Success Response (200 OK):
+{
+  "success": true,
+  "paid": false,
+  "paymentStatus": "PENDING",
+  "paymentMethod": "FLOAT",
+  "paymentUrl": "https://flot.pay.me/checkout/session/flot_ad_chk_8877",
+  "flotOrderId": "AD_ad_uuid_8877_1731322000000",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_ad_chk_8877"
+}
+
+--------------------------------------------------------------------------------
+3.3. VERIFY AD PAYMENT STATUS (POLLING)
+--------------------------------------------------------------------------------
+Endpoints:
+- Product Seller   : GET /mobileapi/product-seller/ads/{id}/verify-payment
+- Service Seller   : GET /mobileapi/service-seller/ads/{id}/verify-payment
+- Hotel Seller     : GET /mobileapi/hotel-seller/admanagement/{id}/verify-payment
+- Restaurant Seller: GET /mobileapi/restaurant-seller/admanagement/{id}/verify-payment
+- Universal Seller : GET /mobileapi/seller/ads/{id}/verify-payment
+
+Auth: Bearer <seller_token>
+Params: id = Ad ID (UUID)
+
+Success Response:
+{
+  "success": true,
+  "paid": true,
+  "paymentStatus": "COMPLETED",
+  "paymentMethod": "FLOAT",
+  "flotOrderId": "AD_ad_uuid_8877_1731322000000",
+  "paidAt": "2026-11-11T10:50:00.000Z"
+}
+
+--------------------------------------------------------------------------------
+3.4. AD DETAILS & AD LISTS (PRICE BREAKUP & AUDIT FIELDS)
+--------------------------------------------------------------------------------
+Endpoints:
+- Product Seller Detail   : GET /mobileapi/product-seller/ads/{id}
+- Service Seller Detail   : GET /mobileapi/service-seller/ads/{id}
+- Hotel Seller Detail     : GET /mobileapi/hotel-seller/admanagement/{id}
+- Restaurant Seller Detail: GET /mobileapi/restaurant-seller/admanagement/{id}
+- Product Seller List     : GET /mobileapi/product-seller/ads
+- Service Seller List     : GET /mobileapi/service-seller/ads
+- Hotel Seller List       : GET /mobileapi/hotel-seller/admanagement
+- Restaurant Seller List  : GET /mobileapi/restaurant-seller/admanagement
+
+Detail Success Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": "ad_uuid_8877",
+    "title": "Grand Summer Promotion",
+    "totalBudget": 100.00,
+    "payableAmount": 90.00,
+    "couponCode": "ADSPROMO10",
+    "couponDiscount": 10.00,
+    "spentAmount": 0.00,
+    "maxCpc": 2.00,
+    "paymentMethod": "FLOAT",
+    "paymentStatus": "COMPLETED",
+    "afriTxnId": null,
+    "flotOrderId": "AD_ad_uuid_8877_1731322000000",
+    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_ad_chk_8877",
+    "paidAt": "2026-11-11T10:50:00.000Z",
+    "clickCount": 0
+  }
+}
+
+================================================================================
+4. SELLER ORDERS & BOOKINGS FINANCIAL BREAKDOWN & AUDIT FIELDS
+================================================================================
+All seller orders and bookings endpoints provide 100% transparent economics:
+- Buyer Price Breakup: Subtotal, Tax, Shipping, Shipping Breakup, Coupon Discount, Total
+- Platform Fee: Commission Rate %, Commission Amount
+- Seller Earnings: Seller Net Payout, Escrow Settlement Status
+- Payment Gateway Audit: Payment Method, Payment Status, Gateway Order ID (`flotOrderId`),
+  Payment Link (`flotPaymentLink`), AfriMoney Txn ID (`afriTxnId`), Paid Timestamp (`paidAt`).
+
+--------------------------------------------------------------------------------
+4.1. PRODUCT SELLER ORDERS
+--------------------------------------------------------------------------------
+- List  : GET /mobileapi/product-seller/orders?page=1&perPage=10
+- Detail: GET /mobileapi/product-seller/orders/{id}
+Auth: Bearer <seller_token>
+
+Key Fields Returned:
+{
+  "id": "order_uuid_1234",
+  "orderNumber": "ORD-20261111-9988",
+  "status": "CONFIRMED",
+  "subtotal": 280.00,
+  "tax": 0.00,
+  "shipping": 20.00,
+  "shippingBreakup": {
+    "weightShippingFee": 12.00,
+    "dimensionShippingFee": 0.00,
+    "regionShippingFee": 8.00,
+    "totalShippingFee": 20.00
+  },
+  "couponCode": "SAVE10",
+  "couponDiscount": 15.00,
+  "totalAmount": 285.00,
+  "commissionRate": 10.0,
+  "commission": 28.00,
+  "sellerNet": 252.00,
+  "paymentMethod": "FLOAT",
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": null,
+  "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_9988aabbcc",
+  "paidAt": "2026-11-11T10:15:30.000Z",
+  "items": [
+    {
+      "id": "item_uuid_1",
+      "productNameSnapshot": "Wireless Headset Pro",
+      "price": 100.00,
+      "quantity": 1,
+      "subtotal": 100.00,
+      "commissionAmount": 10.00,
+      "sellerNet": 90.00,
+      "status": "CONFIRMED"
+    }
+  ]
+}
+
+--------------------------------------------------------------------------------
+4.2. SERVICE SELLER ORDERS
+--------------------------------------------------------------------------------
+- List  : GET /mobileapi/service-seller/orders?page=1&perPage=10
+- Detail: GET /mobileapi/service-seller/orders/{id}
+Auth: Bearer <seller_token>
+
+Key Fields Returned:
+{
+  "id": "service_order_uuid",
+  "orderNumber": "ORD-20261111-7766",
+  "subtotal": 150.00,
+  "couponCode": "SERVICE10",
+  "couponDiscount": 15.00,
+  "totalAmount": 135.00,
+  "commissionRate": 10.0,
+  "commission": 15.00,
+  "sellerNet": 120.00,
+  "paymentMethod": "FLOAT",
+  "paymentStatus": "COMPLETED",
+  "flotOrderId": "FLOT_ORD-20261111-7766_1731320000000",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_service_7766",
+  "paidAt": "2026-11-11T10:20:00.000Z",
+  "serviceSlotStartTime": "2026-11-15T14:00:00.000Z",
+  "serviceSlotEndTime": "2026-11-15T16:00:00.000Z"
+}
+
+--------------------------------------------------------------------------------
+4.3. HOTEL SELLER BOOKINGS
+--------------------------------------------------------------------------------
+- List  : GET /mobileapi/hotel-seller/bookings?page=1&perPage=10
+- Detail: GET /mobileapi/hotel-seller/bookings/{id}
+Auth: Bearer <seller_token>
+
+Key Fields Returned:
+{
+  "id": "hotel_booking_uuid_1122",
+  "guestName": "John Doe",
+  "guestPhone": "+23276123456",
+  "checkIn": "2026-12-01T00:00:00.000Z",
+  "checkOut": "2026-12-04T00:00:00.000Z",
+  "numberOfRooms": 1,
+  "subtotal": 300.00,
+  "couponCode": "HOTEL15",
+  "couponDiscount": 45.00,
+  "totalPrice": 255.00,
+  "commissionRate": 10.0,
+  "commissionAmount": 30.00,
+  "sellerNetPayout": 225.00,
+  "settlementStatus": "ESCROW_HELD",
+  "paymentMethod": "FLOAT",
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": null,
+  "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+  "paidAt": "2026-11-11T10:25:00.000Z"
+}
+
+--------------------------------------------------------------------------------
+4.4. RESTAURANT SELLER FOOD ORDERS
+--------------------------------------------------------------------------------
+- List: GET /mobileapi/restaurant-seller/orders
+Auth: Bearer <seller_token>
+
+Key Fields Returned:
+{
+  "id": "food_order_uuid_7766",
+  "orderNumber": "F-20261111-4321",
+  "subtotal": 120.00,
+  "deliveryFee": 0.00,
+  "couponCode": "FOODIE10",
+  "couponDiscount": 12.00,
+  "totalAmount": 108.00,
+  "commissionRate": 10.0,
+  "commissionAmount": 12.00,
+  "sellerNet": 96.00,
+  "settlementStatus": "ESCROW_HELD",
+  "paymentMethod": "FLOAT",
+  "paymentStatus": "COMPLETED",
+  "afriTxnId": null,
+  "flotOrderId": "FOOD_food_order_uuid_7766",
+  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+  "paidAt": "2026-11-11T10:20:00.000Z",
+  "status": "CONFIRMED",
+  "items": [
+    {
+      "id": "food_line_1",
+      "foodName": "Jollof Rice with Fried Fish",
+      "foodImage": "https://www.meeemsl.com/uploads/foods/jollof.jpg",
+      "quantity": 2,
+      "price": 60.00,
+      "subtotal": 120.00
+    }
+  ]
+}
+
+================================================================================
+5. SUMMARY OF EXACT ENDPOINTS MATRIX (NO ABBREVIATIONS)
+================================================================================
+1. Product Seller (SELLER_PRODUCT):
+   - Subscription Pay Float : POST /mobileapi/product-seller/subscription/pay-float
+   - Subscription Verify    : GET  /mobileapi/product-seller/subscription/verify-payment?purchaseId={id}
+   - Subscription Status    : GET  /mobileapi/product-seller/subscription
+   - Ad Create              : POST /mobileapi/product-seller/ads
+   - Ad Pay Float           : POST /mobileapi/product-seller/ads/{id}/pay-float
+   - Ad Verify              : GET  /mobileapi/product-seller/ads/{id}/verify-payment
+   - Ad List & Detail       : GET  /mobileapi/product-seller/ads & GET /mobileapi/product-seller/ads/{id}
+   - Orders List & Detail   : GET  /mobileapi/product-seller/orders & GET /mobileapi/product-seller/orders/{id}
+
+2. Service Seller (SELLER_SERVICE):
+   - Subscription Pay Float : POST /mobileapi/service-seller/subscription/pay-float
+   - Subscription Verify    : GET  /mobileapi/service-seller/subscription/verify-payment?purchaseId={id}
+   - Subscription Status    : GET  /mobileapi/service-seller/subscription
+   - Ad Create              : POST /mobileapi/service-seller/ads
+   - Ad Pay Float           : POST /mobileapi/service-seller/ads/{id}/pay-float
+   - Ad Verify              : GET  /mobileapi/service-seller/ads/{id}/verify-payment
+   - Ad List & Detail       : GET  /mobileapi/service-seller/ads & GET /mobileapi/service-seller/ads/{id}
+   - Orders List & Detail   : GET  /mobileapi/service-seller/orders & GET /mobileapi/service-seller/orders/{id}
+
+3. Hotel Seller (SELLER_HOTEL):
+   - Subscription Pay Float : POST /mobileapi/hotel-seller/subscription/pay-float
+   - Subscription Verify    : GET  /mobileapi/hotel-seller/subscription/verify-payment?purchaseId={id}
+   - Subscription Status    : GET  /mobileapi/hotel-seller/subscription
+   - Ad Create              : POST /mobileapi/hotel-seller/admanagement
+   - Ad Pay Float           : POST /mobileapi/hotel-seller/admanagement/{id}/pay-float
+   - Ad Verify              : GET  /mobileapi/hotel-seller/admanagement/{id}/verify-payment
+   - Ad List & Detail       : GET  /mobileapi/hotel-seller/admanagement & GET /mobileapi/hotel-seller/admanagement/{id}
+   - Bookings List & Detail : GET  /mobileapi/hotel-seller/bookings & GET /mobileapi/hotel-seller/bookings/{id}
+
+4. Restaurant Seller (SELLER_RESTAURANT):
+   - Subscription Pay Float : POST /mobileapi/restaurant-seller/subscription/pay-float
+   - Subscription Verify    : GET  /mobileapi/restaurant-seller/subscription/verify-payment?purchaseId={id}
+   - Subscription Status    : GET  /mobileapi/restaurant-seller/subscription
+   - Ad Create              : POST /mobileapi/restaurant-seller/admanagement
+   - Ad Pay Float           : POST /mobileapi/restaurant-seller/admanagement/{id}/pay-float
+   - Ad Verify              : GET  /mobileapi/restaurant-seller/admanagement/{id}/verify-payment
+   - Ad List & Detail       : GET  /mobileapi/restaurant-seller/admanagement & GET /mobileapi/restaurant-seller/admanagement/{id}
+   - Orders List            : GET  /mobileapi/restaurant-seller/orders
+
+5. Universal Seller Endpoints (Valid for any of the 4 Seller JWTs):
+   - Subscription Pay Float : POST /mobileapi/seller/subscription/pay-float
+   - Subscription Verify    : GET  /mobileapi/seller/subscription/verify-payment?purchaseId={id}
+   - Ad Pay Float           : POST /mobileapi/seller/ads/{id}/pay-float
+   - Ad Verify              : GET  /mobileapi/seller/ads/{id}/verify-payment
+
+================================================================================
+6. ERROR HANDLING & GATEWAY STATUS CODES REFERENCE
+================================================================================
+- 400 Bad Request          : Invalid payload, inactive plan, or missing parameters.
+- 401 Unauthorized         : Missing or expired Bearer JWT token in Authorization header.
+- 403 Forbidden            : Token belongs to an unauthorized seller module or another user.
+- 404 Not Found            : Seller profile, plan, ad, or order not found.
+- 502 Bad Gateway          : Float Gateway connection timeout or external API unreachable.
+- 500 Internal Server Error: Database or unhandled server exception.
+================================================================================
+

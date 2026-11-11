@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
+import { createFlotPaymentLink, verifyFlotPaymentAttempt } from "@/lib/flot"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
 import { SubscriptionPlan, PlanType, SubscriptionLedgerStatus, SubscriptionStatus } from "@prisma/client"
 
@@ -1572,6 +1573,39 @@ export async function verifySubscriptionPaymentStatus(purchaseId: string) {
 
   // Check 15-minute timeout for stuck pending payments
   if (purchase.status === SubscriptionLedgerStatus.PENDING_PAYMENT) {
+    if (purchase.paymentMethod === "FLOAT" && purchase.flotOrderId) {
+      await reconcileFloatSubscriptionPurchase(purchase.id).catch(() => null)
+      const reloaded = await prisma.subscriptionPurchase.findUnique({
+        where: { id: purchase.id },
+        include: { plan: true },
+      })
+      if (reloaded) {
+        return {
+          success: true,
+          purchaseId: reloaded.id,
+          status: reloaded.status,
+          isReady: reloaded.status === SubscriptionLedgerStatus.ACTIVE || reloaded.status === SubscriptionLedgerStatus.QUEUED,
+          isFailed: reloaded.status === SubscriptionLedgerStatus.FAILED || reloaded.status === SubscriptionLedgerStatus.CANCELLED,
+          planName: reloaded.plan?.displayName || reloaded.plan?.name,
+          periodStart: reloaded.periodStart,
+          periodEnd: reloaded.periodEnd,
+          durationDays: reloaded.durationDays,
+          paidPrice: reloaded.paidPrice,
+          paymentMethod: reloaded.paymentMethod,
+          flotOrderId: reloaded.flotOrderId,
+          afriTxnId: reloaded.afriTxnId,
+          message:
+            reloaded.status === SubscriptionLedgerStatus.ACTIVE
+              ? "Subscription pack activated successfully!"
+              : reloaded.status === SubscriptionLedgerStatus.QUEUED
+              ? "Subscription pack queued successfully! It will start automatically when your current pack ends."
+              : reloaded.status === SubscriptionLedgerStatus.PENDING_PAYMENT
+              ? "Payment is still processing in Float portal. Please finish checkout or click Re-check Status."
+              : "Payment was not completed.",
+        }
+      }
+    }
+
     const ageMs = Date.now() - purchase.createdAt.getTime()
     if (ageMs > 15 * 60 * 1000) {
       const updated = await prisma.subscriptionPurchase.update({
@@ -1610,6 +1644,7 @@ export async function verifySubscriptionPaymentStatus(purchaseId: string) {
     durationDays: purchase.durationDays,
     paidPrice: purchase.paidPrice,
     paymentMethod: purchase.paymentMethod,
+    flotOrderId: purchase.flotOrderId,
     afriTxnId: purchase.afriTxnId,
     message:
       purchase.status === SubscriptionLedgerStatus.ACTIVE
@@ -1617,7 +1652,271 @@ export async function verifySubscriptionPaymentStatus(purchaseId: string) {
         : purchase.status === SubscriptionLedgerStatus.QUEUED
         ? "Subscription pack queued successfully! It will start automatically when your current pack ends."
         : purchase.status === SubscriptionLedgerStatus.PENDING_PAYMENT
-        ? "Payment is still processing. Please enter your AfriMoney PIN on your phone."
+        ? "Payment is still processing. Please enter your AfriMoney PIN on your phone or complete card payment."
         : "Payment was not completed.",
   }
 }
+
+export interface InitiateFloatSubscriptionParams {
+  sellerType: PlanType
+  sellerId: string
+  planId: string
+  couponCode?: string | null
+  userId?: string
+}
+
+export interface InitiateFloatSubscriptionResult {
+  success: boolean
+  purchaseId?: string
+  status?: string
+  payableAmount: number
+  planName?: string
+  paymentUrl?: string | null
+  flotOrderId?: string | null
+  message?: string
+  error?: string
+}
+
+/**
+ * Initiate Float Payment Link for Subscription Purchase.
+ */
+export async function initiateFloatSubscriptionPayment(
+  params: InitiateFloatSubscriptionParams
+): Promise<InitiateFloatSubscriptionResult> {
+  const { sellerType, sellerId, planId, couponCode, userId } = params
+
+  const plan = await prisma.plan.findUnique({
+    where: { id: planId },
+  })
+
+  if (!plan) {
+    return {
+      success: false,
+      payableAmount: 0,
+      message: "Plan not found",
+      error: "Plan not found",
+    }
+  }
+
+  if (plan.price <= 0) {
+    return {
+      success: false,
+      payableAmount: 0,
+      message: "The free introductory trial plan cannot be repurchased. Please select a paid package.",
+      error: "The free trial plan cannot be repurchased.",
+    }
+  }
+
+  let discountAmount = 0
+  if (couponCode && couponCode.trim()) {
+    const couponValidation = await validateSellerCoupon({
+      code: couponCode.trim(),
+      amount: plan.price,
+      userId: userId || sellerId,
+    })
+    if (!couponValidation.valid) {
+      return {
+        success: false,
+        payableAmount: plan.price,
+        message: couponValidation.error || "Invalid coupon code",
+        error: couponValidation.error || "Invalid coupon code",
+      }
+    }
+    discountAmount = couponValidation.discountAmount || 0
+  }
+
+  const payableAmount = Math.max(0, plan.price - discountAmount)
+  const durationDays = plan.duration || 30
+  const planSnapshot = createPlanSnapshot(plan)
+
+  // 100% Coupon: Activate immediately
+  if (payableAmount === 0) {
+    const activation = await activateOrQueuePurchase({
+      sellerType,
+      sellerId: sellerType === PlanType.PRODUCT_SERVICE ? sellerId : undefined,
+      hotelSellerId: sellerType === PlanType.HOTEL ? sellerId : undefined,
+      restaurantSellerId: sellerType === PlanType.RESTAURANT ? sellerId : undefined,
+      planId: plan.id,
+      durationDays,
+      paymentMethod: "COUPON_100_PERCENT",
+      price: plan.price,
+      paidPrice: 0,
+      discountAmount,
+      couponCode: couponCode?.trim().toUpperCase() || null,
+      paidAt: new Date(),
+    })
+
+    return {
+      success: true,
+      purchaseId: activation.purchase.id,
+      status: activation.status,
+      payableAmount: 0,
+      planName: plan.displayName || plan.name,
+      message:
+        activation.status === "QUEUED"
+          ? "100% coupon applied! Your pack has been queued successfully."
+          : "100% coupon applied! Your plan is activated successfully.",
+    }
+  }
+
+  let prefix = "PROD"
+  if (sellerType === PlanType.HOTEL) prefix = "HOTEL"
+  if (sellerType === PlanType.RESTAURANT) prefix = "REST"
+
+  // Reuse existing pending purchase if created within 15 minutes
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000)
+  const existingPending = await prisma.subscriptionPurchase.findFirst({
+    where: {
+      sellerType,
+      sellerId: sellerType === PlanType.PRODUCT_SERVICE ? sellerId : null,
+      hotelSellerId: sellerType === PlanType.HOTEL ? sellerId : null,
+      restaurantSellerId: sellerType === PlanType.RESTAURANT ? sellerId : null,
+      status: SubscriptionLedgerStatus.PENDING_PAYMENT,
+      createdAt: { gte: fifteenMinutesAgo },
+    },
+    include: { plan: true },
+  })
+
+  let purchase: any
+  if (existingPending) {
+    purchase = await prisma.subscriptionPurchase.update({
+      where: { id: existingPending.id },
+      data: {
+        planId: plan.id,
+        planSnapshot: planSnapshot as any,
+        durationDays,
+        price: plan.price,
+        paidPrice: payableAmount,
+        discountAmount,
+        couponCode: couponCode?.trim().toUpperCase() || null,
+        paymentMethod: "FLOAT",
+      },
+      include: { plan: true },
+    })
+  } else {
+    purchase = await prisma.subscriptionPurchase.create({
+      data: {
+        sellerType,
+        sellerId: sellerType === PlanType.PRODUCT_SERVICE ? sellerId : null,
+        hotelSellerId: sellerType === PlanType.HOTEL ? sellerId : null,
+        restaurantSellerId: sellerType === PlanType.RESTAURANT ? sellerId : null,
+        planId: plan.id,
+        planSnapshot: planSnapshot as any,
+        durationDays,
+        price: plan.price,
+        paidPrice: payableAmount,
+        discountAmount,
+        couponCode: couponCode?.trim().toUpperCase() || null,
+        status: SubscriptionLedgerStatus.PENDING_PAYMENT,
+        paymentMethod: "FLOAT",
+      },
+      include: { plan: true },
+    })
+  }
+
+  const flotOrderId = `SUB_${prefix}_${purchase.id}`
+
+  try {
+    const flotRes = await createFlotPaymentLink({
+      orderId: flotOrderId,
+      amount: payableAmount,
+      type: "card",
+    })
+
+    await prisma.subscriptionPurchase.update({
+      where: { id: purchase.id },
+      data: {
+        flotOrderId,
+        flotInternalOrderId: flotRes.id,
+        flotPaymentLink: flotRes.link,
+      },
+    })
+
+    return {
+      success: true,
+      purchaseId: purchase.id,
+      payableAmount,
+      planName: plan.displayName || plan.name,
+      paymentUrl: flotRes.link,
+      flotOrderId,
+      message: "Float checkout link generated successfully",
+    }
+  } catch (error: any) {
+    console.error("[Float Subscription] Error generating payment link:", error)
+    return {
+      success: false,
+      purchaseId: purchase.id,
+      payableAmount,
+      planName: plan.displayName || plan.name,
+      error: error?.message || "Failed to create Float payment link. Please try again or use AfriMoney.",
+    }
+  }
+}
+
+/**
+ * Reconcile a Float subscription purchase status with Float Gateway API.
+ */
+export async function reconcileFloatSubscriptionPurchase(purchaseId: string) {
+  const purchase = await prisma.subscriptionPurchase.findUnique({
+    where: { id: purchaseId },
+    include: { plan: true },
+  })
+
+  if (!purchase) return { success: false, error: "Purchase not found" }
+  if (purchase.status === "ACTIVE" || purchase.status === "QUEUED") {
+    return { success: true, paid: true, status: purchase.status }
+  }
+
+  if (purchase.flotOrderId && purchase.flotInternalOrderId) {
+    try {
+      const attempt = await verifyFlotPaymentAttempt({
+        externalOrderId: purchase.flotOrderId,
+        internalOrderId: purchase.flotInternalOrderId,
+      })
+
+      if (attempt?.status === "completed") {
+        const activation = await activateOrQueuePurchase({
+          purchaseId: purchase.id,
+          sellerType: purchase.sellerType,
+          sellerId: purchase.sellerId,
+          hotelSellerId: purchase.hotelSellerId,
+          restaurantSellerId: purchase.restaurantSellerId,
+          planId: purchase.planId,
+          price: purchase.price,
+          paidPrice: purchase.paidPrice,
+          discountAmount: purchase.discountAmount,
+          couponCode: purchase.couponCode,
+          durationDays: purchase.durationDays,
+          paymentMethod: "FLOAT",
+          flotOrderId: purchase.flotOrderId,
+          paidAt: new Date(),
+        })
+
+        return {
+          success: true,
+          paid: true,
+          status: activation.status,
+        }
+      } else if (attempt?.status === "failed") {
+        await prisma.subscriptionPurchase.update({
+          where: { id: purchase.id },
+          data: { status: "FAILED" },
+        })
+        return {
+          success: true,
+          paid: false,
+          status: "FAILED",
+        }
+      }
+    } catch (e) {
+      console.error("[reconcileFloatSubscriptionPurchase] Error checking Float status:", e)
+    }
+  }
+
+  return {
+    success: true,
+    paid: false,
+    status: purchase.status,
+  }
+}
+

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { queryAfriMoneyTransaction } from "@/lib/afrimoney"
+import { verifyFlotPaymentAttempt } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -53,6 +54,8 @@ export async function GET(
       status: order.status,
       paidAt: order.paidAt,
       afriTxnId: order.afriTxnId,
+      flotOrderId: order.flotOrderId,
+      paymentMethod: order.paymentMethod,
     })
   }
 
@@ -106,6 +109,33 @@ export async function GET(
           where: { userId: order.customerId },
         }).catch(() => null)
 
+        // Upsert Payment record for AfriMoney
+        const existingAfriPayment = await prisma.payment.findFirst({
+          where: { orderId: order.id },
+          orderBy: { createdAt: "desc" },
+        })
+
+        if (existingAfriPayment) {
+          await prisma.payment.update({
+            where: { id: existingAfriPayment.id },
+            data: {
+              status: "COMPLETED",
+              method: "AFRIMONEY",
+              gatewayReferenceId: txnId || order.afriTxnId || existingAfriPayment.gatewayReferenceId,
+            },
+          })
+        } else {
+          await prisma.payment.create({
+            data: {
+              orderId: order.id,
+              amount: order.totalAmount,
+              status: "COMPLETED",
+              method: "AFRIMONEY",
+              gatewayReferenceId: txnId || order.afriTxnId || null,
+            },
+          })
+        }
+
         return NextResponse.json({
           success: true,
           paymentStatus: "COMPLETED",
@@ -154,6 +184,102 @@ export async function GET(
       }
     } catch (queryErr) {
       console.warn("[Verify Payment] AfriMoney transaction query error:", queryErr)
+    }
+  }
+
+  // Active query to Float gateway if Float identifiers exist
+  if (order.flotOrderId && order.flotInternalOrderId) {
+    try {
+      const attempt = await verifyFlotPaymentAttempt({
+        externalOrderId: order.flotOrderId,
+        internalOrderId: order.flotInternalOrderId,
+      })
+
+      if (attempt?.status === "completed") {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: "COMPLETED",
+            paymentMethod: "FLOAT",
+            status: order.status === "PENDING" ? "CONFIRMED" : order.status,
+            paidAt: new Date(),
+          },
+        })
+
+        await prisma.orderItem.updateMany({
+          where: { orderId: order.id, itemStatus: "PENDING" },
+          data: { itemStatus: "CONFIRMED", settlementStatus: "ESCROW_HELD" },
+        })
+        await prisma.orderItem.updateMany({
+          where: { orderId: order.id, settlementStatus: "PENDING" },
+          data: { settlementStatus: "ESCROW_HELD" },
+        })
+
+        const orderLineItems = await prisma.orderItem.findMany({
+          where: { orderId: order.id },
+          select: { id: true },
+        })
+        if (orderLineItems.length > 0) {
+          await prisma.orderItemStatusHistory.createMany({
+            data: orderLineItems.map((item) => ({
+              orderItemId: item.id,
+              status: "CONFIRMED",
+              note: `Float card payment verified: ${order.flotOrderId}`,
+              location: "Verify Payment Poll",
+            })),
+          }).catch(() => null)
+        }
+
+        // Clear cart for the customer upon verified payment
+        await prisma.cartItem.deleteMany({
+          where: { userId: order.customerId },
+        }).catch(() => null)
+
+        // Upsert Payment record for Float
+        const existingFlotPayment = await prisma.payment.findFirst({
+          where: { orderId: order.id },
+          orderBy: { createdAt: "desc" },
+        })
+
+        if (existingFlotPayment) {
+          await prisma.payment.update({
+            where: { id: existingFlotPayment.id },
+            data: {
+              status: "COMPLETED",
+              method: "FLOAT",
+              gatewayReferenceId: order.flotOrderId || existingFlotPayment.gatewayReferenceId,
+            },
+          })
+        } else {
+          await prisma.payment.create({
+            data: {
+              orderId: order.id,
+              amount: order.totalAmount,
+              status: "COMPLETED",
+              method: "FLOAT",
+              gatewayReferenceId: order.flotOrderId || null,
+            },
+          })
+        }
+
+        return NextResponse.json({
+          success: true,
+          paymentStatus: "COMPLETED",
+          status: "CONFIRMED",
+          paidAt: new Date(),
+          paymentMethod: "FLOAT",
+          flotOrderId: order.flotOrderId,
+        })
+      } else if (attempt?.status === "failed") {
+        return NextResponse.json({
+          success: false,
+          paymentStatus: "FAILED",
+          status: order.status,
+          message: "Float card payment attempt was unsuccessful. You may retry or choose another payment method.",
+        })
+      }
+    } catch (flotQueryErr) {
+      console.warn("[Verify Payment] Float attempt query error:", flotQueryErr)
     }
   }
 

@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
         paymentMethod: o.paymentMethod,
         paymentStatus: o.paymentStatus,
         afriTxnId: o.afriTxnId,
+        flotOrderId: (o as any).flotOrderId || null,
         paidAt: o.paidAt,
         totalAmount: o.totalAmount,
         commissionRate: bCommissionRate,

@@ -36,6 +36,20 @@ export async function GET(
 
     if (!ad) return NextResponse.json({ success: false, error: "Ad not found" }, { status: 404 })
 
+    const usage = await prisma.couponUsage.findFirst({
+      where: { sellerAdId: ad.id },
+      include: { coupon: true },
+    })
+
+    let couponDiscount = 0
+    if (usage?.coupon) {
+      if (usage.coupon.discountType === "PERCENTAGE") {
+        couponDiscount = (Number(ad.totalBudget) * usage.coupon.discountValue) / 100
+      } else {
+        couponDiscount = Math.min(usage.coupon.discountValue, Number(ad.totalBudget))
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -44,6 +58,8 @@ export async function GET(
         spentAmount: Number(ad.spentAmount),
         maxCpc: Number(ad.maxCpc),
         payableAmount: ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget),
+        couponCode: usage?.coupon?.code || null,
+        couponDiscount: couponDiscount > 0 ? couponDiscount : null,
         paymentStatus: ad.paymentStatus,
         paymentMethod: ad.paymentMethod,
         paidAt: ad.paidAt,
