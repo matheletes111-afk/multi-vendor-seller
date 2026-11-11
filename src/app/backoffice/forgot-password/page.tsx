@@ -9,6 +9,7 @@ import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { CountryCodeSelect } from "@/ui/country-code-select"
 import { AlertCircle, KeyRound, ArrowRight, RefreshCw, ArrowLeft, Mail, Phone } from "lucide-react"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 
 function BackofficeForgotPasswordForm() {
   const router = useRouter()
@@ -18,6 +19,8 @@ function BackofficeForgotPasswordForm() {
   const [phone, setPhone] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,17 +57,22 @@ function BackofficeForgotPasswordForm() {
     try {
       const res = await fetch("/api/backoffice/auth/forgot-password/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
+        body: JSON.stringify({ identifier, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         throw new Error(data.error || "Failed to dispatch password reset code.")
       }
 
       router.push(`/backoffice/reset-password?identifier=${encodeURIComponent(data.identifier || identifier)}`)
     } catch (err: any) {
+      setTurnstileResetKey((k) => k + 1)
       setError(err.message || "Something went wrong.")
     } finally {
       setLoading(false)
@@ -174,6 +182,8 @@ function BackofficeForgotPasswordForm() {
                 </div>
               </div>
             )}
+
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} theme="dark" />
 
             <Button
               type="submit"

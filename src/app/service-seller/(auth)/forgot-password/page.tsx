@@ -18,6 +18,7 @@ export default function ServiceSellerForgotPasswordPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,16 +31,23 @@ export default function ServiceSellerForgotPasswordPage() {
     try {
       const res = await fetch("/api/service-seller/auth/forgot-password/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify(isEmail ? { email: raw.toLowerCase(), turnstileToken } : { phone: raw, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) return setError(data.error || "Failed to send OTP.")
+      if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
+        return setError(data.error || "Failed to send OTP.")
+      }
       const queryParam = isEmail
         ? `email=${encodeURIComponent(raw.toLowerCase())}`
         : `phone=${encodeURIComponent(raw)}`
       router.push(`/service-seller/reset-password?${queryParam}`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
@@ -55,7 +63,7 @@ export default function ServiceSellerForgotPasswordPage() {
           {error && <Alert variant="destructive" className="mb-5"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-5">
             <div><Label htmlFor="identifier" className="mb-1.5 block text-sm font-medium text-gray-700">Email or Mobile Number</Label><Input id="identifier" type="text" placeholder="example@gmail.com or mobile number" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center"><Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[220px]">{loading ? "Sending OTP..." : "Send OTP"}</Button></div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600"><Link href="/service-seller/login" className="font-medium text-blue-600 hover:underline">Back to login</Link></p>

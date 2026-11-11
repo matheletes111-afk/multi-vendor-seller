@@ -23,6 +23,8 @@ export default function RestaurantSellerRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -56,16 +58,20 @@ export default function RestaurantSellerRegistrationPage() {
       return
     }
 
-    // Update with cleaned values
+    // Update with cleaned values and turnstile token
     data.phone = phoneValidation.cleanedPhone!
     data.phoneCountryCode = phoneValidation.cleanedCountryCode!
+    data.turnstileToken = turnstileToken
 
     setLoading(true)
 
     try {
       const res = await fetch("/api/restaurant-seller/auth/registration", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify(data),
       })
 
@@ -77,9 +83,11 @@ export default function RestaurantSellerRegistrationPage() {
           : `phone=${encodeURIComponent(phoneValidation.cleanedPhone!)}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode!)}`
         router.push(`/restaurant-seller/verify-otp?${nextQuery}&from=registration`)
       } else {
+        setTurnstileResetKey((k) => k + 1)
         setError(result.error || "Registration failed. Please try again.")
       }
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please check your connection.")
     } finally {
       setLoading(false)
@@ -160,6 +168,8 @@ export default function RestaurantSellerRegistrationPage() {
               I agree to the <Link href="/terms" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
             </label>
           </div>
+
+          <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
 
           <Button type="submit" disabled={loading} className="w-full rounded-full py-6 mt-4 text-base font-semibold shadow-lg shadow-blue-100">
             {loading ? "Creating Account..." : "Create Account"}

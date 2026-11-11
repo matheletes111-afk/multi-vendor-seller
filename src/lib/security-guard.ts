@@ -9,6 +9,7 @@ export interface SecurityGuardOptions {
   isMobile?: boolean
   phone?: string | null
   turnstileToken?: string | null
+  requireTurnstile?: boolean // Explicit override: set to false to skip Turnstile (e.g. resend OTP), or true to enforce
   maxRequests?: number // default 3 per minute
   windowSeconds?: number // default 60
 }
@@ -76,25 +77,32 @@ export async function validateRequestSecurity(
     }
   } else {
     // Web: Cloudflare Turnstile Verification
-    // Check token from options or request headers
-    const token =
-      turnstileToken ||
-      request.headers.get("cf-turnstile-response") ||
-      request.headers.get("x-turnstile-token")
+    // Automatically skip Turnstile on resend/cooldown endpoints unless explicitly enabled
+    const isResendAction = action === "resend_otp" || action === "resend-2fa" || action === "resend_2fa"
+    const shouldCheckTurnstile =
+      options.requireTurnstile !== undefined ? options.requireTurnstile : !isResendAction
 
-    const turnstileCheck = await verifyTurnstileToken(token, clientIp)
-    if (!turnstileCheck.success) {
-      return {
-        allowed: false,
-        clientIp,
-        response: NextResponse.json(
-          {
-            success: false,
-            error: turnstileCheck.error || "Security verification failed.",
-          },
-          { status: 403 }
-        ),
-        recordSuccess: () => {},
+    if (shouldCheckTurnstile) {
+      // Check token from options or request headers
+      const token =
+        turnstileToken ||
+        request.headers.get("cf-turnstile-response") ||
+        request.headers.get("x-turnstile-token")
+
+      const turnstileCheck = await verifyTurnstileToken(token, clientIp)
+      if (!turnstileCheck.success) {
+        return {
+          allowed: false,
+          clientIp,
+          response: NextResponse.json(
+            {
+              success: false,
+              error: turnstileCheck.error || "Security verification failed.",
+            },
+            { status: 403 }
+          ),
+          recordSuccess: () => {},
+        }
       }
     }
   }

@@ -29,6 +29,7 @@ export default function ServiceSellerRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,11 +56,15 @@ export default function ServiceSellerRegistrationPage() {
     try {
       const res = await fetch("/api/service-seller/auth/registration", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password, turnstileToken }),
       })
       const data = await res.json()
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         setError(data.error || "Registration failed")
         return
       }
@@ -68,6 +73,7 @@ export default function ServiceSellerRegistrationPage() {
         : `phone=${encodeURIComponent(phoneValidation.cleanedPhone || "")}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode || "")}`
       router.push(`/service-seller/verify-otp?${nextQuery}&from=registration`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("An error occurred. Please try again.")
     } finally {
       setLoading(false)
@@ -196,7 +202,7 @@ export default function ServiceSellerRegistrationPage() {
                 </button>
               </div>
             </div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">
                 {loading ? "Creating account..." : "Create Account"}

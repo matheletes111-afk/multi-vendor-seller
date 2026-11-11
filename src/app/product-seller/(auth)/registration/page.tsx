@@ -29,6 +29,7 @@ export default function ProductSellerRegistrationPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,14 +42,35 @@ export default function ProductSellerRegistrationPage() {
     if (!passwordValidation.isValid) { setError(passwordValidation.error || "Weak password"); return }
     setLoading(true)
     try {
-      const res = await fetch("/api/product-seller/auth/registration", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, phone: phoneValidation.cleanedPhone, phoneCountryCode: phoneValidation.cleanedCountryCode, password, turnstileToken }) })
+      const res = await fetch("/api/product-seller/auth/registration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          phone: phoneValidation.cleanedPhone,
+          phoneCountryCode: phoneValidation.cleanedCountryCode,
+          password,
+          turnstileToken,
+        }),
+      })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || "Registration failed"); return }
+      if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
+        setError(data.error || "Registration failed")
+        return
+      }
       const nextQuery = email.trim()
         ? `email=${encodeURIComponent(email.trim())}`
         : `phone=${encodeURIComponent(phoneValidation.cleanedPhone || "")}&phoneCountryCode=${encodeURIComponent(phoneValidation.cleanedCountryCode || "")}`
       router.push(`/product-seller/verify-otp?${nextQuery}&from=registration`)
-    } catch { setError("An error occurred. Please try again.") } finally { setLoading(false) }
+    } catch {
+      setTurnstileResetKey((k) => k + 1)
+      setError("An error occurred. Please try again.")
+    } finally { setLoading(false) }
   }
 
   return (
@@ -83,7 +105,7 @@ export default function ProductSellerRegistrationPage() {
             </div>
             <div><Label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">Password</Label><div className="relative"><Input id="password" type={showPassword ? "text" : "password"} placeholder="**********" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div><p className="mt-1 text-xs text-gray-500">Must be at least 8 characters and contain uppercase, lowercase, a number, and a special character.</p></div>
             <div><Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-700">Confirm Password</Label><div className="relative"><Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="**********" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200 pr-10" /><button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center"><Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[200px]">{loading ? "Creating account..." : "Create Account"}</Button></div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600">Already have an account? <Link href="/product-seller/login" className="font-medium text-blue-600 hover:underline">Product Seller Sign In</Link></p>

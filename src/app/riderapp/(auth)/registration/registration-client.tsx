@@ -21,6 +21,7 @@ export function RiderRegistrationClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [agreed, setAgreed] = useState(true)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,24 +51,30 @@ export function RiderRegistrationClient() {
     try {
       const res = await fetch("/api/riderapp/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim().toLowerCase() || undefined,
           phone: phone.trim(),
           phoneCountryCode: phoneCountryCode.trim(),
           password,
+          turnstileToken,
         }),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         throw new Error(data.error || "Registration failed. Please try again.")
       }
 
       setIsSubmitted(true)
     } catch (err: any) {
+      setTurnstileResetKey((k) => k + 1)
       setError(err.message || "An unexpected error occurred.")
     } finally {
       setLoading(false)
@@ -354,6 +361,8 @@ export function RiderRegistrationClient() {
                 .
               </span>
             </label>
+
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
 
             <Button
               type="submit"

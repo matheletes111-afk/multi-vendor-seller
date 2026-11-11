@@ -9,12 +9,15 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { Alert, AlertDescription } from "@/ui/alert"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 
 export default function AdminForgotPasswordPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,13 +26,20 @@ export default function AdminForgotPasswordPage() {
     try {
       const res = await fetch("/api/admin/auth/forgot-password/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
+        body: JSON.stringify({ email: email.trim(), turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) return setError(data.error || "Failed to send OTP.")
+      if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
+        return setError(data.error || "Failed to send OTP.")
+      }
       router.push(`/admin/reset-password?email=${encodeURIComponent(email.trim())}`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
@@ -45,6 +55,7 @@ export default function AdminForgotPasswordPage() {
           {error && <Alert variant="destructive" className="mb-5"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="space-y-5">
             <div><Label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">Email</Label><Input id="email" type="email" placeholder="example@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="rounded-xl border-gray-200" /></div>
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center"><Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[220px]">{loading ? "Sending OTP..." : "Send OTP"}</Button></div>
           </div>
           <p className="mt-6 text-center text-sm text-gray-600"><Link href="/admin/login" className="font-medium text-blue-600 hover:underline">Back to login</Link></p>

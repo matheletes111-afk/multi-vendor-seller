@@ -18,6 +18,7 @@ export default function CustomerForgotPasswordPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,11 +31,15 @@ export default function CustomerForgotPasswordPage() {
     try {
       const res = await fetch("/api/customer/auth/forgot-password/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
         body: JSON.stringify(isEmail ? { email: raw.toLowerCase(), turnstileToken } : { phone: raw, turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         setError(data.error || "Failed to send OTP.")
         return
       }
@@ -43,6 +48,7 @@ export default function CustomerForgotPasswordPage() {
         : `phone=${encodeURIComponent(raw)}`
       router.push(`/customer/reset-password?${queryParam}`)
     } catch {
+      setTurnstileResetKey((k) => k + 1)
       setError("Something went wrong. Please try again.")
     } finally {
       setLoading(false)
@@ -82,7 +88,7 @@ export default function CustomerForgotPasswordPage() {
                 className="rounded-xl border-gray-200"
               />
             </div>
-            <TurnstileWidget onVerify={setTurnstileToken} />
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} />
             <div className="text-center">
               <Button type="submit" disabled={loading} className="mx-auto w-full rounded-full sm:max-w-[220px]">
                 {loading ? "Sending OTP..." : "Send OTP"}

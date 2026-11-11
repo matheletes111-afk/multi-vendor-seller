@@ -8,6 +8,7 @@ import { Button } from "@/ui/button"
 import { Input } from "@/ui/input"
 import { Label } from "@/ui/label"
 import { AlertCircle, Mail, ArrowRight, RefreshCw, ShieldCheck, ArrowLeft } from "lucide-react"
+import { TurnstileWidget } from "@/components/auth/turnstile-widget"
 
 function BackofficeEmailOtpRequestForm() {
   const router = useRouter()
@@ -16,6 +17,8 @@ function BackofficeEmailOtpRequestForm() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState("")
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,12 +28,16 @@ function BackofficeEmailOtpRequestForm() {
     try {
       const res = await fetch("/api/backoffice/auth/email-otp/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(turnstileToken ? { "x-turnstile-token": turnstileToken } : {}),
+        },
+        body: JSON.stringify({ email: email.trim(), turnstileToken }),
       })
       const data = await res.json().catch(() => ({}))
 
       if (!res.ok) {
+        setTurnstileResetKey((k) => k + 1)
         throw new Error(data.error || "Failed to dispatch OTP.")
       }
 
@@ -40,6 +47,7 @@ function BackofficeEmailOtpRequestForm() {
       })
       router.push(`/backoffice/login/email-otp/verify?${q.toString()}`)
     } catch (err: any) {
+      setTurnstileResetKey((k) => k + 1)
       setError(err.message || "Failed to send OTP.")
     } finally {
       setLoading(false)
@@ -96,6 +104,8 @@ function BackofficeEmailOtpRequestForm() {
                 className="rounded-2xl h-12 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500 focus:ring-blue-500 text-sm"
               />
             </div>
+
+            <TurnstileWidget onVerify={setTurnstileToken} resetKey={turnstileResetKey} theme="dark" />
 
             <Button
               type="submit"
