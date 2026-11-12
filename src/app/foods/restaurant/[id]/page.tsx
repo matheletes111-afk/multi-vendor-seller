@@ -8,6 +8,7 @@ import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog"
 import { formatCurrency, extractFoodImages } from "@/lib/utils"
+import { toPublicMediaUrl } from "@/lib/media-url"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
@@ -262,7 +263,7 @@ export default function RestaurantMenuPage() {
           {/* Top Cover Banner Image - Tall height */}
           <div className="relative h-64 sm:h-96 md:h-[420px] lg:h-[460px] w-full bg-slate-900 overflow-hidden">
             <img
-              src={restaurant.banner || restaurant.mainPhoto || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80"}
+              src={toPublicMediaUrl(restaurant.banner || restaurant.mainPhoto) || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80"}
               alt={restaurant.businessName}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -278,7 +279,7 @@ export default function RestaurantMenuPage() {
             {/* Logo Avatar */}
             <div className="h-20 w-20 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border border-amber-100 shrink-0 bg-amber-50 shadow-md flex items-center justify-center">
               <img
-                src={restaurant.logo || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80"}
+                src={toPublicMediaUrl(restaurant.logo) || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&q=80"}
                 alt={restaurant.businessName}
                 className="h-full w-full object-cover"
                 onError={(e) => {

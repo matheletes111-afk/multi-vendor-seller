@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -169,9 +170,9 @@ export async function GET(request: NextRequest) {
         id: r.id,
         businessName: r.businessInfo?.businessName || r.user.name || "Restaurant",
         cuisines,
-        logo: r.logo || null,
-        banner: r.banner || null,
-        mainPhoto: r.mainPhoto || null,
+        logo: toPublicMediaUrl(r.logo),
+        banner: toPublicMediaUrl(r.banner),
+        mainPhoto: toPublicMediaUrl(r.mainPhoto),
         street: r.businessInfo?.street || "",
         city: r.businessInfo?.city || "",
         state: r.businessInfo?.state || "",

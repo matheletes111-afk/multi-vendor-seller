@@ -17,29 +17,29 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
-import { 
-  Users, 
-  CheckCircle, 
-  AlertCircle, 
-  Ban, 
-  Eye, 
+import {
+  Users,
+  CheckCircle,
+  AlertCircle,
+  Ban,
+  Eye,
   BarChart3,
-  Building2, 
-  Search, 
-  X, 
+  Building2,
+  Search,
+  X,
   Package,
-  Calendar, 
-  Filter, 
-  ChevronDown, 
-  ChevronUp, 
-  Mail, 
-  Phone, 
+  Calendar,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Phone,
   Smartphone,
   MapPin,
-  Briefcase, 
-  Globe, 
-  ExternalLink, 
-  Percent, 
+  Briefcase,
+  Globe,
+  ExternalLink,
+  Percent,
   Megaphone,
   FileSpreadsheet,
   Download,
@@ -107,7 +107,7 @@ export function HotelSellersClient() {
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [expandedSellerId, setExpandedSellerId] = useState<string | null>(null)
-  
+
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; action: string }>({ open: false, id: "", action: "" })
   const [feedback, setFeedback] = useState("")
   const [isCommissionDialogOpen, setIsCommissionDialogOpen] = useState(false)
@@ -285,7 +285,7 @@ export function HotelSellersClient() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed to update status")
-      
+
       setRejectDialog({ open: false, id: "", action: "" })
       setFeedback("")
       loadSellers()
@@ -392,12 +392,20 @@ export function HotelSellersClient() {
         timeframe={localTimeframe}
         onTimeframeChange={(tf) => {
           setLocalTimeframe(tf)
+          const newSpecificDate = tf === "specific" ? localSpecificDate : ""
+          const newStartDate = tf === "custom" ? startDate : ""
+          const newEndDate = tf === "custom" ? endDate : ""
+          if (tf !== "specific") setLocalSpecificDate("")
+          if (tf !== "custom") {
+            setStartDate("")
+            setEndDate("")
+          }
           updateUrlParams({
             page: "1",
             timeframe: tf,
-            specificDate: tf === "specific" ? localSpecificDate : undefined,
-            startDate: tf === "custom" ? startDate : undefined,
-            endDate: tf === "custom" ? endDate : undefined,
+            specificDate: newSpecificDate || undefined,
+            startDate: newStartDate || undefined,
+            endDate: newEndDate || undefined,
           })
         }}
         specificDate={localSpecificDate}
@@ -697,12 +705,12 @@ export function HotelSellersClient() {
                             </div>
                           </TableCell>
                         </TableRow>
-                        
+
                         {isExpanded && (
                           <TableRow className="bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
                             <TableCell colSpan={7} className="p-6">
                               <div className="rounded-2xl bg-white dark:bg-slate-950 p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-                                <HotelSellerDetailsView 
+                                <HotelSellerDetailsView
                                   seller={{ ...seller, plans }}
                                   actionLoading={actionLoading}
                                   onApprove={id => handleStatusAction(id, "approve")}
@@ -741,12 +749,12 @@ export function HotelSellersClient() {
           {/* Pagination */}
           {data?.totalPages > 1 && (
             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-              <AdminPagination 
-                basePath="/admin/hotel-sellers" 
-                currentPage={page} 
-                totalPages={data.totalPages} 
-                totalCount={data.totalCount} 
-                pageSize={perPage} 
+              <AdminPagination
+                basePath="/admin/hotel-sellers"
+                currentPage={page}
+                totalPages={data.totalPages}
+                totalCount={data.totalCount}
+                pageSize={perPage}
                 params={searchParams}
               />
             </div>
@@ -784,29 +792,29 @@ export function HotelSellersClient() {
             </div>
           </DialogHeader>
           <div className="py-3 space-y-2">
-             <Label className="text-xs font-semibold">
-               {rejectDialog.action === "correction" ? "Correction Memo" : "Rejection Reason"}
-             </Label>
-             <Textarea 
-                placeholder={rejectDialog.action === "correction" ? "e.g. Please re-upload your valid business registration with stamp..." : "Reason for rejection..."} 
-                className="rounded-2xl min-h-[100px] text-xs" 
-                value={feedback} 
-                onChange={e => setFeedback(e.target.value)}
-             />
+            <Label className="text-xs font-semibold">
+              {rejectDialog.action === "correction" ? "Correction Memo" : "Rejection Reason"}
+            </Label>
+            <Textarea
+              placeholder={rejectDialog.action === "correction" ? "e.g. Please re-upload your valid business registration with stamp..." : "Reason for rejection..."}
+              className="rounded-2xl min-h-[100px] text-xs"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+            />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-             <Button variant="outline" size="sm" className="rounded-2xl text-xs font-medium" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
-             <Button 
-               className={cn(
-                 "rounded-2xl text-xs font-bold text-white",
-                 rejectDialog.action === "correction" ? "bg-orange-600 hover:bg-orange-700" : "bg-rose-600 hover:bg-rose-700"
-               )} 
-               size="sm" 
-               onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)} 
-               disabled={!feedback.trim() || actionLoading === rejectDialog.id}
-             >
-               {rejectDialog.action === "correction" ? "Send Correction Request" : "Confirm Rejection"}
-             </Button>
+            <Button variant="outline" size="sm" className="rounded-2xl text-xs font-medium" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
+            <Button
+              className={cn(
+                "rounded-2xl text-xs font-bold text-white",
+                rejectDialog.action === "correction" ? "bg-orange-600 hover:bg-orange-700" : "bg-rose-600 hover:bg-rose-700"
+              )}
+              size="sm"
+              onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)}
+              disabled={!feedback.trim() || actionLoading === rejectDialog.id}
+            >
+              {rejectDialog.action === "correction" ? "Send Correction Request" : "Confirm Rejection"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

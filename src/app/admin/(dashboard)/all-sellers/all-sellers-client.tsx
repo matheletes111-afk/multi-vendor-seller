@@ -70,6 +70,7 @@ import {
   UserPlus,
   FileSpreadsheet,
   Download,
+  ArrowUpDown,
 } from "lucide-react"
 import { SellerDetailsView } from "@/components/admin/sellers/seller-details-view"
 import { HotelSellerDetailsView } from "@/components/admin/sellers/hotel-seller-details-view"
@@ -701,7 +702,7 @@ export function AllSellersClient() {
               onClick={() => {
                 setLocalType("ALL")
                 setLocalStatus("ALL")
-                router.push("/admin/all-sellers")
+                updateUrlParams({ page: "1", sellerType: "ALL", status: "ALL" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
@@ -730,9 +731,7 @@ export function AllSellersClient() {
               onClick={() => {
                 setLocalType("PRODUCT")
                 setLocalStatus("ALL")
-                const params = new URLSearchParams()
-                params.set("sellerType", "PRODUCT")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", sellerType: "PRODUCT", status: "ALL" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
@@ -761,9 +760,7 @@ export function AllSellersClient() {
               onClick={() => {
                 setLocalType("SERVICE")
                 setLocalStatus("ALL")
-                const params = new URLSearchParams()
-                params.set("sellerType", "SERVICE")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", sellerType: "SERVICE", status: "ALL" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
@@ -792,9 +789,7 @@ export function AllSellersClient() {
               onClick={() => {
                 setLocalType("HOTEL")
                 setLocalStatus("ALL")
-                const params = new URLSearchParams()
-                params.set("sellerType", "HOTEL")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", sellerType: "HOTEL", status: "ALL" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
@@ -823,9 +818,7 @@ export function AllSellersClient() {
               onClick={() => {
                 setLocalType("RESTAURANT")
                 setLocalStatus("ALL")
-                const params = new URLSearchParams()
-                params.set("sellerType", "RESTAURANT")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", sellerType: "RESTAURANT", status: "ALL" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl bg-white dark:bg-slate-900 min-w-0 border",
@@ -853,9 +846,7 @@ export function AllSellersClient() {
             <Card
               onClick={() => {
                 setLocalStatus("PENDING")
-                const params = new URLSearchParams()
-                params.set("status", "PENDING")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", status: "PENDING" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl min-w-0 border",
@@ -883,9 +874,7 @@ export function AllSellersClient() {
             <Card
               onClick={() => {
                 setLocalStatus("SUSPENDED")
-                const params = new URLSearchParams()
-                params.set("status", "SUSPENDED")
-                router.push(`/admin/all-sellers?${params.toString()}`)
+                updateUrlParams({ page: "1", status: "SUSPENDED" })
               }}
               className={cn(
                 "cursor-pointer transition-all hover:shadow-md rounded-2xl min-w-0 border",
@@ -958,28 +947,36 @@ export function AllSellersClient() {
         timeframe={localTimeframe}
         onTimeframeChange={(tf) => {
           setLocalTimeframe(tf)
+          const newSpecificDate = tf === "specific" ? localSpecificDate : ""
+          const newStartDate = tf === "custom" ? startDate : ""
+          const newEndDate = tf === "custom" ? endDate : ""
+          if (tf !== "specific") setLocalSpecificDate("")
+          if (tf !== "custom") {
+            setStartDate("")
+            setEndDate("")
+          }
           updateUrlParams({
             page: "1",
             timeframe: tf,
-            specificDate: tf === "specific" ? localSpecificDate : undefined,
-            startDate: tf === "custom" ? startDate : undefined,
-            endDate: tf === "custom" ? endDate : undefined,
+            specificDate: newSpecificDate || undefined,
+            startDate: newStartDate || undefined,
+            endDate: newEndDate || undefined,
           })
         }}
         specificDate={localSpecificDate}
         onSpecificDateChange={(d) => {
           setLocalSpecificDate(d)
-          updateUrlParams({ page: "1", timeframe: "specific", specificDate: d })
+          updateUrlParams({ page: "1", timeframe: "specific", specificDate: d || undefined })
         }}
         startDate={startDate}
         onStartDateChange={(sd) => {
           setStartDate(sd)
-          updateUrlParams({ page: "1", timeframe: "custom", startDate: sd, endDate })
+          updateUrlParams({ page: "1", timeframe: "custom", startDate: sd || undefined, endDate: endDate || undefined })
         }}
         endDate={endDate}
         onEndDateChange={(ed) => {
           setEndDate(ed)
-          updateUrlParams({ page: "1", timeframe: "custom", startDate, endDate: ed })
+          updateUrlParams({ page: "1", timeframe: "custom", startDate: startDate || undefined, endDate: ed || undefined })
         }}
         docStatus={localDocStatus}
         onDocStatusChange={(ds) => {
@@ -1140,12 +1137,57 @@ export function AllSellersClient() {
                         aria-label="Select all sellers on current page"
                       />
                     </TableHead>
-                    <TableHead className="min-w-[220px]">Seller / Business</TableHead>
+                    <TableHead
+                      className="min-w-[220px] cursor-pointer hover:text-blue-600 transition-colors select-none"
+                      onClick={() => handleSort("businessName")}
+                      title="Sort by Seller / Business Name"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Seller / Business</span>
+                        <ArrowUpDown className={cn("h-3.5 w-3.5", localSortBy === "businessName" ? "text-blue-600" : "opacity-40")} />
+                      </div>
+                    </TableHead>
                     <TableHead className="min-w-[190px]">Contact & Location</TableHead>
-                    <TableHead className="min-w-[90px]">Plan</TableHead>
-                    <TableHead className="min-w-[120px]">Items Uploaded</TableHead>
-                    <TableHead className="min-w-[120px]">Total Sales</TableHead>
-                    <TableHead className="min-w-[150px]">Status & Documents</TableHead>
+                    <TableHead
+                      className="min-w-[90px] cursor-pointer hover:text-blue-600 transition-colors select-none"
+                      onClick={() => handleSort("subscriptionPlan")}
+                      title="Sort by Subscription Plan"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Plan</span>
+                        <ArrowUpDown className={cn("h-3.5 w-3.5", (localSortBy === "subscriptionPlan" || localSortBy === "plan") ? "text-blue-600" : "opacity-40")} />
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[120px] cursor-pointer hover:text-blue-600 transition-colors select-none"
+                      onClick={() => handleSort("itemsCount")}
+                      title="Sort by Uploaded Items"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Items Uploaded</span>
+                        <ArrowUpDown className={cn("h-3.5 w-3.5", (localSortBy === "itemsCount" || localSortBy === "items") ? "text-blue-600" : "opacity-40")} />
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[120px] cursor-pointer hover:text-blue-600 transition-colors select-none"
+                      onClick={() => handleSort("totalSales")}
+                      title="Sort by Total Sales"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Total Sales</span>
+                        <ArrowUpDown className={cn("h-3.5 w-3.5", (localSortBy === "totalSales" || localSortBy === "sales") ? "text-blue-600" : "opacity-40")} />
+                      </div>
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[150px] cursor-pointer hover:text-blue-600 transition-colors select-none"
+                      onClick={() => handleSort("status")}
+                      title="Sort by Status"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>Status & Documents</span>
+                        <ArrowUpDown className={cn("h-3.5 w-3.5", localSortBy === "status" ? "text-blue-600" : "opacity-40")} />
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right pr-6 min-w-[130px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1180,7 +1222,7 @@ export function AllSellersClient() {
                             <div className="flex items-start gap-3">
                               <Avatar className="h-10 w-10 rounded-2xl border border-slate-200 dark:border-slate-800 shrink-0 mt-0.5">
                                 {seller.logo ? (
-                                   <AvatarImage src={seller.logo} alt={displayName} className="object-cover" />
+                                  <AvatarImage src={seller.logo} alt={displayName} className="object-cover" />
                                 ) : null}
                                 <AvatarFallback className="rounded-2xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs">
                                   {initials}
@@ -1271,10 +1313,10 @@ export function AllSellersClient() {
                                 {seller.sellerType === "HOTEL"
                                   ? "hotels"
                                   : seller.sellerType === "RESTAURANT"
-                                  ? "dishes"
-                                  : seller.sellerType === "SERVICE"
-                                  ? "services"
-                                  : "items"}
+                                    ? "dishes"
+                                    : seller.sellerType === "SERVICE"
+                                      ? "services"
+                                      : "items"}
                               </span>
                             </div>
                           </TableCell>
@@ -1881,7 +1923,7 @@ export function AllSellersClient() {
         </DialogContent>
       </Dialog>
 
-            {/* ── Commission Modal ── */}
+      {/* ── Commission Modal ── */}
       <CommissionModal
         open={isCommissionDialogOpen}
         onOpenChange={(open) => {
@@ -1892,7 +1934,7 @@ export function AllSellersClient() {
         onSuccess={() => loadSellers(false)}
       />
 
-{/* ── Direct Custom Email Modal ── */}
+      {/* ── Direct Custom Email Modal ── */}
       <SellerEmailModal
         open={!!emailModalTarget}
         onOpenChange={(open) => !open && setEmailModalTarget(null)}

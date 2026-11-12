@@ -504,12 +504,20 @@ export function SellersClient() {
         timeframe={localTimeframe}
         onTimeframeChange={(tf) => {
           setLocalTimeframe(tf)
+          const newSpecificDate = tf === "specific" ? localSpecificDate : ""
+          const newStartDate = tf === "custom" ? startDate : ""
+          const newEndDate = tf === "custom" ? endDate : ""
+          if (tf !== "specific") setLocalSpecificDate("")
+          if (tf !== "custom") {
+            setStartDate("")
+            setEndDate("")
+          }
           updateUrlParams({
             page: "1",
             timeframe: tf,
-            specificDate: tf === "specific" ? localSpecificDate : undefined,
-            startDate: tf === "custom" ? startDate : undefined,
-            endDate: tf === "custom" ? endDate : undefined,
+            specificDate: newSpecificDate || undefined,
+            startDate: newStartDate || undefined,
+            endDate: newEndDate || undefined,
           })
         }}
         specificDate={localSpecificDate}
