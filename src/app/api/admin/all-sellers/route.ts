@@ -89,18 +89,28 @@ export async function GET(request: NextRequest) {
     const getStatusWhere = (status: string) => {
       switch (status) {
         case "PENDING":
-          return { isApproved: false, status: { not: "REJECTED" as const } }
+          return {
+            isApproved: false,
+            isSuspended: false,
+            onboardingCompleted: true,
+            status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] as any },
+          }
         case "APPROVED":
           return { isApproved: true, isSuspended: false }
         case "SUSPENDED":
           return { isSuspended: true }
         case "ONBOARDING":
-          return { onboardingCompleted: false }
+          return {
+            onboardingCompleted: false,
+            isSuspended: false,
+            isApproved: false,
+            status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] as any },
+          }
         case "REJECTED":
-          return { status: "REJECTED" as const }
+          return { status: "REJECTED" as const, isSuspended: false }
         case "CORRECTION":
         case "CORRECTION_NEEDED":
-          return { status: "CORRECTION_NEEDED" as const }
+          return { status: "CORRECTION_NEEDED" as const, isSuspended: false }
         default:
           return {}
       }
@@ -127,6 +137,7 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       sellerWhere.OR = [
+        { id: { contains: search, mode: "insensitive" } },
         { user: { name: { contains: search, mode: "insensitive" } } },
         { user: { email: { contains: search, mode: "insensitive" } } },
         { user: { phone: { contains: search, mode: "insensitive" } } },
@@ -150,11 +161,14 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       hotelWhere.OR = [
+        { id: { contains: search, mode: "insensitive" } },
         { user: { name: { contains: search, mode: "insensitive" } } },
         { user: { email: { contains: search, mode: "insensitive" } } },
         { user: { phone: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { pocContact: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
         { businessInfo: { city: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { state: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessRegNumber: { contains: search, mode: "insensitive" } } },
         { businessInfo: { taxIdNumber: { contains: search, mode: "insensitive" } } },
         { kyc: { idNumber: { contains: search, mode: "insensitive" } } },
@@ -172,9 +186,11 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       restaurantWhere.OR = [
+        { id: { contains: search, mode: "insensitive" } },
         { user: { name: { contains: search, mode: "insensitive" } } },
         { user: { email: { contains: search, mode: "insensitive" } } },
         { user: { phone: { contains: search, mode: "insensitive" } } },
+        { businessInfo: { pocContact: { contains: search, mode: "insensitive" } } },
         { businessInfo: { businessName: { contains: search, mode: "insensitive" } } },
         { businessInfo: { city: { contains: search, mode: "insensitive" } } },
         { businessInfo: { state: { contains: search, mode: "insensitive" } } },
@@ -206,9 +222,9 @@ export async function GET(request: NextRequest) {
       prisma.seller.count({ where: { type: "SERVICE" } }),
       prisma.hotelSeller.count(),
       prisma.restaurantSeller.count(),
-      prisma.seller.count({ where: { isApproved: false, status: { not: "REJECTED" } } }),
-      prisma.hotelSeller.count({ where: { isApproved: false, status: { not: "REJECTED" } } }),
-      prisma.restaurantSeller.count({ where: { isApproved: false, status: { not: "REJECTED" } } }),
+      prisma.seller.count({ where: { isApproved: false, isSuspended: false, onboardingCompleted: true, status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] } } }),
+      prisma.hotelSeller.count({ where: { isApproved: false, isSuspended: false, onboardingCompleted: true, status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] } } }),
+      prisma.restaurantSeller.count({ where: { isApproved: false, isSuspended: false, onboardingCompleted: true, status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] } } }),
       prisma.seller.count({ where: { isSuspended: true } }),
       prisma.hotelSeller.count({ where: { isSuspended: true } }),
       prisma.restaurantSeller.count({ where: { isSuspended: true } }),
@@ -440,8 +456,22 @@ export async function GET(request: NextRequest) {
       filteredList = filteredList.filter((item) => item.documentEvaluation?.isComplete === true)
     } else if (docStatus === "INCOMPLETE") {
       filteredList = filteredList.filter((item) => item.documentEvaluation?.isComplete === false)
-    } else if (docStatus === "COMPLETE_UNDER_REVIEW" || docStatus === "DOC_COMPLETE_UNDER_REVIEW") {
-      filteredList = filteredList.filter((item) => item.documentEvaluation?.isComplete === true && !item.isApproved && !item.isSuspended && item.status !== "REJECTED")
+    } else if (
+      docStatus === "COMPLETE_UNDER_REVIEW" ||
+      docStatus === "DOC_COMPLETE_UNDER_REVIEW" ||
+      sortBy === "doccompleteunderreview" ||
+      sortBy === "documentcompleteunderreview" ||
+      sortBy === "doc_complete_under_review"
+    ) {
+      filteredList = filteredList.filter(
+        (item) =>
+          item.documentEvaluation?.isComplete === true &&
+          !item.isApproved &&
+          !item.isSuspended &&
+          item.status !== "REJECTED" &&
+          item.status !== "CORRECTION_NEEDED" &&
+          item.status !== "CORRECTION"
+      )
     }
 
     // ── Multi-Column Sorting ──
@@ -566,8 +596,17 @@ export async function GET(request: NextRequest) {
         case "doccompleteunderreview":
         case "documentcompleteunderreview":
         case "doc_complete_under_review": {
-          const isTargetA = (a.documentEvaluation?.isComplete === true && !a.isApproved && !a.isSuspended && a.status !== "REJECTED") ? 1 : 0
-          const isTargetB = (b.documentEvaluation?.isComplete === true && !b.isApproved && !b.isSuspended && b.status !== "REJECTED") ? 1 : 0
+          const isTarget = (item: UnifiedSellerItem) =>
+            item.documentEvaluation?.isComplete === true &&
+            !item.isApproved &&
+            !item.isSuspended &&
+            item.status !== "REJECTED" &&
+            item.status !== "CORRECTION_NEEDED" &&
+            item.status !== "CORRECTION"
+              ? 1
+              : 0
+          const isTargetA = isTarget(a)
+          const isTargetB = isTarget(b)
           if (isTargetA !== isTargetB) {
             return sortOrder === "asc" ? (isTargetA - isTargetB) : (isTargetB - isTargetA)
           }

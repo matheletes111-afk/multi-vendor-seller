@@ -47,7 +47,7 @@ export function validateProductOrServiceSellerApproval(seller: any): ApprovalVal
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    const isPassport = !!seller.kyc.idType?.trim().toLowerCase().includes("passport");
     if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
@@ -152,7 +152,7 @@ export function validateHotelSellerApproval(seller: any): ApprovalValidationResu
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    const isPassport = !!seller.kyc.idType?.trim().toLowerCase().includes("passport");
     if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
@@ -254,17 +254,12 @@ export function validateRestaurantSellerApproval(seller: any): ApprovalValidatio
     if (!seller.kyc.idFrontUrl?.trim()) {
       missingItems.push("National ID / Passport Front photo is missing");
     }
-    const isPassport = seller.kyc.idType?.trim().toLowerCase() === "passport";
+    const isPassport = !!seller.kyc.idType?.trim().toLowerCase().includes("passport");
     if (!isPassport && !seller.kyc.idBackUrl?.trim()) {
       missingItems.push("National ID / Passport Back photo is missing");
     }
     if (!seller.kyc.selfieUrl?.trim()) {
       missingItems.push("Selfie with ID photo is missing");
-    }
-    const foodLicenseUrl = seller.kyc.foodLicenseUrl || seller.businessInfo?.foodLicenseUrl;
-    const foodLicenseNumber = seller.kyc.foodLicenseNumber || seller.businessInfo?.foodLicenseNumber;
-    if (!foodLicenseUrl?.trim() && !foodLicenseNumber?.trim()) {
-      missingItems.push("Food Hygiene / Sanitation License is missing");
     }
   }
 
@@ -392,7 +387,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
   // 2. Identity / KYC
   const user = seller.user || seller.raw?.user;
   const profileImageUrl = user?.image || seller.image || seller.profilePicture || seller.raw?.image || null;
-  const isDpOptional = normalizedType === "RESTAURANT" || normalizedType === "HOTEL";
+  const isDpOptional = true; // User avatar is optional for business entity KYC (Store/Business Logo is used instead)
   docs.push({
     name: "User Profile Picture",
     category: "identity",
@@ -408,7 +403,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
     isUploaded: !!kyc?.idFrontUrl?.trim(),
     url: kyc?.idFrontUrl,
   });
-  const isPassport = kyc?.idType?.trim().toLowerCase() === "passport";
+  const isPassport = !!kyc?.idType?.trim().toLowerCase().includes("passport");
   docs.push({
     name: "ID / Passport Back",
     category: "identity",
@@ -468,6 +463,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
       name: "Food Hygiene / Sanitation License",
       category: "business",
       isUploaded: !!foodLicenseUrl?.trim() || !!foodLicenseNumber?.trim(),
+      isOptional: true,
       url: foodLicenseUrl,
     });
     docs.push({
@@ -510,7 +506,7 @@ export function evaluateSellerDocuments(seller: any, sellerType?: string): Selle
 
   // 5. Legal Agreement
   const agreement = seller.agreement || seller.raw?.agreement;
-  const isAgreementSigned = !!agreement?.agreedToTerms && !!agreement?.agreedToPrivacy;
+  const isAgreementSigned = (!!agreement?.agreedToTerms && !!agreement?.agreedToPrivacy) || seller.onboardingCompleted === true || seller.raw?.onboardingCompleted === true;
   docs.push({
     name: "Signed Legal Agreement",
     category: "legal",

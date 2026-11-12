@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { extractFoodImages } from "@/lib/utils"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -106,9 +107,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         id: restaurant.id,
         businessName: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         cuisines,
-        logo: restaurant.logo || null,
-        banner: restaurant.banner || null,
-        mainPhoto: restaurant.mainPhoto || null,
+        logo: toPublicMediaUrl(restaurant.logo),
+        banner: toPublicMediaUrl(restaurant.banner),
+        mainPhoto: toPublicMediaUrl(restaurant.mainPhoto),
         street: restaurant.businessInfo?.street || "",
         city: restaurant.businessInfo?.city || "",
         state: restaurant.businessInfo?.state || "",

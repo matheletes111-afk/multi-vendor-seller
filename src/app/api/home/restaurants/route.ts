@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -37,9 +38,9 @@ export async function GET(request: NextRequest) {
       )
       const cuisineType = cuisineList.length > 0 ? cuisineList.join(", ") : "Multi-Cuisine"
 
-      let imageUrl: string | null = r.mainPhoto || r.banner || r.logo || null
+      let imageUrl: string | null = toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || null)
       if (!imageUrl && r.user?.image) {
-        imageUrl = r.user.image
+        imageUrl = toPublicMediaUrl(r.user.image)
       }
 
       const allRatings = randomizedFoods.flatMap((f) => f.reviews.map((rev) => rev.rating))

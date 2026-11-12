@@ -24,6 +24,7 @@ import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
 import { formatCurrency, shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { WishlistButton } from "@/components/product/WishlistButton"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 function getYoutubeThumbnailUrl(url?: string | null): string | null {
   if (!url) return null
@@ -302,7 +303,8 @@ function RestaurantCard({
   onFoodClick: (foodItemId: string) => void
 }) {
   const router = useRouter()
-  const cover = resto.banner || resto.mainPhoto
+  const cover = toPublicMediaUrl(resto.banner || resto.mainPhoto)
+  const logo = toPublicMediaUrl(resto.logo)
 
   return (
     <div
@@ -314,9 +316,9 @@ function RestaurantCard({
         <div className="flex items-start gap-3">
           {/* Logo or emoji */}
           <div className="h-14 w-14 rounded-2xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center shadow-xs">
-            {resto.logo ? (
+            {logo ? (
               <img
-                src={resto.logo}
+                src={logo}
                 alt={resto.businessName}
                 className="h-full w-full object-cover"
                 onError={(e) => {
@@ -873,7 +875,7 @@ function RestaurantsDirectoryPageContent() {
 
                   <div className="grid grid-cols-2 gap-2.5 flex-1">
                     {displayTopRestaurants.map((resto, sIdx) => {
-                      const rawImg = resto.banner || resto.mainPhoto || resto.logo
+                      const rawImg = toPublicMediaUrl(resto.banner || resto.mainPhoto || resto.logo)
                       const imgUrl = (rawImg && typeof rawImg === "string" && !rawImg.toLowerCase().includes("adam castillo"))
                         ? rawImg
                         : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&q=80"

@@ -50,17 +50,17 @@ export async function GET(request: NextRequest) {
     // ── Status Logic ──
     const effectiveStatus = status && status !== "all" ? status.toLowerCase() : tab.toLowerCase()
     if (effectiveStatus === "pending") {
-      where = { ...where, isApproved: false, status: { not: "REJECTED" } }
+      where = { ...where, isApproved: false, isSuspended: false, onboardingCompleted: true, status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] } }
     } else if (effectiveStatus === "approved") {
       where = { ...where, isApproved: true, isSuspended: false }
     } else if (effectiveStatus === "suspended") {
       where = { ...where, isSuspended: true }
     } else if (effectiveStatus === "onboarding") {
-      where = { ...where, onboardingCompleted: false }
+      where = { ...where, isApproved: false, isSuspended: false, onboardingCompleted: false, status: { notIn: ["REJECTED", "CORRECTION_NEEDED"] } }
     } else if (effectiveStatus === "rejected") {
-      where = { ...where, status: "REJECTED" }
+      where = { ...where, isSuspended: false, status: "REJECTED" }
     } else if (effectiveStatus === "correction" || effectiveStatus === "correction_needed") {
-      where = { ...where, status: "CORRECTION_NEEDED" }
+      where = { ...where, isSuspended: false, status: "CORRECTION_NEEDED" }
     }
 
     if (search) {
@@ -140,8 +140,22 @@ export async function GET(request: NextRequest) {
       processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === true)
     } else if (docStatus === "INCOMPLETE") {
       processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === false)
-    } else if (docStatus === "COMPLETE_UNDER_REVIEW" || docStatus === "DOC_COMPLETE_UNDER_REVIEW") {
-      processedSellers = processedSellers.filter((s) => s.documentEvaluation?.isComplete === true && !s.isApproved && !s.isSuspended && s.status !== "REJECTED")
+    } else if (
+      docStatus === "COMPLETE_UNDER_REVIEW" ||
+      docStatus === "DOC_COMPLETE_UNDER_REVIEW" ||
+      sortBy === "doccompleteunderreview" ||
+      sortBy === "documentcompleteunderreview" ||
+      sortBy === "doc_complete_under_review"
+    ) {
+      processedSellers = processedSellers.filter(
+        (s) =>
+          s.documentEvaluation?.isComplete === true &&
+          !s.isApproved &&
+          !s.isSuspended &&
+          s.status !== "REJECTED" &&
+          s.status !== "CORRECTION_NEEDED" &&
+          s.status !== "CORRECTION"
+      )
     }
 
     // Multi-column sorting

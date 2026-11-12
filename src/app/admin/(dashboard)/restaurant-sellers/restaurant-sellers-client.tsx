@@ -17,22 +17,22 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { Alert, AlertDescription } from "@/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog"
 import { Textarea } from "@/ui/textarea"
-import { 
-  Users, 
-  CheckCircle, 
-  AlertCircle, 
-  Ban, 
-  Eye, 
+import {
+  Users,
+  CheckCircle,
+  AlertCircle,
+  Ban,
+  Eye,
   BarChart3,
-  Briefcase, 
-  Search, 
-  X, 
+  Briefcase,
+  Search,
+  X,
   Package,
-  Calendar, 
-  Filter, 
-  UtensilsCrossed, 
-  ChevronDown, 
-  ChevronUp, 
+  Calendar,
+  Filter,
+  UtensilsCrossed,
+  ChevronDown,
+  ChevronUp,
   Globe,
   ExternalLink,
   Percent,
@@ -285,7 +285,7 @@ export function RestaurantSellersClient() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || "Failed to update status")
-      
+
       setRejectDialog({ open: false, id: "", action: "" })
       setFeedback("")
       loadSellers()
@@ -395,12 +395,20 @@ export function RestaurantSellersClient() {
         timeframe={localTimeframe}
         onTimeframeChange={(tf) => {
           setLocalTimeframe(tf)
+          const newSpecificDate = tf === "specific" ? localSpecificDate : ""
+          const newStartDate = tf === "custom" ? startDate : ""
+          const newEndDate = tf === "custom" ? endDate : ""
+          if (tf !== "specific") setLocalSpecificDate("")
+          if (tf !== "custom") {
+            setStartDate("")
+            setEndDate("")
+          }
           updateUrlParams({
             page: "1",
             timeframe: tf,
-            specificDate: tf === "specific" ? localSpecificDate : undefined,
-            startDate: tf === "custom" ? startDate : undefined,
-            endDate: tf === "custom" ? endDate : undefined,
+            specificDate: newSpecificDate || undefined,
+            startDate: newStartDate || undefined,
+            endDate: newEndDate || undefined,
           })
         }}
         specificDate={localSpecificDate}
@@ -788,29 +796,29 @@ export function RestaurantSellersClient() {
             </div>
           </DialogHeader>
           <div className="py-3 space-y-2">
-             <Label className="text-xs font-semibold">
-               {rejectDialog.action === "correction" ? "Correction Memo" : "Rejection Reason"}
-             </Label>
-             <Textarea
-                placeholder={rejectDialog.action === "correction" ? "e.g. Please re-upload your Food Hygiene / Sanitation license with current expiry..." : "Reason for rejection..."}
-                className="rounded-2xl min-h-[100px] text-xs"
-                value={feedback}
-                onChange={e => setFeedback(e.target.value)}
-             />
+            <Label className="text-xs font-semibold">
+              {rejectDialog.action === "correction" ? "Correction Memo" : "Rejection Reason"}
+            </Label>
+            <Textarea
+              placeholder={rejectDialog.action === "correction" ? "e.g. Please re-upload your Food Hygiene / Sanitation license with current expiry..." : "Reason for rejection..."}
+              className="rounded-2xl min-h-[100px] text-xs"
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+            />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-             <Button variant="outline" size="sm" className="rounded-2xl text-xs font-medium" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
-             <Button
-               className={cn(
-                 "rounded-2xl text-xs font-bold text-white",
-                 rejectDialog.action === "correction" ? "bg-orange-600 hover:bg-orange-700" : "bg-rose-600 hover:bg-rose-700"
-               )}
-               size="sm"
-               onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)}
-               disabled={!feedback.trim() || actionLoading === rejectDialog.id}
-             >
-               {rejectDialog.action === "correction" ? "Send Correction Request" : "Confirm Rejection"}
-             </Button>
+            <Button variant="outline" size="sm" className="rounded-2xl text-xs font-medium" onClick={() => setRejectDialog({ open: false, id: "", action: "" })}>Cancel</Button>
+            <Button
+              className={cn(
+                "rounded-2xl text-xs font-bold text-white",
+                rejectDialog.action === "correction" ? "bg-orange-600 hover:bg-orange-700" : "bg-rose-600 hover:bg-rose-700"
+              )}
+              size="sm"
+              onClick={() => handleStatusAction(rejectDialog.id, rejectDialog.action, feedback)}
+              disabled={!feedback.trim() || actionLoading === rejectDialog.id}
+            >
+              {rejectDialog.action === "correction" ? "Send Correction Request" : "Confirm Rejection"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

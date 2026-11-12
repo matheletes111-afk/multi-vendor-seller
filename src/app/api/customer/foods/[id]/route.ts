@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { extractFoodImages } from "@/lib/utils"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(
   request: NextRequest,
@@ -91,6 +92,14 @@ export async function GET(
 
     const foodData = {
       ...restFood,
+      restaurantSeller: food.restaurantSeller
+        ? {
+            ...food.restaurantSeller,
+            logo: toPublicMediaUrl(food.restaurantSeller.logo),
+            banner: toPublicMediaUrl(food.restaurantSeller.banner),
+            mainPhoto: toPublicMediaUrl(food.restaurantSeller.mainPhoto),
+          }
+        : food.restaurantSeller,
       discount: food.discount || 0,
       sellingPrice,
       images: extractedImages,

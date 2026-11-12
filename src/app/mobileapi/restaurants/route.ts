@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -101,10 +102,10 @@ export async function GET(request: NextRequest) {
         businessName: r.businessInfo?.businessName || r.user.name || "Restaurant",
         cuisines,
         cuisine_type: cuisines.join(", "),
-        logo: r.logo || null,
-        banner: r.banner || null,
-        mainPhoto: r.mainPhoto || null,
-        image_url: r.mainPhoto || r.banner || r.logo || r.user.image || null,
+        logo: toPublicMediaUrl(r.logo, request.nextUrl.origin),
+        banner: toPublicMediaUrl(r.banner, request.nextUrl.origin),
+        mainPhoto: toPublicMediaUrl(r.mainPhoto, request.nextUrl.origin),
+        image_url: toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || r.user.image || null, request.nextUrl.origin),
         street: r.businessInfo?.street || "",
         city: r.businessInfo?.city || "",
         state: r.businessInfo?.state || "",

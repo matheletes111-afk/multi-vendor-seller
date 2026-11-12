@@ -125,6 +125,9 @@ export function SellerFilterToolbar({
     if (lower === "createdat" || lower === "date") return "createdAt"
     if (lower === "status") return "status"
     if (lower === "email") return "email"
+    if (lower === "items" || lower === "itemscount") return "itemsCount"
+    if (lower === "sales" || lower === "totalsales") return "totalSales"
+    if (lower === "plan" || lower === "subscription" || lower === "subscriptionplan") return "subscriptionPlan"
     return field || "createdAt"
   }
 
@@ -216,11 +219,6 @@ export function SellerFilterToolbar({
               value={timeframe || "all"}
               onValueChange={(val) => {
                 onTimeframeChange(val)
-                if (val !== "specific") onSpecificDateChange("")
-                if (val !== "custom") {
-                  onStartDateChange("")
-                  onEndDateChange("")
-                }
               }}
             >
               <SelectTrigger className="h-10 w-full rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-xs font-medium px-3 truncate">
@@ -365,6 +363,11 @@ export function SellerFilterToolbar({
                 <SelectItem value="status_desc">⏳ Seller Status (Pending / Suspended)</SelectItem>
                 <SelectItem value="docStatus_desc">📄 Document Status (Complete)</SelectItem>
                 <SelectItem value="docStatus_asc">⚠️ Document Status (Incomplete)</SelectItem>
+                <SelectItem value="itemsCount_desc">📦 Items Uploaded (Highest)</SelectItem>
+                <SelectItem value="itemsCount_asc">📦 Items Uploaded (Lowest)</SelectItem>
+                <SelectItem value="totalSales_desc">💵 Total Sales (Highest)</SelectItem>
+                <SelectItem value="totalSales_asc">💵 Total Sales (Lowest)</SelectItem>
+                <SelectItem value="subscriptionPlan_asc">🏷️ Subscription Plan (A - Z)</SelectItem>
                 <SelectItem value="commissionRate_desc">💰 Commission (Highest)</SelectItem>
                 <SelectItem value="commissionRate_asc">💰 Commission (Lowest)</SelectItem>
               </SelectContent>

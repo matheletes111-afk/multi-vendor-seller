@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -117,9 +118,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         businessName: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         cuisines,
-        logo: restaurant.logo || null,
-        banner: restaurant.banner || null,
-        mainPhoto: restaurant.mainPhoto || null,
+        logo: toPublicMediaUrl(restaurant.logo, request.nextUrl.origin),
+        banner: toPublicMediaUrl(restaurant.banner, request.nextUrl.origin),
+        mainPhoto: toPublicMediaUrl(restaurant.mainPhoto, request.nextUrl.origin),
         street: restaurant.businessInfo?.street || "",
         city: restaurant.businessInfo?.city || "",
         state: restaurant.businessInfo?.state || "",
