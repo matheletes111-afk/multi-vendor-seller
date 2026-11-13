@@ -196,8 +196,8 @@ export function AdPaymentDialog({
 
   // Handle Float Checkout
   const handleFloatPay = async () => {
-    if (flotPaymentLink) {
-      window.open(flotPaymentLink, "_blank")
+    if (flotPaymentLink && /^https?:\/\//i.test(flotPaymentLink)) {
+      window.open(flotPaymentLink, "_blank", "noopener,noreferrer")
       return
     }
 
@@ -207,8 +207,8 @@ export function AdPaymentDialog({
         method: "POST",
       })
       const data = await res.json().catch(() => ({}))
-      if (data.paymentUrl) {
-        window.open(data.paymentUrl, "_blank")
+      if (data.paymentUrl && /^https?:\/\//i.test(data.paymentUrl)) {
+        window.open(data.paymentUrl, "_blank", "noopener,noreferrer")
       } else if (data.paid && onSuccess) {
         onSuccess()
         onOpenChange(false)

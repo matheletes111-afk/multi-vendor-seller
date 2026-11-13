@@ -193,7 +193,7 @@ export async function createFlotPaymentLink(
   options: CreateFlotPaymentLinkOptions
 ): Promise<FlotPaymentLinkResponse> {
   const config = getFlotConfig()
-  const { orderId, currency = "SLE", type = "in-app" } = options
+  const { orderId, currency = "SLE", type = "card" } = options
 
   // Flot requires amount to be a decimal string (e.g. "50.00" or "10")
   const amountStr =

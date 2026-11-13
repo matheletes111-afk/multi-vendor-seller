@@ -30,7 +30,7 @@ export interface InitiateAdPaymentResult {
 export async function initiateAdPayment(
   params: InitiateAdPaymentParams
 ): Promise<InitiateAdPaymentResult> {
-  const { adId, totalBudget, couponCode, userId, paymentType = "in-app" } = params
+  const { adId, totalBudget, couponCode, userId, paymentType = "card" } = params
 
   let payableAmount = totalBudget
   let couponDiscount = 0
@@ -259,7 +259,7 @@ export async function refreshAdPaymentLink(adId: string) {
     orderId: newOrderId,
     amount: payableAmount,
     currency: "SLE",
-    type: "in-app",
+    type: "card",
   })
 
   const updated = await prisma.sellerAd.update({
