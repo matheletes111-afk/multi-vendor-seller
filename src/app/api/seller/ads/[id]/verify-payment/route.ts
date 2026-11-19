@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { reconcileAdPayment, refreshAdPaymentLink } from "@/lib/ad-payment"
+import { normalizeFlotPaymentType } from "@/lib/flot"
 import { isAdmin } from "@/lib/rbac"
 
 export const dynamic = "force-dynamic"
@@ -46,9 +47,20 @@ export async function GET(
 
   const { searchParams } = new URL(request.url)
   const shouldRefresh = searchParams.get("refresh") === "true"
+  let requestedPaymentType =
+    searchParams.get("paymentType") ||
+    searchParams.get("flotPaymentType") ||
+    searchParams.get("type") ||
+    undefined
+
+  if (request.method === "POST" && !requestedPaymentType) {
+    const body = await request.json().catch(() => ({}))
+    requestedPaymentType = body?.paymentType || body?.flotPaymentType || body?.type
+  }
 
   if (shouldRefresh && ad.paymentStatus !== "COMPLETED") {
-    const refreshRes = await refreshAdPaymentLink(ad.id)
+    const paymentType = normalizeFlotPaymentType(requestedPaymentType, "card")
+    const refreshRes = await refreshAdPaymentLink(ad.id, paymentType)
     if (!refreshRes.success) {
       return NextResponse.json({ error: refreshRes.error }, { status: 400 })
     }
@@ -56,6 +68,10 @@ export async function GET(
       success: true,
       paymentStatus: refreshRes.ad?.paymentStatus,
       paymentUrl: refreshRes.paymentUrl,
+      paymentCode: refreshRes.paymentCode || null,
+      flotCode: refreshRes.paymentCode || null,
+      ussdCode: refreshRes.paymentCode || null,
+      flotPaymentType: refreshRes.paymentType || paymentType,
       paid: false,
     })
   }

@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
         expandAudience: formData.get("expandAudience") === "on" || formData.get("expandAudience") === "true",
         couponCode: (formData.get("couponCode") as string) || undefined,
         paymentMethod: (formData.get("paymentMethod") as string) || undefined,
+        flotPaymentType: ((formData.get("flotPaymentType") || formData.get("paymentType")) as string) || undefined,
       }
     } else {
       body = await request.json()
@@ -250,12 +251,16 @@ export async function POST(request: NextRequest) {
     })
 
     let paymentUrl: string | null = null
+    let flotCode: string | null = null
+    let flotPaymentType: string | null = null
     let flotOrderId: string | null = null
     if (ad.paymentMethod === "FLOAT" && payableAmount > 0) {
       const { refreshAdPaymentLink } = await import("@/lib/ad-payment")
-      const flotRes = await refreshAdPaymentLink(ad.id).catch(() => null)
-      if (flotRes?.paymentUrl) {
-        paymentUrl = flotRes.paymentUrl
+      const flotRes = await refreshAdPaymentLink(ad.id, body.flotPaymentType ?? body.paymentType).catch(() => null)
+      if (flotRes && (flotRes.paymentUrl || flotRes.paymentCode)) {
+        paymentUrl = flotRes.paymentUrl || null
+        flotCode = flotRes.paymentCode || null
+        flotPaymentType = flotRes.paymentType || "card"
         flotOrderId = flotRes.ad?.flotOrderId || null
       }
     }
@@ -274,6 +279,10 @@ export async function POST(request: NextRequest) {
       data: {
         ...ad,
         paymentUrl,
+        flotPaymentLink: paymentUrl,
+        flotCode,
+        ussdCode: flotCode,
+        flotPaymentType,
         flotOrderId,
         payableAmount,
         couponDiscount,

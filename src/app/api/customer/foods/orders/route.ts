@@ -6,7 +6,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink } from "@/lib/flot"
+import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
 
 export async function GET(request: NextRequest) {
   try {
@@ -126,7 +126,9 @@ export async function POST(request: NextRequest) {
       deliveryCountry,
       couponCode,
       paymentMethod,
-      payerMsisdn
+      payerMsisdn,
+      flotPaymentType: rawFlotPaymentType,
+      paymentType: rawPaymentType,
     } = body
 
     const requestedPaymentMethod =
@@ -135,6 +137,7 @@ export async function POST(request: NextRequest) {
         : paymentMethod === "FLOAT"
         ? "FLOAT"
         : "COD"
+    const flotPaymentType = normalizeFlotPaymentType(rawFlotPaymentType ?? rawPaymentType, "card")
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : ""
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -276,6 +279,7 @@ export async function POST(request: NextRequest) {
     let ussdPromptSent = false
     let pushMessage = ""
     let flotPaymentLink: string | null = null
+    let flotCode: string | null = null
     let flotOrderId: string | null = null
 
     if (requestedPaymentMethod === "AFRIMONEY") {
@@ -328,10 +332,11 @@ export async function POST(request: NextRequest) {
           orderId: externalRef,
           amount: result.totalAmount,
           currency: "SLE",
-          type: "card",
+          type: flotPaymentType,
         })
 
         flotPaymentLink = flotRes.link
+        flotCode = flotRes.code || null
         flotOrderId = externalRef
 
         await prisma.foodOrder.update({
@@ -454,6 +459,9 @@ export async function POST(request: NextRequest) {
       ussdPromptSent,
       afriTxnId,
       flotPaymentLink,
+      flotCode,
+      ussdCode: flotCode,
+      flotPaymentType,
       flotOrderId,
       message: pushMessage
     }, { status: 201 })

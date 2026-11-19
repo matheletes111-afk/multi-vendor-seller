@@ -1,14 +1,36 @@
 ================================================================================
 MEEEM MOBILE CUSTOMER - FLOAT PAYMENT GATEWAY API INTEGRATION SPECIFICATION
 ================================================================================
-Document Version : 2.0.0
+Document Version : 2.1.0
+Last Updated     : 2026-11-19
 Target Platform  : Meeem Mobile Customer App (iOS & Android)
 Base URL         : https://www.meeemsl.com (Production) / Localhost in Development
 Authorization    : Bearer <customer_jwt_token>
 Security Standard: All customer endpoints enforce Customer Role authorization.
-Gateway Covered  : Float Hosted Card Checkout (VISA / MasterCard / SLE)
+Gateway Covered  : Float Payment Gateway (3 Sub-Options: Flot App, Mobile Money USSD, Bank Card)
 Coexistence Note : Operates alongside AfriMoney Mobile Money (USSD push) and COD.
                    AfriMoney and COD pathways remain 100% untouched and functional.
+
+================================================================================
+0. NEW IN v2.1.0: 3 FLOAT PAYMENT SUB-OPTIONS ("in-app" | "momo" | "card")
+================================================================================
+When a customer chooses "Float" at checkout (Product/Service, Food, Hotel, or Ads),
+present the 3 Flot payment choices and send `flotPaymentType` (or `paymentType` for Ads):
+
+  1. Flot App     (`flotPaymentType: "in-app"`)
+     - Subtitle : "Open the Flot app or scan a QR code."
+     - Response : `flotPaymentLink` = `"flot://wallet.merchants/orders?id=..."` (`ussdCode` = `null`)
+     - Mobile UI: Launch `flot://...` via deep link (`Linking.openURL` / URL Launcher), or show QR fallback.
+
+  2. Mobile Money (`flotPaymentType: "momo"`)
+     - Subtitle : "Pay with a Mobile Money code."
+     - Response : `ussdCode` / `flotCode` = `"*715*6722049051#"` (`flotPaymentLink` = `null`)
+     - Mobile UI: Display the USSD code prominently with "Copy Code" and "Dial Code" (`tel:...`) buttons.
+
+  3. Bank Card    (`flotPaymentType: "card"`)  [Default if omitted]
+     - Subtitle : "Pay on Flot's secure card page."
+     - Response : `flotPaymentLink` = `"https://pay.leogcltd.com/auth/..."` (`ussdCode` = `null`)
+     - Mobile UI: Open `flotPaymentLink` in an in-app browser / WebView.
 
 ================================================================================
 TABLE OF CONTENTS
@@ -39,14 +61,19 @@ TABLE OF CONTENTS
 ================================================================================
 1. HIGH-LEVEL MOBILE CHECKOUT & POLLING ARCHITECTURE
 ================================================================================
-When a customer selects "Float" (Card Payment) across any checkout section:
-1. Mobile App submits the order/booking creation request with `paymentMethod: "FLOAT"`.
+When a customer selects "Float" across any checkout section:
+1. Mobile App submits the order/booking creation request with `paymentMethod: "FLOAT"`
+   and `flotPaymentType: "in-app" | "momo" | "card"` (defaults to `"card"` if omitted).
 2. Backend creates the order in "PENDING" status with `settlementStatus: "ESCROW_HELD"`,
-   generates a Float hosted checkout link via Float Gateway API, and returns:
-   - `flotPaymentLink` (URL to Float hosted checkout)
+   calls Float Gateway API with the chosen `type`, and returns:
+   - `flotPaymentType` (`"in-app" | "momo" | "card"`)
+   - `flotPaymentLink` (`https://pay.leogcltd.com/...` for `card`, `flot://...` for `in-app`, `null` for `momo`)
+   - `flotCode` / `ussdCode` (`"*715*...#"` for `momo`, `null` otherwise)
    - `flotOrderId` (Merchant Order Reference ID)
-3. Mobile App opens `flotPaymentLink` inside an in-app browser or Webview:
-   - Customer enters their Card details (Card Number, CVV, Expiry, 3D Secure OTP).
+3. Mobile App presents the matching payment experience:
+   - `card`   -> Open `flotPaymentLink` inside an in-app browser or WebView.
+   - `in-app` -> Open `flotPaymentLink` (`flot://...`) to launch the Flot App (or show QR code).
+   - `momo`   -> Show `ussdCode` (`*715*...#`) with Copy & Dial (`tel:`) buttons.
 4. Mobile App starts polling the dedicated `verify-payment` endpoint every 3–5 seconds.
 5. Once payment is confirmed by webhook or active gateway query:
    - The verify endpoint returns `paymentStatus: "COMPLETED"`, `status: "CONFIRMED"`.
@@ -73,7 +100,8 @@ Request Body:
 {
   "addressId": "c4b12345-6789-4abc-def0-1234567890ab",
   "paymentMethod": "FLOAT",
-  "couponCode": "SAVE10" // Optional
+  "flotPaymentType": "card", // Optional: "in-app" | "momo" | "card" (default: "card")
+  "couponCode": "SAVE10"     // Optional
 }
 
 Success Response (200 OK):
@@ -92,10 +120,13 @@ Success Response (200 OK):
     }
   ],
   "paymentMethod": "FLOAT",
+  "flotPaymentType": "card",
   "ussdPromptSent": false,
   "afriTxnId": null,
-  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_9988aabbcc",
-  "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000",
+  "flotPaymentLink": "https://pay.leogcltd.com/auth/...", // https:// for card, flot:// for in-app, null for momo
+  "flotCode": null,                                       // "*715*...#" when flotPaymentType === "momo"
+  "ussdCode": null,
+  "flotOrderId": "ORD_9f8e7d6c-5b4a-3210-fedc-ba9876543210",
   "message": null,
   "shippingBreakup": {
     "weightShippingFee": 12.00,
@@ -258,7 +289,8 @@ Request Body:
   "deliveryPostalCode": "00232",
   "deliveryCountry": "Sierra Leone",
   "couponCode": "FOODIE10", // Optional
-  "paymentMethod": "FLOAT"
+  "paymentMethod": "FLOAT",
+  "flotPaymentType": "card" // Optional: "in-app" | "momo" | "card" (default: "card")
 }
 
 Success Response (201 Created):
@@ -277,13 +309,16 @@ Success Response (201 Created):
     "paymentStatus": "PENDING",
     "settlementStatus": "ESCROW_HELD",
     "flotOrderId": "FOOD_food_order_uuid_7766",
-    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+    "flotPaymentLink": "https://pay.leogcltd.com/auth/...",
     "status": "PENDING"
   },
   "paymentMethod": "FLOAT",
+  "flotPaymentType": "card",
   "ussdPromptSent": false,
   "afriTxnId": null,
-  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+  "flotPaymentLink": "https://pay.leogcltd.com/auth/...", // https:// for card, flot:// for in-app, null for momo
+  "flotCode": null,                                       // "*715*...#" when flotPaymentType === "momo"
+  "ussdCode": null,
   "flotOrderId": "FOOD_food_order_uuid_7766",
   "messageDetail": ""
 }
@@ -387,7 +422,8 @@ Request Body:
   "adults": 2,
   "children": 0,
   "couponCode": "HOTEL15", // Optional
-  "paymentMethod": "FLOAT"
+  "paymentMethod": "FLOAT",
+  "flotPaymentType": "card" // Optional: "in-app" | "momo" | "card" (default: "card")
 }
 
 Success Response (200 OK):
@@ -413,13 +449,16 @@ Success Response (200 OK):
     "paymentStatus": "PENDING",
     "settlementStatus": "ESCROW_HELD",
     "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
-    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+    "flotPaymentLink": "https://pay.leogcltd.com/auth/...",
     "status": "PENDING"
   },
   "paymentMethod": "FLOAT",
+  "flotPaymentType": "card",
   "ussdPromptSent": false,
   "afriTxnId": null,
-  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+  "flotPaymentLink": "https://pay.leogcltd.com/auth/...", // https:// for card, flot:// for in-app, null for momo
+  "flotCode": null,                                       // "*715*...#" when flotPaymentType === "momo"
+  "ussdCode": null,
   "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
   "promptMessage": ""
 }
@@ -514,6 +553,10 @@ Detail Response (200 OK):
 Endpoint: POST /mobileapi/customer/ads/{id}/pay-float
 Auth    : Bearer <customer_token>
 Params  : id = SellerAd ID (UUID)
+Request Body (Optional JSON):
+{
+  "paymentType": "card" // Optional: "in-app" | "momo" | "card" (default: "card"; also accepts flotPaymentType)
+}
 
 Success Response (200 OK):
 {
@@ -521,9 +564,13 @@ Success Response (200 OK):
   "paid": false,
   "paymentStatus": "PENDING",
   "paymentMethod": "FLOAT",
-  "paymentUrl": "https://flot.pay.me/checkout/session/flot_chk_ad_1234",
+  "flotPaymentType": "card",
+  "paymentUrl": "https://pay.leogcltd.com/auth/...",
   "flotOrderId": "AD_ad_uuid_1731320000000",
-  "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_ad_1234"
+  "flotPaymentLink": "https://pay.leogcltd.com/auth/...",
+  "paymentCode": null, // "*715*...#" when paymentType === "momo"
+  "flotCode": null,
+  "ussdCode": null
 }
 
 --------------------------------------------------------------------------------

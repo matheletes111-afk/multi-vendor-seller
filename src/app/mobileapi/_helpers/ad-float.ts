@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileUserAuth } from "./ad-afrimoney"
 import { refreshAdPaymentLink, reconcileAdPayment } from "@/lib/ad-payment"
+import { normalizeFlotPaymentType } from "@/lib/flot"
 import { UserRole } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
@@ -70,10 +71,15 @@ export async function handleMobileAdFloatPost(
     })
   }
 
-  // Refresh or generate Float payment link
-  const result = await refreshAdPaymentLink(ad.id)
+  // Refresh or generate Float payment link/code for chosen paymentType ("card" | "in-app" | "momo")
+  const body = await request.json().catch(() => ({}))
+  const paymentType = normalizeFlotPaymentType(
+    body?.paymentType ?? body?.flotPaymentType ?? body?.type,
+    "card"
+  )
+  const result = await refreshAdPaymentLink(ad.id, paymentType)
 
-  if (!result.success || !result.paymentUrl) {
+  if (!result.success || (!result.paymentUrl && !result.paymentCode)) {
     return NextResponse.json(
       { success: false, error: result.error || "Failed to generate Float payment link" },
       { status: 400 }
@@ -85,9 +91,13 @@ export async function handleMobileAdFloatPost(
     paid: false,
     paymentStatus: result.ad?.paymentStatus || "PENDING",
     paymentMethod: "FLOAT",
-    paymentUrl: result.paymentUrl,
+    flotPaymentType: result.paymentType || paymentType,
+    paymentUrl: result.paymentUrl || null,
     flotOrderId: result.ad?.flotOrderId,
-    flotPaymentLink: result.paymentUrl,
+    flotPaymentLink: result.paymentUrl || null,
+    paymentCode: result.paymentCode || null,
+    flotCode: result.paymentCode || null,
+    ussdCode: result.paymentCode || null,
   })
 }
 

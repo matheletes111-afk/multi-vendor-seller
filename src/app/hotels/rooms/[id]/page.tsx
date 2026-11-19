@@ -10,6 +10,11 @@ import { Input } from "@/ui/input"
 import { Card, CardContent } from "@/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { AvailableCoupons } from "@/components/coupons/available-coupons"
+import {
+  FloatMethodSelector,
+  FloatPaymentInstructions,
+  type FloatSubType,
+} from "@/components/payments/float-payment-options"
 
 type Hotel = {
   id: string
@@ -64,10 +69,13 @@ export default function RoomBookingPage() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [flotSubType, setFlotSubType] = useState<FloatSubType>("card")
   const [waitingForFlot, setWaitingForFlot] = useState(false)
   const [flotPaymentInfo, setFlotPaymentInfo] = useState<{
     bookingId: string
-    paymentLink: string
+    paymentLink: string | null
+    ussdCode: string | null
+    flotType: FloatSubType
     flotOrderId: string
   } | null>(null)
   const [flotPollingCountdown, setFlotPollingCountdown] = useState(300)
@@ -316,6 +324,7 @@ export default function RoomBookingPage() {
           children,
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
           paymentMethod,
+          flotPaymentType: paymentMethod === "FLOAT" ? flotSubType : undefined,
           payerMsisdn: paymentMethod === "AFRIMONEY" ? afriPhone.trim() : undefined,
         })
       })
@@ -377,19 +386,26 @@ export default function RoomBookingPage() {
         return
       }
 
-      if (paymentMethod === "FLOAT" && data.flotPaymentLink) {
+      const nextLink = data.flotPaymentLink || null
+      const nextCode = data.flotCode || data.ussdCode || null
+      const nextType: FloatSubType = data.flotPaymentType || flotSubType
+      if (paymentMethod === "FLOAT" && (nextLink || nextCode)) {
         setWaitingForFlot(true)
         setFlotPaymentInfo({
           bookingId: data.data.id,
-          paymentLink: data.flotPaymentLink,
+          paymentLink: nextLink,
+          ussdCode: nextCode,
+          flotType: nextType,
           flotOrderId: data.flotOrderId || `HOTEL_${data.data.id}`,
         })
         setFlotPollingCountdown(300)
 
-        try {
-          window.open(data.flotPaymentLink, "_blank", "noopener,noreferrer")
-        } catch (popupErr) {
-          console.warn("Could not auto-open Float payment portal:", popupErr)
+        if (nextType === "card" && nextLink && /^https?:\/\//i.test(nextLink)) {
+          try {
+            window.open(nextLink, "_blank", "noopener,noreferrer")
+          } catch (popupErr) {
+            console.warn("Could not auto-open Float payment portal:", popupErr)
+          }
         }
 
         const bookingId = data.data.id
@@ -919,6 +935,17 @@ export default function RoomBookingPage() {
                               </p>
                             </div>
                           )}
+
+                          {paymentMethod === "FLOAT" && (
+                            <div className="mt-2">
+                              <FloatMethodSelector
+                                value={flotSubType}
+                                onChange={setFlotSubType}
+                                disabled={bookingLoading}
+                                compact
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1019,24 +1046,17 @@ export default function RoomBookingPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
-              <p className="font-semibold">Complete your payment on the secure Float checkout tab.</p>
-              <div className="text-[11px] text-blue-800/90 space-y-0.5 text-left border-t border-blue-200/60 pt-2">
-                <p>1. Enter your Visa / Mastercard / Online details</p>
-                <p>2. Complete 3D secure verification with your bank</p>
-                <p>3. This window will automatically confirm your booking</p>
-              </div>
-            </div>
+            <FloatPaymentInstructions
+              flotType={flotPaymentInfo.flotType}
+              paymentLink={flotPaymentInfo.paymentLink}
+              ussdCode={flotPaymentInfo.ussdCode}
+            />
+
+            <p className="text-[11px] text-slate-500">
+              This window will automatically confirm your booking once payment is received.
+            </p>
 
             <div className="space-y-2 pt-1">
-              <Button
-                type="button"
-                onClick={() => window.open(flotPaymentInfo.paymentLink, "_blank", "noopener,noreferrer")}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-10 text-xs flex items-center justify-center gap-1.5"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Re-open Float Payment Portal
-              </Button>
-
               <Button
                 type="button"
                 variant="outline"

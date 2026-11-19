@@ -10,11 +10,30 @@ export interface FlotConfig {
   webhookPassword?: string
 }
 
+export type FlotPaymentType = "card" | "in-app" | "momo"
+
+export function normalizeFlotPaymentType(
+  raw: unknown,
+  fallback: FlotPaymentType = "card"
+): FlotPaymentType {
+  const val = String(raw || "").trim().toLowerCase()
+  if (val === "in-app" || val === "inapp" || val === "app" || val === "qr" || val === "flot-app" || val === "flot_app") {
+    return "in-app"
+  }
+  if (val === "momo" || val === "ussd" || val === "mobile_money" || val === "mobile-money") {
+    return "momo"
+  }
+  if (val === "card" || val === "bank-card" || val === "bank_card") {
+    return "card"
+  }
+  return fallback
+}
+
 export interface CreateFlotPaymentLinkOptions {
   orderId: string
   amount: number | string
   currency?: string
-  type?: "in-app" | "card" | "momo"
+  type?: FlotPaymentType
 }
 
 export interface FlotPaymentLinkResponse {

@@ -24,6 +24,11 @@ import {
   PhoneCall,
   Loader2,
 } from "lucide-react"
+import {
+  FloatMethodSelector,
+  FloatPaymentInstructions,
+  type FloatSubType,
+} from "@/components/payments/float-payment-options"
 
 export interface AdPaymentDialogProps {
   open: boolean
@@ -73,8 +78,15 @@ export function AdPaymentDialog({
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Float state
+  const [flotSubType, setFlotSubType] = useState<FloatSubType>("card")
   const [flotLoading, setFlotLoading] = useState(false)
   const [flotVerifying, setFlotVerifying] = useState(false)
+  const [generatedFloat, setGeneratedFloat] = useState<{
+    type: FloatSubType
+    link: string | null
+    code: string | null
+  } | null>(null)
+  const [flotError, setFlotError] = useState("")
 
   // Cleanup polling timers on unmount or dialog close
   const stopPolling = () => {
@@ -100,6 +112,8 @@ export function AdPaymentDialog({
         setAfriState("idle")
         setAfriError("")
       }
+      setGeneratedFloat(null)
+      setFlotError("")
       return
     }
 
@@ -194,29 +208,62 @@ export function AdPaymentDialog({
     }
   }
 
-  // Handle Float Checkout
+  // Handle Float Checkout (card | in-app | momo)
   const handleFloatPay = async () => {
-    if (flotPaymentLink && /^https?:\/\//i.test(flotPaymentLink)) {
+    setFlotError("")
+    if (
+      flotSubType === "card" &&
+      generatedFloat?.type === "card" &&
+      generatedFloat.link &&
+      /^https?:\/\//i.test(generatedFloat.link)
+    ) {
+      window.open(generatedFloat.link, "_blank", "noopener,noreferrer")
+      return
+    }
+
+    if (
+      flotSubType === "card" &&
+      !generatedFloat &&
+      flotPaymentLink &&
+      /^https?:\/\//i.test(flotPaymentLink)
+    ) {
+      setGeneratedFloat({ type: "card", link: flotPaymentLink, code: null })
       window.open(flotPaymentLink, "_blank", "noopener,noreferrer")
       return
     }
 
     setFlotLoading(true)
     try {
-      const res = await fetch(`/api/seller/ads/${adId}/verify-payment?refresh=true`, {
-        method: "POST",
-      })
+      const res = await fetch(
+        `/api/seller/ads/${adId}/verify-payment?refresh=true&paymentType=${encodeURIComponent(flotSubType)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentType: flotSubType }),
+        }
+      )
       const data = await res.json().catch(() => ({}))
-      if (data.paymentUrl && /^https?:\/\//i.test(data.paymentUrl)) {
-        window.open(data.paymentUrl, "_blank", "noopener,noreferrer")
-      } else if (data.paid && onSuccess) {
+      if (data.paid && onSuccess) {
         onSuccess()
         onOpenChange(false)
+        return
+      }
+      const nextLink = data.paymentUrl || null
+      const nextCode = data.paymentCode || data.flotCode || data.ussdCode || null
+      if (nextLink || nextCode) {
+        setGeneratedFloat({
+          type: flotSubType,
+          link: nextLink,
+          code: nextCode,
+        })
+        if (flotSubType === "card" && nextLink && /^https?:\/\//i.test(nextLink)) {
+          window.open(nextLink, "_blank", "noopener,noreferrer")
+        }
       } else {
-        alert(data.error || "Failed to generate Float payment link. Please try again.")
+        setFlotError(data.error || "Failed to generate Float payment option. Please try again.")
       }
     } catch (err: any) {
-      alert(err?.message || "Payment service unavailable")
+      setFlotError(err?.message || "Payment service unavailable")
     } finally {
       setFlotLoading(false)
     }
@@ -392,39 +439,63 @@ export function AdPaymentDialog({
           </TabsContent>
 
           {/* TAB 2: Float Checkout */}
-          <TabsContent value="flot" className="space-y-4 pt-3">
-            <div className="text-xs text-muted-foreground leading-relaxed">
-              Pay using debit/credit cards or other supported payment methods through the Float Checkout gateway.
-            </div>
+          <TabsContent value="flot" className="space-y-3 pt-3">
+            <FloatMethodSelector
+              value={flotSubType}
+              onChange={(next) => {
+                setFlotSubType(next)
+                setGeneratedFloat(null)
+                setFlotError("")
+              }}
+              disabled={flotLoading}
+              compact
+            />
 
-            <div className="p-3.5 rounded-lg border bg-muted/40 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground">Float Secure Checkout</span>
-                <Badge variant="outline" className="text-[10px]">Cards & Online</Badge>
+            {generatedFloat && generatedFloat.type === flotSubType && (
+              <FloatPaymentInstructions
+                flotType={generatedFloat.type}
+                paymentLink={generatedFloat.link}
+                ussdCode={generatedFloat.code}
+              />
+            )}
+
+            {flotError && (
+              <div className="flex items-center gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{flotError}</span>
               </div>
-              <p className="text-muted-foreground">
-                You will be redirected to the secure Float payment portal to complete your transaction.
-              </p>
-            </div>
+            )}
 
             <div className="space-y-2">
-              <Button
-                onClick={handleFloatPay}
-                disabled={flotLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm h-10"
-              >
-                {flotLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Opening Float Checkout...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open Float Payment Portal
-                  </>
-                )}
-              </Button>
+              {(!generatedFloat || generatedFloat.type !== flotSubType || flotSubType === "card") && (
+                <Button
+                  onClick={handleFloatPay}
+                  disabled={flotLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm h-10"
+                >
+                  {flotLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Generating Flot Payment...
+                    </>
+                  ) : flotSubType === "in-app" ? (
+                    <>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Generate Flot App QR / Link
+                    </>
+                  ) : flotSubType === "momo" ? (
+                    <>
+                      <PhoneCall className="w-4 h-4 mr-2" />
+                      Get Mobile Money USSD Code
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open Flot Card Payment Portal
+                    </>
+                  )}
+                </Button>
+              )}
 
               <Button
                 variant="outline"

@@ -14,59 +14,67 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-  const { id } = await params
-  const ad = await prisma.sellerAd.findUnique({
-    where: { id },
-    include: {
-      seller: { select: { userId: true } },
-      hotelSeller: { select: { userId: true } },
-      restaurantSeller: { select: { userId: true } },
-    },
-  })
+    const { id } = await params
+    const ad = await prisma.sellerAd.findUnique({
+      where: { id },
+      include: {
+        seller: { select: { userId: true } },
+        hotelSeller: { select: { userId: true } },
+        restaurantSeller: { select: { userId: true } },
+      },
+    })
 
-  if (!ad) {
-    return NextResponse.json({ error: "Ad not found" }, { status: 404 })
-  }
+    if (!ad) {
+      return NextResponse.json({ error: "Ad not found" }, { status: 404 })
+    }
 
-  const isOwner =
-    ad.customerUserId === session.user.id ||
-    ad.seller?.userId === session.user.id ||
-    ad.hotelSeller?.userId === session.user.id ||
-    ad.restaurantSeller?.userId === session.user.id
+    const isOwner =
+      ad.customerUserId === session.user.id ||
+      ad.seller?.userId === session.user.id ||
+      ad.hotelSeller?.userId === session.user.id ||
+      ad.restaurantSeller?.userId === session.user.id
 
-  if (!isOwner && !isAdmin(session.user)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+    if (!isOwner && !isAdmin(session.user)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
-  const body = await request.json().catch(() => ({}))
-  const phone = (body.phone || body.msisdn || "").toString().trim()
+    const body = await request.json().catch(() => ({}))
+    const phone = (body.phone || body.msisdn || "").toString().trim()
 
-  if (!phone) {
+    if (!phone) {
+      return NextResponse.json(
+        { error: "Phone number (Africell MSISDN) is required to receive Push USSD" },
+        { status: 400 }
+      )
+    }
+
+    const result = await initiateAfriMoneyAdPayment({
+      adId: id,
+      payerMsisdn: phone,
+      userId: session.user.id,
+    })
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || result.message },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json(result)
+  } catch (error: any) {
+    console.error("[POST /api/seller/ads/[id]/pay-afrimoney] Error:", error)
     return NextResponse.json(
-      { error: "Phone number (Africell MSISDN) is required to receive Push USSD" },
-      { status: 400 }
+      { error: error?.message || "Failed to initiate AfriMoney prompt" },
+      { status: 500 }
     )
   }
-
-  const result = await initiateAfriMoneyAdPayment({
-    adId: id,
-    payerMsisdn: phone,
-    userId: session.user.id,
-  })
-
-  if (!result.success) {
-    return NextResponse.json(
-      { error: result.error || result.message },
-      { status: 400 }
-    )
-  }
-
-  return NextResponse.json(result)
 }
 
 /**

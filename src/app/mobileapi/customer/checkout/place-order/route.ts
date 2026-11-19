@@ -9,7 +9,7 @@ import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderE
 import { validateCoupon } from "@/lib/coupons"
 import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink } from "@/lib/flot"
+import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
     couponCode?: string
     paymentMethod?: string
     payerMsisdn?: string
+    flotPaymentType?: string
+    paymentType?: string
   }
   const addressId = typeof payload.addressId === "string" ? payload.addressId.trim() : null
   const couponCode = typeof payload.couponCode === "string" ? payload.couponCode.trim().toUpperCase() : null
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
       : payload.paymentMethod === "FLOAT"
       ? "FLOAT"
       : "COD"
+  const flotPaymentType = normalizeFlotPaymentType(payload.flotPaymentType ?? payload.paymentType, "card")
   const payerMsisdn = typeof payload.payerMsisdn === "string" ? payload.payerMsisdn.trim() : ""
 
   if (requestedPaymentMethod === "AFRIMONEY" && !payerMsisdn) {
@@ -415,6 +418,7 @@ export async function POST(request: NextRequest) {
   let ussdPromptSent = false
   let pushMessage = ""
   let flotPaymentLink: string | null = null
+  let flotCode: string | null = null
   let flotOrderId: string | null = null
 
   if (requestedPaymentMethod === "AFRIMONEY") {
@@ -494,10 +498,11 @@ export async function POST(request: NextRequest) {
         orderId: externalRef,
         amount: totalAmount,
         currency: "SLE",
-        type: "card",
+        type: flotPaymentType,
       })
 
       flotPaymentLink = flotRes.link
+      flotCode = flotRes.code || null
       flotOrderId = externalRef
 
       await prisma.order.update({
@@ -680,6 +685,9 @@ export async function POST(request: NextRequest) {
     ussdPromptSent,
     afriTxnId,
     flotPaymentLink,
+    flotCode,
+    ussdCode: flotCode,
+    flotPaymentType,
     flotOrderId,
     message: pushMessage,
     shippingBreakup,
