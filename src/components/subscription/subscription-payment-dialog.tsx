@@ -25,6 +25,11 @@ import {
   CreditCard,
   ExternalLink,
 } from "lucide-react"
+import {
+  FloatMethodSelector,
+  FloatPaymentInstructions,
+  type FloatSubType,
+} from "@/components/payments/float-payment-options"
 
 export interface SubscriptionPaymentDialogProps {
   open: boolean
@@ -69,7 +74,9 @@ export function SubscriptionPaymentDialog({
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [purchaseId, setPurchaseId] = useState<string | null>(null)
+  const [flotSubType, setFlotSubType] = useState<FloatSubType>("card")
   const [flotPaymentLink, setFlotPaymentLink] = useState<string | null>(null)
+  const [flotUssdCode, setFlotUssdCode] = useState<string | null>(null)
   const [activatedStatus, setActivatedStatus] = useState<"ACTIVE" | "QUEUED">("ACTIVE")
   const [isChecking, setIsChecking] = useState(false)
 
@@ -106,6 +113,7 @@ export function SubscriptionPaymentDialog({
         setMessage("")
         setPurchaseId(null)
         setFlotPaymentLink(null)
+        setFlotUssdCode(null)
       }
     }
   }, [open, state])
@@ -232,7 +240,7 @@ export function SubscriptionPaymentDialog({
     }
   }
 
-  // Initiate Float Card Payment
+  // Initiate Float Payment (card | in-app | momo)
   const handleInitiateFloatPayment = async () => {
     setError("")
     setState("initiating")
@@ -244,6 +252,7 @@ export function SubscriptionPaymentDialog({
         body: JSON.stringify({
           planId: plan.id,
           couponCode: appliedCoupon?.code,
+          paymentType: flotSubType,
         }),
       })
 
@@ -251,12 +260,15 @@ export function SubscriptionPaymentDialog({
 
       if (!res.ok || !data.success) {
         setState("error")
-        setError(data.error || data.message || "Failed to initiate Float card payment")
+        setError(data.error || data.message || "Failed to initiate Float payment")
         return
       }
 
+      const nextLink = data.paymentUrl || data.flotPaymentLink || null
+      const nextCode = data.flotCode || data.ussdCode || null
+
       // If 100% coupon applied
-      if (data.payableAmount === 0 || !data.paymentUrl) {
+      if (data.payableAmount === 0 || (!nextLink && !nextCode)) {
         setState("success")
         setActivatedStatus(data.status === "QUEUED" ? "QUEUED" : "ACTIVE")
         if (onSuccess) onSuccess()
@@ -264,11 +276,20 @@ export function SubscriptionPaymentDialog({
       }
 
       setPurchaseId(data.purchaseId)
-      setFlotPaymentLink(data.paymentUrl)
+      setFlotPaymentLink(nextLink)
+      setFlotUssdCode(nextCode)
       setState("waiting")
-      setMessage("Float checkout initiated! Please finish entering your card details in the Float portal window.")
+      setMessage(
+        flotSubType === "in-app"
+          ? "Scan the QR code with the Flot App or open it on mobile to confirm."
+          : flotSubType === "momo"
+          ? "Dial the Mobile Money USSD code below on your phone to confirm."
+          : "Float checkout initiated! Please finish entering your card details in the Float portal window."
+      )
 
-      window.open(data.paymentUrl, "_blank")
+      if (flotSubType === "card" && nextLink && /^https?:\/\//i.test(nextLink)) {
+        window.open(nextLink, "_blank", "noopener,noreferrer")
+      }
       startPolling(data.purchaseId)
     } catch (err: any) {
       setState("error")
@@ -398,20 +419,12 @@ export function SubscriptionPaymentDialog({
               )
             ) : (
               payablePrice > 0 && (
-                <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                      <CreditCard className="w-4 h-4 text-blue-600" />
-                      Float Hosted Checkout
-                    </span>
-                    <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-100/50 dark:bg-blue-950">
-                      Debit / Credit Card
-                    </Badge>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
-                    Clicking below will open Float's secure payment portal where you can pay using any local or international card.
-                  </p>
-                </div>
+                <FloatMethodSelector
+                  value={flotSubType}
+                  onChange={setFlotSubType}
+                  disabled={state === "initiating"}
+                  compact
+                />
               )
             )}
 
@@ -498,28 +511,27 @@ export function SubscriptionPaymentDialog({
               </div>
             )}
 
+            {method === "FLOAT" && (
+              <div className="text-left">
+                <FloatPaymentInstructions
+                  flotType={flotSubType}
+                  paymentLink={flotPaymentLink}
+                  ussdCode={flotUssdCode}
+                />
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2">
-              {method === "FLOAT" && flotPaymentLink ? (
-                <Button
-                  variant="outline"
-                  className="w-1/2 h-11 rounded-xl font-bold text-xs"
-                  onClick={() => window.open(flotPaymentLink, "_blank")}
-                >
-                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                  Re-open Portal
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-1/2 h-11 rounded-xl font-bold text-xs"
-                  onClick={() => {
-                    stopPolling()
-                    setState("idle")
-                  }}
-                >
-                  Change Details
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-1/2 h-11 rounded-xl font-bold text-xs"
+                onClick={() => {
+                  stopPolling()
+                  setState("idle")
+                }}
+              >
+                Change Method
+              </Button>
               <Button
                 variant="default"
                 className="w-1/2 h-11 rounded-xl font-bold text-xs bg-slate-900 text-white"

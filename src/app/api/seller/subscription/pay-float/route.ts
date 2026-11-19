@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PlanType } from "@prisma/client"
 import { initiateFloatSubscriptionPayment } from "@/lib/subscriptions"
+import { normalizeFlotPaymentType } from "@/lib/flot"
 import { getMobileUserAuth } from "@/app/mobileapi/_helpers/ad-afrimoney"
 
 export const dynamic = "force-dynamic"
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const { planId, couponCode } = body
+    const paymentType = normalizeFlotPaymentType(
+      body?.paymentType ?? body?.flotPaymentType ?? body?.type,
+      "card"
+    )
 
     if (!planId) {
       return NextResponse.json({ error: "planId is required" }, { status: 400 })
@@ -67,6 +72,7 @@ export async function POST(request: NextRequest) {
       planId,
       couponCode,
       userId: authUserId,
+      paymentType,
     })
 
     if (!result.success) {

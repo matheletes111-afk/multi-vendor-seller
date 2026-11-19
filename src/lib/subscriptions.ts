@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink, verifyFlotPaymentAttempt } from "@/lib/flot"
+import {
+  createFlotPaymentLink,
+  verifyFlotPaymentAttempt,
+  normalizeFlotPaymentType,
+  type FlotPaymentType,
+} from "@/lib/flot"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
 import { SubscriptionPlan, PlanType, SubscriptionLedgerStatus, SubscriptionStatus } from "@prisma/client"
 
@@ -1663,6 +1668,7 @@ export interface InitiateFloatSubscriptionParams {
   planId: string
   couponCode?: string | null
   userId?: string
+  paymentType?: FlotPaymentType
 }
 
 export interface InitiateFloatSubscriptionResult {
@@ -1672,6 +1678,10 @@ export interface InitiateFloatSubscriptionResult {
   payableAmount: number
   planName?: string
   paymentUrl?: string | null
+  flotPaymentLink?: string | null
+  flotCode?: string | null
+  ussdCode?: string | null
+  flotPaymentType?: FlotPaymentType
   flotOrderId?: string | null
   message?: string
   error?: string
@@ -1684,6 +1694,7 @@ export async function initiateFloatSubscriptionPayment(
   params: InitiateFloatSubscriptionParams
 ): Promise<InitiateFloatSubscriptionResult> {
   const { sellerType, sellerId, planId, couponCode, userId } = params
+  const paymentType = normalizeFlotPaymentType(params.paymentType, "card")
 
   const plan = await prisma.plan.findUnique({
     where: { id: planId },
@@ -1820,7 +1831,7 @@ export async function initiateFloatSubscriptionPayment(
     const flotRes = await createFlotPaymentLink({
       orderId: flotOrderId,
       amount: payableAmount,
-      type: "card",
+      type: paymentType,
     })
 
     await prisma.subscriptionPurchase.update({
@@ -1838,6 +1849,10 @@ export async function initiateFloatSubscriptionPayment(
       payableAmount,
       planName: plan.displayName || plan.name,
       paymentUrl: flotRes.link,
+      flotPaymentLink: flotRes.link,
+      flotCode: flotRes.code || null,
+      ussdCode: flotRes.code || null,
+      flotPaymentType: paymentType,
       flotOrderId,
       message: "Float checkout link generated successfully",
     }

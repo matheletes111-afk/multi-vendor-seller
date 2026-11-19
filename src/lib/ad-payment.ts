@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma"
-import { createFlotPaymentLink, verifyFlotPaymentAttempt } from "@/lib/flot"
+import {
+  createFlotPaymentLink,
+  verifyFlotPaymentAttempt,
+  normalizeFlotPaymentType,
+  type FlotPaymentType,
+} from "@/lib/flot"
 import { validateSellerCoupon, recordSellerCouponUsage } from "@/lib/coupons"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 
@@ -8,13 +13,15 @@ export interface InitiateAdPaymentParams {
   totalBudget: number
   couponCode?: string | null
   userId: string
-  paymentType?: "in-app" | "card" | "momo"
+  paymentType?: FlotPaymentType
 }
 
 export interface InitiateAdPaymentResult {
   success: boolean
   requiresPayment: boolean
   paymentUrl: string | null
+  paymentCode?: string | null
+  paymentType?: FlotPaymentType
   orderId: string | null
   payableAmount: number
   couponDiscount: number
@@ -30,7 +37,8 @@ export interface InitiateAdPaymentResult {
 export async function initiateAdPayment(
   params: InitiateAdPaymentParams
 ): Promise<InitiateAdPaymentResult> {
-  const { adId, totalBudget, couponCode, userId, paymentType = "card" } = params
+  const { adId, totalBudget, couponCode, userId } = params
+  const paymentType = normalizeFlotPaymentType(params.paymentType, "card")
 
   let payableAmount = totalBudget
   let couponDiscount = 0
@@ -126,6 +134,8 @@ export async function initiateAdPayment(
       success: true,
       requiresPayment: true,
       paymentUrl: flotRes.link,
+      paymentCode: flotRes.code || null,
+      paymentType,
       orderId: flotOrderId,
       payableAmount,
       couponDiscount,
@@ -239,7 +249,7 @@ export async function reconcileAdPayment(identifier: { adId?: string; orderId?: 
 /**
  * Refresh or generate a new Float payment link for an unpaid or failed ad.
  */
-export async function refreshAdPaymentLink(adId: string) {
+export async function refreshAdPaymentLink(adId: string, rawPaymentType?: unknown) {
   const ad = await prisma.sellerAd.findUnique({
     where: { id: adId },
   })
@@ -252,6 +262,7 @@ export async function refreshAdPaymentLink(adId: string) {
     return { success: false, error: "Ad is already paid" }
   }
 
+  const paymentType = normalizeFlotPaymentType(rawPaymentType, "card")
   const payableAmount = ad.payableAmount != null ? Number(ad.payableAmount) : Number(ad.totalBudget)
   const newOrderId = `AD_${ad.id.slice(-8)}_${Date.now()}`
 
@@ -259,7 +270,7 @@ export async function refreshAdPaymentLink(adId: string) {
     orderId: newOrderId,
     amount: payableAmount,
     currency: "SLE",
-    type: "card",
+    type: paymentType,
   })
 
   const updated = await prisma.sellerAd.update({
@@ -275,6 +286,8 @@ export async function refreshAdPaymentLink(adId: string) {
   return {
     success: true,
     paymentUrl: flotRes.link,
+    paymentCode: flotRes.code || null,
+    paymentType,
     orderId: newOrderId,
     ad: updated,
   }

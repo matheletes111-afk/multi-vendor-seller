@@ -13,6 +13,11 @@ import { PublicLayout } from "@/components/site-layout"
 import { GoogleAddressAutocomplete } from "@/components/google-address-autocomplete"
 import { GoogleMapView } from "@/components/google-map-view"
 import { AvailableCoupons } from "@/components/coupons/available-coupons"
+import {
+  FloatMethodSelector,
+  FloatPaymentInstructions,
+  type FloatSubType,
+} from "@/components/payments/float-payment-options"
 
 type Address = {
   id: string
@@ -124,11 +129,14 @@ function CheckoutContent() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [floatSubType, setFloatSubType] = useState<FloatSubType>("card")
   const [waitingForFloat, setWaitingForFloat] = useState(false)
   const [floatPaymentInfo, setFloatPaymentInfo] = useState<{
     orderId: string
     orderNumber: string
-    paymentLink: string
+    paymentLink: string | null
+    ussdCode: string | null
+    flotType: FloatSubType
     flotOrderId: string
   } | null>(null)
   const [floatChecking, setFloatChecking] = useState(false)
@@ -431,6 +439,7 @@ function CheckoutContent() {
           deliveryCountry: deliveryDetails.country,
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
           paymentMethod,
+          flotPaymentType: paymentMethod === "FLOAT" ? floatSubType : undefined,
           payerMsisdn: paymentMethod === "AFRIMONEY" ? afriPhone.trim() : undefined,
         })
       })
@@ -500,16 +509,23 @@ function CheckoutContent() {
           return
         }
 
-        if (paymentMethod === "FLOAT" && orderData.flotPaymentLink) {
+        const nextLink = orderData.flotPaymentLink || null
+        const nextCode = orderData.flotCode || orderData.ussdCode || null
+        const nextType: FloatSubType = orderData.flotPaymentType || floatSubType
+        if (paymentMethod === "FLOAT" && (nextLink || nextCode)) {
           setWaitingForFloat(true)
           setFloatPaymentInfo({
             orderId: orderData.data.id,
             orderNumber: orderData.data.orderNumber,
-            paymentLink: orderData.flotPaymentLink,
+            paymentLink: nextLink,
+            ussdCode: nextCode,
+            flotType: nextType,
             flotOrderId: orderData.flotOrderId || "",
           })
 
-          window.open(orderData.flotPaymentLink, "_blank")
+          if (nextType === "card" && nextLink && /^https?:\/\//i.test(nextLink)) {
+            window.open(nextLink, "_blank", "noopener,noreferrer")
+          }
 
           const orderId = orderData.data.id
           let floatAttempts = 0
@@ -1146,14 +1162,13 @@ function CheckoutContent() {
                 )}
 
                 {paymentMethod === "FLOAT" && (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-2.5 space-y-1 mt-2">
-                    <p className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
-                      <CreditCard className="h-3.5 w-3.5 text-blue-600" />
-                      Card Payment via Float
-                    </p>
-                    <p className="text-[10px] text-blue-800">
-                      Supports Visa, Mastercard, and bank cards. You will be redirected to Float secure checkout.
-                    </p>
+                  <div className="mt-2">
+                    <FloatMethodSelector
+                      value={floatSubType}
+                      onChange={setFloatSubType}
+                      disabled={submittingOrder}
+                      compact
+                    />
                   </div>
                 )}
               </div>
@@ -1263,23 +1278,17 @@ function CheckoutContent() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
-              <p className="font-semibold">Complete your card payment in the Float secure portal.</p>
-              <p className="text-[11px] text-blue-800/90">
-                This page is automatically monitoring payment status and will confirm your food order once received.
-              </p>
-            </div>
+            <FloatPaymentInstructions
+              flotType={floatPaymentInfo.flotType}
+              paymentLink={floatPaymentInfo.paymentLink}
+              ussdCode={floatPaymentInfo.ussdCode}
+            />
+
+            <p className="text-[11px] text-slate-500">
+              This page is automatically monitoring payment status and will confirm your food order once received.
+            </p>
 
             <div className="space-y-2 pt-1">
-              <Button
-                type="button"
-                onClick={() => window.open(floatPaymentInfo.paymentLink, "_blank")}
-                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Re-open Float Payment Portal
-              </Button>
-
               <Button
                 type="button"
                 variant="outline"

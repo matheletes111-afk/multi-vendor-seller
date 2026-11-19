@@ -7,7 +7,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink } from "@/lib/flot"
+import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -33,6 +33,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       couponCode,
       paymentMethod,
       payerMsisdn,
+      flotPaymentType: rawFlotPaymentType,
+      paymentType: rawPaymentType,
     } = body
 
     const requestedPaymentMethod =
@@ -41,6 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         : paymentMethod === "FLOAT"
         ? "FLOAT"
         : "COD"
+    const flotPaymentType = normalizeFlotPaymentType(rawFlotPaymentType ?? rawPaymentType, "card")
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : (guestPhone ? String(guestPhone).trim() : "")
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -235,6 +238,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let ussdPromptSent = false
     let pushMessage = ""
     let flotPaymentLink: string | null = null
+    let flotCode: string | null = null
     let flotOrderId: string | null = null
 
     if (requestedPaymentMethod === "AFRIMONEY") {
@@ -299,10 +303,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           orderId: externalRef,
           amount: booking.totalPrice,
           currency: "SLE",
-          type: "card",
+          type: flotPaymentType,
         })
 
         flotPaymentLink = flotRes.link
+        flotCode = flotRes.code || null
         flotOrderId = externalRef
 
         await prisma.hotelBooking.update({
@@ -424,6 +429,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ussdPromptSent,
       afriTxnId,
       flotPaymentLink,
+      flotCode,
+      ussdCode: flotCode,
+      flotPaymentType,
       flotOrderId,
       promptMessage: pushMessage,
     })

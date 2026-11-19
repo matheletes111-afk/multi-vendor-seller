@@ -7,7 +7,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink } from "@/lib/flot"
+import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,10 +30,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       couponCode,
       paymentMethod,
       payerMsisdn,
+      flotPaymentType: rawFlotPaymentType,
+      paymentType: rawPaymentType,
     } = body
 
     const requestedPaymentMethod =
       paymentMethod === "AFRIMONEY" ? "AFRIMONEY" : paymentMethod === "FLOAT" ? "FLOAT" : "COD"
+    const flotPaymentType = normalizeFlotPaymentType(rawFlotPaymentType ?? rawPaymentType, "card")
     const payerPhone = typeof payerMsisdn === "string" ? payerMsisdn.trim() : (guestPhone ? String(guestPhone).trim() : "")
 
     if (requestedPaymentMethod === "AFRIMONEY" && !payerPhone) {
@@ -283,6 +286,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     let flotPaymentLink: string | null = null
+    let flotCode: string | null = null
     let flotOrderId: string | null = null
     let flotInternalOrderId: string | null = null
 
@@ -292,11 +296,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const flotRes = await createFlotPaymentLink({
           orderId: extOrderId,
           amount: booking.totalPrice,
-          type: "card",
+          type: flotPaymentType,
         })
 
-        if (flotRes.link) {
-          flotPaymentLink = flotRes.link
+        if (flotRes.link || flotRes.code) {
+          flotPaymentLink = flotRes.link || null
+          flotCode = flotRes.code || null
           flotOrderId = extOrderId
           flotInternalOrderId = flotRes.id || null
 
@@ -309,7 +314,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             },
           })
         } else {
-          throw new Error("No payment link received from Float payment gateway")
+          throw new Error("No payment link or code received from Float payment gateway")
         }
       } catch (flotErr: any) {
         for (const date of stayDates) {
@@ -421,6 +426,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ussdPromptSent,
       afriTxnId,
       flotPaymentLink,
+      flotCode,
+      ussdCode: flotCode,
+      flotPaymentType,
       flotOrderId,
       promptMessage: pushMessage,
     })

@@ -19,6 +19,11 @@ import { GoogleAddressAutocomplete } from "@/components/google-address-autocompl
 import { GoogleMapView } from "@/components/google-map-view"
 import { AvailableCoupons } from "@/components/coupons/available-coupons"
 import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
+import {
+  FloatMethodSelector,
+  FloatPaymentInstructions,
+  type FloatSubType,
+} from "@/components/payments/float-payment-options"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -193,11 +198,14 @@ export function CheckoutClient() {
   const [afriPollingCountdown, setAfriPollingCountdown] = useState(60)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [floatSubType, setFloatSubType] = useState<FloatSubType>("card")
   const [waitingForFloat, setWaitingForFloat] = useState(false)
   const [floatPaymentInfo, setFloatPaymentInfo] = useState<{
     orderId: string
     orderNumber: string
-    paymentLink: string
+    paymentLink: string | null
+    ussdCode: string | null
+    flotType: FloatSubType
     flotOrderId: string
   } | null>(null)
   const [floatChecking, setFloatChecking] = useState(false)
@@ -302,6 +310,7 @@ export function CheckoutClient() {
         body: JSON.stringify({
           addressId: selectedAddressId,
           paymentMethod,
+          flotPaymentType: paymentMethod === "FLOAT" ? floatSubType : undefined,
           payerMsisdn: paymentMethod === "AFRIMONEY" ? afriPhone.trim() : undefined,
           couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         }),
@@ -311,6 +320,9 @@ export function CheckoutClient() {
         ussdPromptSent?: boolean
         afriTxnId?: string
         flotPaymentLink?: string | null
+        flotCode?: string | null
+        ussdCode?: string | null
+        flotPaymentType?: FloatSubType
         flotOrderId?: string | null
         message?: string
       }
@@ -376,17 +388,24 @@ export function CheckoutClient() {
           return
         }
 
-        if (paymentMethod === "FLOAT" && data.flotPaymentLink) {
+        const nextLink = data.flotPaymentLink || null
+        const nextCode = data.flotCode || data.ussdCode || null
+        const nextType: FloatSubType = data.flotPaymentType || floatSubType
+        if (paymentMethod === "FLOAT" && (nextLink || nextCode)) {
           setWaitingForFloat(true)
           setFloatPaymentInfo({
             orderId: firstOrder.orderId,
             orderNumber: firstOrder.orderNumber,
-            paymentLink: data.flotPaymentLink,
+            paymentLink: nextLink,
+            ussdCode: nextCode,
+            flotType: nextType,
             flotOrderId: data.flotOrderId || "",
           })
 
-          // Open Float hosted checkout in a new window/tab
-          window.open(data.flotPaymentLink, "_blank")
+          // Open Float hosted checkout in a new window/tab only for card web URL
+          if (nextType === "card" && nextLink && /^https?:\/\//i.test(nextLink)) {
+            window.open(nextLink, "_blank", "noopener,noreferrer")
+          }
 
           // Poll Float status every 3 seconds
           const orderId = firstOrder.orderId
@@ -1288,14 +1307,13 @@ export function CheckoutClient() {
                     )}
 
                     {paymentMethod === "FLOAT" && (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-1.5 mt-2 animate-in fade-in-50">
-                        <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                          <CreditCard className="h-4 w-4 text-blue-600" />
-                          Secure Card Checkout via Float
-                        </p>
-                        <p className="text-[11px] text-blue-800">
-                          Supports Visa, MasterCard, and online debit cards. You will be redirected to the secure Float portal to complete your payment.
-                        </p>
+                      <div className="mt-2 animate-in fade-in-50">
+                        <FloatMethodSelector
+                          value={floatSubType}
+                          onChange={setFloatSubType}
+                          disabled={placing}
+                          compact
+                        />
                       </div>
                     )}
                   </div>
@@ -1410,23 +1428,17 @@ export function CheckoutClient() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 text-xs text-blue-950 space-y-2">
-              <p className="font-semibold">Complete your card payment in the Float secure portal.</p>
-              <p className="text-[11px] text-blue-800/90">
-                This page is automatically waiting for confirmation and will redirect once payment is received.
-              </p>
-            </div>
+            <FloatPaymentInstructions
+              flotType={floatPaymentInfo.flotType}
+              paymentLink={floatPaymentInfo.paymentLink}
+              ussdCode={floatPaymentInfo.ussdCode}
+            />
+
+            <p className="text-[11px] text-slate-500">
+              This page is automatically waiting for confirmation and will redirect once payment is received.
+            </p>
 
             <div className="space-y-2 pt-1">
-              <Button
-                type="button"
-                onClick={() => window.open(floatPaymentInfo.paymentLink, "_blank")}
-                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Re-open Float Payment Portal
-              </Button>
-
               <Button
                 type="button"
                 variant="outline"
