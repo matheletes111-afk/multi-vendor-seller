@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaurant-seller-auth"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
       const settlementStatus = b.settlementStatus ?? (b.status === "COMPLETED" ? "YET_TO_PAY" : "ESCROW_HELD")
       return {
         ...b,
+        ...parseStoredFlotLink(b.flotPaymentLink),
         commissionRate: bCommissionRate,
         commissionAmount,
         sellerNet,

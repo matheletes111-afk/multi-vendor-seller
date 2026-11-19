@@ -29,6 +29,28 @@ export function normalizeFlotPaymentType(
   return fallback
 }
 
+export function parseStoredFlotLink(stored: string | null | undefined): {
+  flotPaymentType: FlotPaymentType | null
+  flotPaymentLink: string | null
+  flotCode: string | null
+  ussdCode: string | null
+} {
+  if (!stored || typeof stored !== "string") {
+    return { flotPaymentType: null, flotPaymentLink: null, flotCode: null, ussdCode: null }
+  }
+  const trimmed = stored.trim()
+  if (!trimmed) {
+    return { flotPaymentType: null, flotPaymentLink: null, flotCode: null, ussdCode: null }
+  }
+  if (trimmed.startsWith("*")) {
+    return { flotPaymentType: "momo", flotPaymentLink: null, flotCode: trimmed, ussdCode: trimmed }
+  }
+  if (trimmed.toLowerCase().startsWith("flot://")) {
+    return { flotPaymentType: "in-app", flotPaymentLink: trimmed, flotCode: null, ussdCode: null }
+  }
+  return { flotPaymentType: "card", flotPaymentLink: trimmed, flotCode: null, ussdCode: null }
+}
+
 export interface CreateFlotPaymentLinkOptions {
   orderId: string
   amount: number | string

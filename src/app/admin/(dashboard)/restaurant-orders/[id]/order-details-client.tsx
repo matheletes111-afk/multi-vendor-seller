@@ -190,7 +190,7 @@ export function AdminRestaurantOrderDetailsClient({ orderId }: { orderId: string
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Payment Method:</span>
                     <div className="flex items-center gap-2">
                       <span className="font-bold uppercase text-slate-800">
-                        {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                        {order.paymentMethod === "FLOAT" ? "💳 Float" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
                       </span>
                       <Badge variant="outline" className={`text-[10px] font-bold ${order.paymentMethod === "FLOAT" ? "border-blue-300 text-blue-600 bg-blue-50" : ""}`}>
                         {order.paymentStatus ?? "PENDING"}

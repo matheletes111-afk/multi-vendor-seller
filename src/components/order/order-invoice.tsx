@@ -80,7 +80,7 @@ export function OrderInvoice({ data, isLast }: OrderInvoiceProps) {
             <p className="text-xs text-slate-600">
               <span className="font-bold">Payment:</span>{" "}
               {data.paymentMethod === "FLOAT"
-                ? "Float (Card / Online)"
+                ? "Float (App / MoMo / Card)"
                 : data.paymentMethod === "AFRIMONEY"
                 ? "AfriMoney Mobile Money"
                 : "Cash on Delivery"}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
       paymentStatus: b.paymentStatus,
       afriTxnId: b.afriTxnId,
       flotOrderId: b.flotOrderId ?? null,
-      flotPaymentLink: b.flotPaymentLink ?? null,
+      ...parseStoredFlotLink(b.flotPaymentLink),
       paidAt: b.paidAt,
       createdAt: b.createdAt,
       room: b.room,

@@ -15,6 +15,7 @@ import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-
 import { OrderStatus } from "@prisma/client"
 import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 
 function isValidServiceSellerItemStatus(s: string): boolean {
@@ -139,7 +140,7 @@ export async function GET(
     afriTxnId: order.afriTxnId,
     afriFtxnId: order.afriFtxnId,
     flotOrderId: order.flotOrderId ?? null,
-    flotPaymentLink: order.flotPaymentLink ?? null,
+    ...parseStoredFlotLink(order.flotPaymentLink),
     paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,

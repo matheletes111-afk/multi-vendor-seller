@@ -8,6 +8,7 @@ import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/ui/alert"
 import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import { formatFloatPaymentLabel } from "@/components/payments/float-payment-options"
 import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import type { SellerOrderDetailApi } from "@/app/api/product-seller/orders/types"
 import { SELLER_ORDER_STATUSES } from "@/app/api/product-seller/orders/types"
@@ -1494,7 +1495,7 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 min-w-0">Checkout Method</span>
                     <span className="font-extrabold text-sm uppercase tracking-tighter text-primary/80 shrink-0">
-                      {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                      {order.paymentMethod === "FLOAT" ? formatFloatPaymentLabel(order.flotPaymentLink) : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
                     </span>
                   </div>
                   {order.afriTxnId && (
@@ -1800,9 +1801,19 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                       <div className="flex justify-between items-center px-1 text-xs gap-2 min-w-0">
                         <span className="text-muted-foreground font-medium min-w-0 truncate">Payment Method</span>
                         <span className="font-bold text-foreground shrink-0">
-                          {order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                          {order.paymentMethod === "FLOAT"
+                            ? `${formatFloatPaymentLabel(order.flotPaymentLink, false)} (Prepaid)`
+                            : order.paymentMethod === "AFRIMONEY"
+                            ? "AfriMoney (Prepaid)"
+                            : (order.paymentMethod || "Cash on Delivery")}
                         </span>
                       </div>
+                      {order.flotOrderId && (
+                        <div className="flex justify-between items-center px-1 text-[11px] text-muted-foreground gap-2 min-w-0">
+                          <span className="truncate">Float Order ID</span>
+                          <span className="font-mono font-bold shrink-0">{order.flotOrderId}</span>
+                        </div>
+                      )}
                       {order.afriTxnId && (
                         <div className="flex justify-between items-center px-1 text-[11px] text-muted-foreground gap-2 min-w-0">
                           <span className="truncate">AfriMoney Txn ID</span>

@@ -19,7 +19,7 @@ export function PaymentStatusBadge({ status, paymentMethod, className }: Payment
     if (isFloat) {
       return (
         <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
-          <span>💳</span> Float (Card)
+          <span>💳</span> Float
         </span>
       )
     }

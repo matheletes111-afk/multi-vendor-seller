@@ -14,6 +14,25 @@ import {
 
 export type FloatSubType = "in-app" | "momo" | "card"
 
+export function getFloatPaymentTypeFromLink(flotPaymentLink?: string | null): FloatSubType | null {
+  if (!flotPaymentLink || typeof flotPaymentLink !== "string") return null
+  const trimmed = flotPaymentLink.trim()
+  if (!trimmed) return null
+  if (trimmed.startsWith("*")) return "momo"
+  if (trimmed.toLowerCase().startsWith("flot://")) return "in-app"
+  if (/^https?:\/\//i.test(trimmed)) return "card"
+  return null
+}
+
+export function formatFloatPaymentLabel(flotPaymentLink?: string | null, withIcon = true): string {
+  const prefix = withIcon ? "💳 " : ""
+  const subType = getFloatPaymentTypeFromLink(flotPaymentLink)
+  if (subType === "in-app") return `${prefix}Float (Flot App)`
+  if (subType === "momo") return `${prefix}Float (Mobile Money)`
+  if (subType === "card") return `${prefix}Float (Bank Card)`
+  return `${prefix}Float`
+}
+
 const FLOAT_OPTIONS: Array<{
   value: FloatSubType
   title: string

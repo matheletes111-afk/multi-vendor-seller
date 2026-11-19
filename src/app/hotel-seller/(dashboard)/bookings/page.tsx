@@ -406,7 +406,7 @@ function HotelSellerBookingsClient() {
                 <div className="flex justify-between text-xs">
                   <span>Payment Method:</span>
                   <span className="font-bold text-slate-900">
-                    {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float (Card)" : selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Cash on Arrival")}
+                    {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float" : selectedBooking.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (selectedBooking.paymentMethod || "Cash on Arrival")}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">

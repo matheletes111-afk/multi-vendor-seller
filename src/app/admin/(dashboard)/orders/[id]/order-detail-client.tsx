@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/ui/dialog"
 import { formatCurrency, formatDate, formatSlotTimeRange, cn } from "@/lib/utils"
+import { formatFloatPaymentLabel } from "@/components/payments/float-payment-options"
 import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import type { AdminOrderDetailApi } from "@/app/api/admin/orders/types"
 import { ADMIN_ORDER_STATUSES } from "@/app/api/admin/orders/types"
@@ -750,7 +751,7 @@ export function AdminOrderDetailClient({ orderId }: { orderId: string }) {
                          <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 truncate">Payment Intelligence</p>
                          <div className="flex flex-wrap items-center gap-2 mt-1">
                             <p className="font-bold text-xs uppercase tracking-wider text-foreground shrink-0">
-                              {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
+                              {order.paymentMethod === "FLOAT" ? formatFloatPaymentLabel(order.flotPaymentLink) : order.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : (order.paymentMethod ?? "COD")}
                             </p>
                             <span className="text-muted-foreground/30">•</span>
                             <Badge variant="outline" className={`text-[9px] h-5 px-2.5 font-bold uppercase tracking-wider shrink-0 ${order.paymentMethod === "FLOAT" ? "border-blue-500/20 bg-blue-500/5 text-blue-600" : "border-primary/20 bg-primary/5 text-primary"}`}>

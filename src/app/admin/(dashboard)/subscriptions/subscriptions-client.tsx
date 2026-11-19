@@ -679,7 +679,7 @@ export function SubscriptionsClient() {
                             return (
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-1">
-                                  <span>💳</span> Float (Card)
+                                  <span>💳</span> Float
                                 </span>
                                 {subscription.flotOrderId && (
                                   <span className="text-[9px] font-mono text-slate-400 truncate max-w-[130px]" title={subscription.flotOrderId}>

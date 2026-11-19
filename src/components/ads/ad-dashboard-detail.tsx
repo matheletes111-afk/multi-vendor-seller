@@ -376,7 +376,7 @@ export function AdDashboardDetail({
                     if (isFlot) {
                       return (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                          <span>💳</span> Float (Card)
+                          <span>💳</span> Float
                         </span>
                       );
                     }

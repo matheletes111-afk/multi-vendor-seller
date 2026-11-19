@@ -118,7 +118,7 @@ export async function initiateAdPayment(
         payableAmount,
         flotOrderId,
         flotInternalOrderId: flotRes.id,
-        flotPaymentLink: flotRes.link,
+        flotPaymentLink: flotRes.link || flotRes.code || null,
       },
     })
 
