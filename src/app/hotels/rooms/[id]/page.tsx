@@ -911,9 +911,9 @@ export default function RoomBookingPage() {
                               </div>
                               <div>
                                 <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
-                                  <span>💳</span> Float (Card)
+                                  <span>💳</span> Float
                                 </p>
-                                <p className="text-[9px] text-slate-500">Debit / Credit Card</p>
+                                <p className="text-[9px] text-slate-500">App / MoMo / Card</p>
                               </div>
                             </button>
                           </div>
@@ -977,7 +977,7 @@ export default function RoomBookingPage() {
                         paymentMethod === "AFRIMONEY"
                           ? "Pay with AfriMoney"
                           : paymentMethod === "FLOAT"
-                          ? "Pay with Float (Card)"
+                          ? "Pay with Float"
                           : "Confirm Booking (Pay on Arrival)"
                       )}
                     </Button>
@@ -1040,7 +1040,7 @@ export default function RoomBookingPage() {
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900">Approve Float Card Payment</h3>
+              <h3 className="text-lg font-black text-slate-900">Approve Float Payment</h3>
               <p className="text-xs text-slate-500 font-medium">
                 Hotel Room Booking &bull; Order #{flotPaymentInfo.flotOrderId}
               </p>

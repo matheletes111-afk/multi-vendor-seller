@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
           data: {
             flotOrderId: externalRef,
             flotInternalOrderId: flotRes.id,
-            flotPaymentLink: flotRes.link,
+            flotPaymentLink: flotRes.link || flotRes.code || null,
             paymentMethod: "FLOAT",
           },
         })

@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../_helpers/seller-auth"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { deriveOrderStatus } from "@/lib/order-status"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 /** GET orders for current service seller (mobile). */
 export async function GET(request: NextRequest) {
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
       paymentStatus: order.paymentStatus,
       afriTxnId: order.afriTxnId ?? null,
       flotOrderId: order.flotOrderId ?? null,
-      flotPaymentLink: order.flotPaymentLink ?? null,
+      ...parseStoredFlotLink(order.flotPaymentLink),
       paidAt: order.paidAt ? order.paidAt.toISOString() : null,
       items: sellerItems.map(item => {
         const imageUrl = firstImageUrl(item.service?.images) ?? null

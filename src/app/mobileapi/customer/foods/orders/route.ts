@@ -6,7 +6,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
-import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
+import { createFlotPaymentLink, normalizeFlotPaymentType, parseStoredFlotLink } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       paymentStatus: o.paymentStatus,
       afriTxnId: o.afriTxnId,
       flotOrderId: o.flotOrderId,
-      flotPaymentLink: o.flotPaymentLink ?? null,
+      ...parseStoredFlotLink(o.flotPaymentLink),
       paidAt: o.paidAt,
       status: o.status,
       createdAt: o.createdAt,
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
           data: {
             flotOrderId: externalRef,
             flotInternalOrderId: flotRes.id,
-            flotPaymentLink: flotRes.link,
+            flotPaymentLink: flotRes.link || flotRes.code || null,
             paymentMethod: "FLOAT",
           },
         })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -66,7 +67,7 @@ export async function GET(
       paymentStatus: order.paymentStatus,
       afriTxnId: order.afriTxnId,
       flotOrderId: order.flotOrderId,
-      flotPaymentLink: order.flotPaymentLink,
+      ...parseStoredFlotLink(order.flotPaymentLink),
       paidAt: order.paidAt,
       createdAt: order.createdAt,
       deliveryFullName: order.deliveryFullName,

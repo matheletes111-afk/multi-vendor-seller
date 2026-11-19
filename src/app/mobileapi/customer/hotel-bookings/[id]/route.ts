@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       paymentStatus: booking.paymentStatus,
       afriTxnId: booking.afriTxnId,
       flotOrderId: booking.flotOrderId,
-      flotPaymentLink: booking.flotPaymentLink,
+      ...parseStoredFlotLink(booking.flotPaymentLink),
       paidAt: booking.paidAt,
       createdAt: booking.createdAt,
       room: booking.room,

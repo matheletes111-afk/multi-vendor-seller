@@ -238,7 +238,7 @@ export function HotelSubscriptionClient() {
                               onClick={() => handleOpenPayment(plan, "FLOAT")}
                             >
                               <CreditCard className="w-3.5 h-3.5" />
-                              Float Card
+                              Float
                             </Button>
                           </div>
                         </div>

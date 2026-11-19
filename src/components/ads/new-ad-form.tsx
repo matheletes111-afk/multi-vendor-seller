@@ -489,7 +489,7 @@ export function NewAdForm({
                       <CreditCard className="w-4 h-4" />
                       {loading && chosenPaymentMethod === "FLOAT"
                         ? "Creating..."
-                        : "Pay with Float (Card)"}
+                        : "Pay with Float"}
                     </Button>
 
                     {/* Discard */}

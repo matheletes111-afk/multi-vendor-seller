@@ -277,7 +277,7 @@ export function RestaurantOrdersClient() {
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-500 font-medium">Payment:</span>
                             <span className="text-xs font-bold text-slate-800">
-                              {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                              {order.paymentMethod === "FLOAT" ? "💳 Float" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
                             </span>
                             <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className={`text-[10px] uppercase ${order.paymentMethod === "FLOAT" ? "border-blue-300 text-blue-600 bg-blue-50" : ""}`}>
                               {order.paymentStatus || "PENDING"}

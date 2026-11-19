@@ -17,6 +17,7 @@ import { Label } from "@/ui/label"
 import { Textarea } from "@/ui/textarea"
 import { Skeleton } from "@/ui/skeleton"
 import { cn, formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
+import { formatFloatPaymentLabel } from "@/components/payments/float-payment-options"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
 import {
   MAX_RETURN_IMAGES,
@@ -1012,7 +1013,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600 font-medium">Payment Method</span>
                   <span className="font-bold text-slate-900 inline-flex items-center gap-1.5">
-                    {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                    {order.paymentMethod === "FLOAT" ? formatFloatPaymentLabel(order.flotPaymentLink) : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-sm">

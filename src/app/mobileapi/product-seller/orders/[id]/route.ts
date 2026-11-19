@@ -25,6 +25,7 @@ import { uploadPublicFile } from "@/lib/upload-public-file"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
 import { sendOrderItemStatusUpdateEmail } from "@/lib/email"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
@@ -424,7 +425,7 @@ export async function GET(
     afriTxnId: order.afriTxnId,
     afriFtxnId: order.afriFtxnId,
     flotOrderId: order.flotOrderId ?? null,
-    flotPaymentLink: order.flotPaymentLink ?? null,
+    ...parseStoredFlotLink(order.flotPaymentLink),
     paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,

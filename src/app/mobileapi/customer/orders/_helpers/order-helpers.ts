@@ -3,6 +3,7 @@ import type { OrderDetailApi } from "@/app/api/customer/orders/types"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export type CustomerOrderKind = "product" | "service"
 
@@ -251,7 +252,7 @@ export async function listCustomerOrders({
       afriFtxnId: order.afriFtxnId ?? null,
       afriMsisdn: maskPhone(order.afriMsisdn),
       flotOrderId: (order as any).flotOrderId ?? null,
-      flotPaymentLink: (order as any).flotPaymentLink ?? null,
+      ...parseStoredFlotLink((order as any).flotPaymentLink),
       paidAt: order.paidAt ? order.paidAt.toISOString() : null,
       shippingFullName: order.shippingFullName,
       shippingPhone: order.shippingPhone,
@@ -654,7 +655,7 @@ export async function getCustomerOrderDetail({
     afriFtxnId: order.afriFtxnId ?? null,
     afriMsisdn: maskPhone(order.afriMsisdn),
     flotOrderId: (order as any).flotOrderId ?? null,
-    flotPaymentLink: (order as any).flotPaymentLink ?? null,
+    ...parseStoredFlotLink((order as any).flotPaymentLink),
     paidAt: order.paidAt ? order.paidAt.toISOString() : null,
     shippingFullName: order.shippingFullName,
     shippingPhone: order.shippingPhone,

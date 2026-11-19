@@ -1281,9 +1281,9 @@ export function CheckoutClient() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-slate-900 flex items-center gap-1">
-                            <CreditCard className="h-3.5 w-3.5 text-blue-600" /> Float Card
+                            <CreditCard className="h-3.5 w-3.5 text-blue-600" /> Float
                           </p>
-                          <p className="text-[10px] text-slate-500">Debit / Credit Card</p>
+                          <p className="text-[10px] text-slate-500">Flot App / MoMo / Card</p>
                         </div>
                       </button>
                     </div>
@@ -1342,14 +1342,14 @@ export function CheckoutClient() {
                         {paymentMethod === "AFRIMONEY"
                           ? "Sending AfriMoney Prompt…"
                           : paymentMethod === "FLOAT"
-                          ? "Connecting to Float Card Gateway…"
+                          ? "Connecting to Float Gateway…"
                           : "Placing Order…"}
                       </>
                     ) : (
                       paymentMethod === "AFRIMONEY"
                         ? `Pay with AfriMoney • ${formatCurrency(cartGrandTotal)}`
                         : paymentMethod === "FLOAT"
-                        ? `Pay with Float (Card) • ${formatCurrency(cartGrandTotal)}`
+                        ? `Pay with Float • ${formatCurrency(cartGrandTotal)}`
                         : `Place Order (COD) • ${formatCurrency(cartGrandTotal)}`
                     )}
                   </Button>

@@ -435,6 +435,7 @@ export async function GET(
     afriTxnId: order.afriTxnId,
     afriFtxnId: order.afriFtxnId,
     flotOrderId: order.flotOrderId,
+    flotPaymentLink: order.flotPaymentLink ?? null,
     afriMsisdn: maskPhone(order.afriMsisdn),
     paidAt: order.paidAt?.toISOString() ?? null,
     shippingFullName: order.shippingFullName,

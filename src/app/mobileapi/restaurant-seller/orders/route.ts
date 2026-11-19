@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaurant-seller-auth"
+import { parseStoredFlotLink } from "@/lib/flot"
 
 export const dynamic = "force-dynamic"
 
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
         paymentStatus: o.paymentStatus,
         afriTxnId: o.afriTxnId,
         flotOrderId: o.flotOrderId ?? null,
-        flotPaymentLink: o.flotPaymentLink ?? null,
+        ...parseStoredFlotLink(o.flotPaymentLink),
         paidAt: o.paidAt,
         totalAmount: o.totalAmount,
         commissionRate: bCommissionRate,

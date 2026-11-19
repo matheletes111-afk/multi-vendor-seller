@@ -431,7 +431,7 @@ export default function CustomerFoodOrdersPage() {
                                         <div className="flex justify-between items-center">
                                           <span className="text-slate-500">Method:</span>
                                           <span className="font-bold text-slate-800">
-                                            {details.paymentMethod === "FLOAT" ? "💳 Float (Card)" : details.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (details.paymentMethod || "Cash on Delivery")}
+                                            {details.paymentMethod === "FLOAT" ? "💳 Float" : details.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (details.paymentMethod || "Cash on Delivery")}
                                           </span>
                                         </div>
                                         {details.afriTxnId && (

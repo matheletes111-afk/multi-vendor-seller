@@ -7,6 +7,7 @@ import { Button } from "@/ui/button"
 import { Badge } from "@/ui/badge"
 import { Separator } from "@/ui/separator"
 import { formatCurrency, formatDate, formatSlotTimeRange } from "@/lib/utils"
+import { formatFloatPaymentLabel } from "@/components/payments/float-payment-options"
 import type { SellerOrderDetailApi } from "@/app/api/service-seller/orders/types"
 import {
   SERVICE_SELLER_LINE_ITEM_STATUS_OPTIONS,
@@ -260,7 +261,7 @@ export function ServiceSellerOrderDetailClient({ orderId }: { orderId: string })
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Payment Method</span>
               <span className="font-medium">
-                {order.paymentMethod === "FLOAT" ? "💳 Float (Card)" : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
+                {order.paymentMethod === "FLOAT" ? formatFloatPaymentLabel(order.flotPaymentLink) : order.paymentMethod === "AFRIMONEY" ? "AfriMoney (Prepaid)" : (order.paymentMethod || "Cash on Delivery")}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">

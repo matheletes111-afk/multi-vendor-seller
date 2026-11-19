@@ -310,7 +310,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             data: {
               flotOrderId,
               flotInternalOrderId,
-              flotPaymentLink,
+              flotPaymentLink: flotRes.link || flotRes.code || null,
             },
           })
         } else {

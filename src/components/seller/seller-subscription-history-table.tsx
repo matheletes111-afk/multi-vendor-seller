@@ -138,7 +138,7 @@ export function SellerSubscriptionHistoryTable() {
                       return (
                         <div className="flex flex-col gap-0.5">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 w-fit">
-                            <span>💳</span> Float (Card)
+                            <span>💳</span> Float
                           </span>
                           {item.flotOrderId && (
                             <span className="text-[10px] text-slate-500 font-mono truncate max-w-[130px]" title={item.flotOrderId}>

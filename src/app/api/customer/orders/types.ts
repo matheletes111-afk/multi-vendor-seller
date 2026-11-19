@@ -102,6 +102,9 @@ export type OrderDetailApi = {
   afriFtxnId?: string | null
   flotOrderId?: string | null
   flotPaymentLink?: string | null
+  flotPaymentType?: "in-app" | "momo" | "card" | null
+  flotCode?: string | null
+  ussdCode?: string | null
   afriMsisdn?: string | null
   paidAt?: string | null
   shippingFullName: string | null

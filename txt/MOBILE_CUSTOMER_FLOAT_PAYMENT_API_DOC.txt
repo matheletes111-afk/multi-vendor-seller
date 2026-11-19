@@ -216,8 +216,11 @@ Success Response (200 OK):
     "paymentMethod": "FLOAT",
     "paymentStatus": "COMPLETED",
     "afriTxnId": null,
-    "flotOrderId": "FLOT_ORD-20261111-9988_1731320000000",
-    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_9988aabbcc",
+    "flotOrderId": "ORD_9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+    "flotPaymentType": "card", // "in-app" | "momo" | "card" | null (auto-detected from stored Float channel)
+    "flotPaymentLink": "https://pay.leogcltd.com/auth/...", // https:// for card, flot:// for in-app, null for momo
+    "flotCode": null, // "*715*...#" when flotPaymentType === "momo", else null
+    "ussdCode": null, // Same USSD code alias for momo
     "paidAt": "2026-11-11T10:15:30.000Z",
     "shippingFullName": "Jane Doe",
     "shippingPhone": "+23276123456",
@@ -257,7 +260,8 @@ Endpoints:
 - Services : GET /mobileapi/customer/orders/services/list?page=1&perPage=10
 Auth: Bearer <customer_token>
 
-* Serializes `flotOrderId`, `flotPaymentLink`, `paymentMethod`, `paymentStatus`, `paidAt`,
+* Serializes `flotOrderId`, `flotPaymentType` (`"in-app" | "momo" | "card" | null`),
+  `flotPaymentLink`, `flotCode`, `ussdCode`, `paymentMethod`, `paymentStatus`, `paidAt`,
   `subtotal`, `couponDiscount`, `totalAmount` for each order in the list.
 
 ================================================================================
@@ -383,7 +387,10 @@ Detail Response (200 OK):
     "paymentStatus": "COMPLETED",
     "afriTxnId": null,
     "flotOrderId": "FOOD_food_order_uuid_7766",
-    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_food_4321",
+    "flotPaymentType": "card", // "in-app" | "momo" | "card" | null
+    "flotPaymentLink": "https://pay.leogcltd.com/auth/...",
+    "flotCode": null, // "*715*...#" when flotPaymentType === "momo"
+    "ussdCode": null,
     "paidAt": "2026-11-11T10:20:00.000Z",
     "restaurantName": "Bintumani Palm Dining",
     "items": [
@@ -529,7 +536,10 @@ Detail Response (200 OK):
     "paymentStatus": "COMPLETED",
     "afriTxnId": null,
     "flotOrderId": "HOTEL_hotel_booking_uuid_1122",
-    "flotPaymentLink": "https://flot.pay.me/checkout/session/flot_chk_hotel_1122",
+    "flotPaymentType": "card", // "in-app" | "momo" | "card" | null
+    "flotPaymentLink": "https://pay.leogcltd.com/auth/...",
+    "flotCode": null, // "*715*...#" when flotPaymentType === "momo"
+    "ussdCode": null,
     "paidAt": "2026-11-11T10:25:00.000Z",
     "room": {
       "id": "room_uuid_5544",

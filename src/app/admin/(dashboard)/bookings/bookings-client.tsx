@@ -605,7 +605,7 @@ export function AdminBookingsClient() {
                   <div className="flex justify-between text-[11px] text-slate-500 font-semibold pt-1">
                     <span>Payment Method:</span>
                     <span className="uppercase font-bold text-slate-700">
-                      {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float (Card)" : selectedBooking.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : selectedBooking.paymentMethod} ({selectedBooking.paymentStatus || "PAID"})
+                      {selectedBooking.paymentMethod === "FLOAT" ? "💳 Float" : selectedBooking.paymentMethod === "AFRIMONEY" ? "📱 AfriMoney" : selectedBooking.paymentMethod} ({selectedBooking.paymentStatus || "PAID"})
                     </span>
                   </div>
                 )}

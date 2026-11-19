@@ -466,7 +466,7 @@ export function SubscriptionPaymentDialog({
                 ) : payablePrice === 0 ? (
                   "Activate Now (Free with Coupon)"
                 ) : (
-                  `Proceed to Float Card Checkout • ${formatCurrency(payablePrice)}`
+                  `Proceed to Float Checkout • ${formatCurrency(payablePrice)}`
                 )}
               </Button>
             )}
