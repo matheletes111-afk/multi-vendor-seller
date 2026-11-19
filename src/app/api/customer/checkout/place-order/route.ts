@@ -12,6 +12,8 @@ import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
 
 
+
+
 const CHECKOUT_CART_INCLUDE = {
   product: { select: { sellerId: true, name: true, isActive: true, isDeleted: true } },
   productVariant: { select: { name: true, weight: true, height: true, width: true, depth: true } },
@@ -109,8 +111,8 @@ export async function POST(request: NextRequest) {
     payload.paymentMethod === "AFRIMONEY"
       ? "AFRIMONEY"
       : payload.paymentMethod === "FLOAT"
-      ? "FLOAT"
-      : "COD"
+        ? "FLOAT"
+        : "COD"
   const flotPaymentType = normalizeFlotPaymentType(payload.flotPaymentType ?? payload.paymentType, "card")
   const payerMsisdn = typeof payload.payerMsisdn === "string" ? payload.payerMsisdn.trim() : ""
 
@@ -586,107 +588,107 @@ export async function POST(request: NextRequest) {
   // ── Send Email Notifications (Only for COD here; for online prepaid (AfriMoney & Float), sent upon payment confirmation)
   if (requestedPaymentMethod === "COD") {
     try {
-    const customerUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { email: true, name: true, phone: true, phoneCountryCode: true },
-    })
+      const customerUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { email: true, name: true, phone: true, phoneCountryCode: true },
+      })
 
-    if (customerUser) {
-      const emailItems = normalizedItems.map((row) => {
-        const { productName, serviceName } = getItemName(row.item)
-        const name = productName ?? serviceName ?? "Item"
-        return {
-          name,
-          quantity: row.item.quantity,
-          price: row.item.unitPrice,
-          subtotal: row.item.totalPrice,
-          sellerId: row.sellerId,
+      if (customerUser) {
+        const emailItems = normalizedItems.map((row) => {
+          const { productName, serviceName } = getItemName(row.item)
+          const name = productName ?? serviceName ?? "Item"
+          return {
+            name,
+            quantity: row.item.quantity,
+            price: row.item.unitPrice,
+            subtotal: row.item.totalPrice,
+            sellerId: row.sellerId,
+          }
+        })
+
+        const fullAddressString = [
+          address.fullName,
+          address.phone,
+          address.addressLine1,
+          address.addressLine2,
+          `${address.city}, ${address.state} ${address.postalCode}`,
+          address.country,
+        ].filter(Boolean).join(", ")
+
+        // Send Customer Email / SMS fallback
+        await sendOrderConfirmationEmail({
+          to: customerUser.email,
+          toPhone: customerUser.phone,
+          phoneCountryCode: customerUser.phoneCountryCode,
+          name: customerUser.name ?? "Customer",
+          orderNumber: order.orderNumber,
+          items: emailItems.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, subtotal: i.subtotal })),
+          subtotal,
+          tax,
+          shipping,
+          totalAmount,
+          shippingAddress: fullAddressString,
+          paymentMethod: order.paymentMethod ?? "COD",
+        })
+
+        // Send Seller Emails / SMS fallback
+        const sellers = await prisma.seller.findMany({
+          where: { id: { in: uniqueSellerIds } },
+          include: {
+            user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
+            store: { select: { name: true } },
+          },
+        })
+
+        for (const seller of sellers) {
+          if (seller.user?.email || seller.user?.phone) {
+            const sellerItems = emailItems.filter((i) => i.sellerId === seller.id)
+            await sendSellerNewOrderEmail({
+              to: seller.user?.email,
+              toPhone: seller.user?.phone,
+              phoneCountryCode: seller.user?.phoneCountryCode,
+              sellerName: seller.store?.name ?? seller.user?.name ?? "Seller",
+              orderNumber: order.orderNumber,
+              items: sellerItems.map(i => ({ name: i.name, quantity: i.quantity, subtotal: i.subtotal })),
+              customerName: customerUser.name ?? "Customer",
+              shippingAddress: fullAddressString,
+              shippingPhone: address.phone,
+            })
+          }
         }
-      })
 
-      const fullAddressString = [
-        address.fullName,
-        address.phone,
-        address.addressLine1,
-        address.addressLine2,
-        `${address.city}, ${address.state} ${address.postalCode}`,
-        address.country,
-      ].filter(Boolean).join(", ")
+        // Send Admin Emails
+        const admins = await prisma.user.findMany({
+          where: { role: UserRole.ADMIN },
+          select: { email: true, phone: true, phoneCountryCode: true },
+        })
 
-      // Send Customer Email / SMS fallback
-      await sendOrderConfirmationEmail({
-        to: customerUser.email,
-        toPhone: customerUser.phone,
-        phoneCountryCode: customerUser.phoneCountryCode,
-        name: customerUser.name ?? "Customer",
-        orderNumber: order.orderNumber,
-        items: emailItems.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, subtotal: i.subtotal })),
-        subtotal,
-        tax,
-        shipping,
-        totalAmount,
-        shippingAddress: fullAddressString,
-        paymentMethod: order.paymentMethod ?? "COD",
-      })
+        const adminItems = emailItems.map((i) => {
+          const seller = sellers.find((s) => s.id === i.sellerId)
+          return {
+            name: i.name,
+            quantity: i.quantity,
+            sellerStoreName: seller?.store?.name ?? seller?.user?.name ?? "Unknown Seller",
+            subtotal: i.subtotal,
+          }
+        })
 
-      // Send Seller Emails / SMS fallback
-      const sellers = await prisma.seller.findMany({
-        where: { id: { in: uniqueSellerIds } },
-        include: {
-          user: { select: { email: true, name: true, phone: true, phoneCountryCode: true } },
-          store: { select: { name: true } },
-        },
-      })
-
-      for (const seller of sellers) {
-        if (seller.user?.email || seller.user?.phone) {
-          const sellerItems = emailItems.filter((i) => i.sellerId === seller.id)
-          await sendSellerNewOrderEmail({
-            to: seller.user?.email,
-            toPhone: seller.user?.phone,
-            phoneCountryCode: seller.user?.phoneCountryCode,
-            sellerName: seller.store?.name ?? seller.user?.name ?? "Seller",
+        for (const admin of admins) {
+          await sendAdminNewOrderEmail({
+            to: admin.email,
+            toPhone: admin.phone,
+            phoneCountryCode: admin.phoneCountryCode,
             orderNumber: order.orderNumber,
-            items: sellerItems.map(i => ({ name: i.name, quantity: i.quantity, subtotal: i.subtotal })),
             customerName: customerUser.name ?? "Customer",
-            shippingAddress: fullAddressString,
-            shippingPhone: address.phone,
+            items: adminItems,
+            totalAmount,
+            commissionAmount: totalOrderCommission,
           })
         }
       }
-
-      // Send Admin Emails
-      const admins = await prisma.user.findMany({
-        where: { role: UserRole.ADMIN },
-        select: { email: true, phone: true, phoneCountryCode: true },
-      })
-
-      const adminItems = emailItems.map((i) => {
-        const seller = sellers.find((s) => s.id === i.sellerId)
-        return {
-          name: i.name,
-          quantity: i.quantity,
-          sellerStoreName: seller?.store?.name ?? seller?.user?.name ?? "Unknown Seller",
-          subtotal: i.subtotal,
-        }
-      })
-
-      for (const admin of admins) {
-        await sendAdminNewOrderEmail({
-          to: admin.email,
-          toPhone: admin.phone,
-          phoneCountryCode: admin.phoneCountryCode,
-          orderNumber: order.orderNumber,
-          customerName: customerUser.name ?? "Customer",
-          items: adminItems,
-          totalAmount,
-          commissionAmount: totalOrderCommission,
-        })
-      }
+    } catch (emailErr) {
+      console.error("Failed to send order placement emails:", emailErr)
     }
-  } catch (emailErr) {
-    console.error("Failed to send order placement emails:", emailErr)
-  }
   }
 
   // ── Response (customer-facing — NO commission data exposed) ─────────────────
