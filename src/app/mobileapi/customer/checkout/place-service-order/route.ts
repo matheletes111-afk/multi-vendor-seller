@@ -7,6 +7,7 @@ import { UserRole, PlanType } from "@prisma/client"
 import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { sendOrderConfirmationEmail, sendSellerNewOrderEmail, sendAdminNewOrderEmail } from "@/lib/email"
 import { validateCoupon } from "@/lib/coupons"
+import { resolveCheckoutOrderCoords } from "@/lib/order-location"
 
 export const dynamic = "force-dynamic"
 
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
   const totalAmount = Math.max(0, subtotal + totalGst - couponDiscount)
   const commission = totalAmount * (effectiveCommissionRate / 100)
 
+  const dropoffCoords = await resolveCheckoutOrderCoords(address)
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
     const newOrder = await tx.order.create({
@@ -181,6 +183,8 @@ export async function POST(request: NextRequest) {
         shippingState: address.state,
         shippingPostalCode: address.postalCode,
         shippingCountry: address.country,
+        shippingLatitude: dropoffCoords?.latitude ?? null,
+        shippingLongitude: dropoffCoords?.longitude ?? null,
         couponId: coupon ? (coupon as any).id : null,
         couponCode: coupon ? (coupon as any).code : null,
         couponDiscount,

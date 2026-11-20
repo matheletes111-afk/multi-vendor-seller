@@ -117,6 +117,9 @@ export type SellerOrderDetailApi = {
   shippingState: string | null
   shippingPostalCode: string | null
   shippingCountry: string | null
+  shippingLatitude?: number | null
+  shippingLongitude?: number | null
+  dropoffLocation?: any
   createdAt: string
   customerName: string | null
   customerEmail: string | null

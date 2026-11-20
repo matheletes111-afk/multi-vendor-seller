@@ -26,6 +26,12 @@ import { applySellerCreditForOrderLineDelivered } from "@/lib/seller-order-line-
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
 import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+  resolveOrderDropoffPoint,
+  sanitizeAssignmentRiderTelemetry,
+} from "@/lib/order-location"
 
 function isValidSellerStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return SELLER_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -94,7 +100,35 @@ export async function GET(
       include: {
         customer: true,
         deliveryAssignments: {
+          where: { sellerId: seller.id },
           include: {
+            seller: {
+              include: {
+                store: {
+                  select: {
+                    name: true,
+                    address: true,
+                    city: true,
+                    state: true,
+                    zipCode: true,
+                    country: true,
+                    lat: true,
+                    lng: true,
+                  },
+                },
+                businessInfo: {
+                  select: {
+                    businessName: true,
+                    street: true,
+                    city: true,
+                    district: true,
+                    postalCode: true,
+                    latitude: true,
+                    longitude: true,
+                  },
+                },
+              },
+            },
             rider: {
               include: {
                 user: {
@@ -295,10 +329,29 @@ export async function GET(
     : Math.max(0, sellerGrossTotal - sellerCommissionTotal)
 
 
-  const assignments = order.deliveryAssignments || []
-  const activeAssignment = assignments.find((a: any) =>
+  const assignments = (order.deliveryAssignments || []).filter(
+    (a: any) => a.sellerId === seller.id || (!a.sellerId && (!order.sellerId || order.sellerId === seller.id))
+  )
+  const dropoffPoint = await resolveOrderDropoffPoint(order)
+  const orderWithResolvedDropoff = {
+    ...order,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+  }
+  const resolvedAssignmentLocations = await Promise.all(
+    assignments.map((a) =>
+      resolveAssignmentLocations(
+        { ...a, order: orderWithResolvedDropoff },
+        { geocodeIfMissing: true, persistBackfill: true }
+      )
+    )
+  )
+
+  const activeIdx = assignments.findIndex((a: any) =>
     ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(a.status)
   )
+  const activeAssignment = activeIdx >= 0 ? assignments[activeIdx] : undefined
+  const activeResolved = activeIdx >= 0 ? resolvedAssignmentLocations[activeIdx] : null
 
   let activeDeliveryTracking: any = null
   if (activeAssignment) {
@@ -347,8 +400,8 @@ export async function GET(
       },
       currentLocation: isAssignmentDelivered
         ? {
-            latitude: (order.shippingAddress as any)?.latitude || null,
-            longitude: (order.shippingAddress as any)?.longitude || null,
+            latitude: dropoffPoint.latitude,
+            longitude: dropoffPoint.longitude,
             heading: 0,
             speed: 0,
             lastLocationUpdate: activeAssignment.deliveredAt ? activeAssignment.deliveredAt.toISOString() : null,
@@ -360,7 +413,7 @@ export async function GET(
             speed: r?.speed || 0,
             lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
           },
-      pickupLocation: {
+      pickupLocation: activeResolved?.pickupLocation ?? {
         latitude: activeAssignment.sellerLatitude || null,
         longitude: activeAssignment.sellerLongitude || null,
       },
@@ -373,8 +426,9 @@ export async function GET(
         state: order.shippingState,
         postalCode: order.shippingPostalCode,
         country: order.shippingCountry,
-        latitude: (order.shippingAddress as any)?.latitude || null,
-        longitude: (order.shippingAddress as any)?.longitude || null,
+        address: dropoffPoint.address,
+        latitude: dropoffPoint.latitude,
+        longitude: dropoffPoint.longitude,
       },
       socketRoom: isAssignmentDelivered ? null : `order:${order.id}`,
     }
@@ -424,6 +478,9 @@ export async function GET(
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     shippingCountry: order.shippingCountry,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+    dropoffLocation: dropoffPoint,
     createdAt: order.createdAt.toISOString(),
     customerName: order.customer?.name ?? null,
     customerEmail: order.customer?.email ?? null,
@@ -432,20 +489,18 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: sellerCouponDiscount,
-    deliveryAssignments: order.deliveryAssignments.map((a) => ({
-      ...a,
-      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
-      rider: a.rider
-        ? {
-          ...a.rider,
-          isOnline: Boolean(
-            a.rider.isOnline &&
-            a.rider.lastLocationUpdate &&
-            (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-          ),
-        }
-        : null,
-    })),
+    deliveryAssignments: assignments.map((a, idx) => {
+      const isAssignmentDelivered =
+        a.status === "DELIVERED" ||
+        order.status === "DELIVERED" ||
+        orderHasDeliveredLine
+      return {
+        ...buildEnrichedAssignmentPayload(a, resolvedAssignmentLocations[idx]),
+        isDelivered: isAssignmentDelivered,
+        deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+        rider: sanitizeAssignmentRiderTelemetry(a.rider, isAssignmentDelivered),
+      }
+    }),
     activeDeliveryTracking,
     activeAssignment: activeDeliveryTracking,
   }

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "../../../_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+} from "@/lib/order-location"
 
 export async function GET(
   request: NextRequest,
@@ -90,18 +94,21 @@ export async function GET(
       0
     )
     const earningForThisDelivery = itemsShippingSum > 0 ? itemsShippingSum : Number(assignment.order?.shipping || 0)
+    const resolved = await resolveAssignmentLocations(assignment)
+    const enriched = buildEnrichedAssignmentPayload(assignment, resolved)
 
     const responseData = {
-      ...assignment,
+      ...enriched,
       earningForThisDelivery,
       deliveryFee: earningForThisDelivery,
       deliveryEarning: earningForThisDelivery,
       earning: earningForThisDelivery,
-      order: {
-        ...assignment.order,
-        seller: assignment.seller || assignment.order.seller,
-        items: filteredItems,
-      },
+      order: enriched.order
+        ? {
+            ...enriched.order,
+            items: filteredItems,
+          }
+        : null,
     }
 
     return NextResponse.json({

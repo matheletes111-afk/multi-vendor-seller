@@ -1,0 +1,105 @@
+================================================================================
+SELLER MOBILE APP (PRODUCT SELLER) — BACKEND API CHANGES & IMPLEMENTATION HANDOFF
+================================================================================
+
+OVERVIEW
+--------
+- All changes are 100% backward-compatible (no existing field was removed or renamed).
+- Every coordinate field (`latitude`, `longitude`, `lat`, `lng`, `shippingLatitude`, `shippingLongitude`) is `number | null`. Always null-check before rendering a map pin or polyline.
+- Shared `LocationPoint` object shape:
+  {
+    "name": "Apex Electronics",
+    "address": "124 Siaka Stevens St, Freetown",
+    "latitude": 8.484245,
+    "longitude": -13.234125,
+    "phone": "+23277987654"
+  }
+
+--------------------------------------------------------------------------------
+1. SELLER ONBOARDING & SETTINGS APIS (STORE & BUSINESS GPS PIN)
+--------------------------------------------------------------------------------
+Endpoints:
+- POST /mobileapi/product-seller/onboarding
+- PUT  /mobileapi/product-seller/settings
+- GET  /mobileapi/product-seller/settings
+
+Backend Changes:
+- Both `onboarding` and `settings` now normalize, validate, and persist exact GPS coordinates for both `businessInfo` and `store`:
+  * Business Info coordinates: `latitude`, `longitude`
+  * Store coordinates: `lat`, `lng` (aliases `storeLat`, `storeLng` are also accepted in both multipart form-data and JSON)
+- Validation & Fallback rules on Backend:
+  * Empty strings `""`, invalid strings, and `(0, 0)` are ignored so they never overwrite a valid saved pin.
+  * If coordinates are omitted during a settings update and the address text did not change, the existing saved coordinates are preserved.
+  * If no coordinates exist yet, backend falls back to server-side geocoding of the store/business street + city + district/state.
+
+What Seller Mobile Developer Needs to Implement:
+1. In Seller Onboarding and Store/Business Settings screens, add a "Pin Store Location on Map" picker (or Google Places Autocomplete).
+2. Send `latitude` & `longitude` (for business info) and `lat` & `lng` (or `storeLat` & `storeLng` for store) when submitting onboarding or updating settings.
+3. Read back `store.lat` / `store.lng` and `businessInfo.latitude` / `businessInfo.longitude` from `GET /mobileapi/product-seller/settings` to display the saved pin.
+
+--------------------------------------------------------------------------------
+2. SELLER ORDER DETAILS API (MULTI-VENDOR ISOLATION & LIVE TRACKING)
+--------------------------------------------------------------------------------
+Endpoint:
+- GET /mobileapi/product-seller/orders/:id
+
+Backend Changes:
+- Multi-Vendor Isolation:
+  * `deliveryAssignments` and `activeDeliveryTracking` are strictly filtered to ONLY this authenticated seller (`sellerId === seller.id`). Assignments belonging to other sellers in a multi-vendor order are never leaked.
+- Enriched Location Objects:
+  * Order object includes `shippingLatitude`, `shippingLongitude`, and `dropoffLocation` (`LocationPoint`).
+  * Each assignment in `deliveryAssignments` includes `pickupLocation` (`LocationPoint`), `dropoffLocation` (`LocationPoint`), `sellerLatitude`, `sellerLongitude`, `dropoffLatitude`, and `dropoffLongitude`.
+  * `activeDeliveryTracking` includes:
+    - `isDelivered`: boolean
+    - `isLiveTrackingActive`: boolean (`true` during `ACCEPTED`, `AT_PICKUP`, `PICKED_UP`, `OUT_FOR_DELIVERY` while not delivered)
+    - `currentLocation`: `{ latitude, longitude, heading, speed, lastLocationUpdate }` while `isLiveTrackingActive === true`; locked to dropoff coordinates once delivered
+    - `pickupLocation`: LocationPoint (seller store)
+    - `destinationLocation`: customer shipping address + `latitude`, `longitude`
+    - `socketRoom`: `"order:<orderId>"`
+- Post-Delivery Rider Privacy:
+  * Once the assignment/order is `DELIVERED`, `deliveryAssignments[].rider.currentLatitude` and `currentLongitude` are sanitized to `null` (and `speed: 0`, `heading: 0`) so the rider's personal movements after completing delivery are not exposed.
+
+--------------------------------------------------------------------------------
+3. SELLER MANUAL RIDER ASSIGN API (ENRICHED POST RESPONSE)
+--------------------------------------------------------------------------------
+Endpoint:
+- POST /mobileapi/product-seller/orders/:id/assign-rider
+
+Backend Changes:
+- The returned `assignment` object in the `POST` response is now immediately enriched with:
+  * `pickupLocation`: LocationPoint
+  * `dropoffLocation`: LocationPoint
+  * `sellerLatitude`, `sellerLongitude`
+  * `dropoffLatitude`, `dropoffLongitude`
+  * `order.shippingLatitude`, `order.shippingLongitude`
+  * `earningForThisDelivery` / `deliveryFee`
+
+What Seller Mobile Developer Needs to Implement:
+- You can update the order detail screen / tracking map immediately from the `POST /assign-rider` response without needing an extra `GET` call.
+
+--------------------------------------------------------------------------------
+4. SOCKET.IO LIVE TRACKING FOR SELLER APP
+--------------------------------------------------------------------------------
+Socket Server URL: `NEXT_PUBLIC_SOCKET_URL` (default: `https://socket.meeemsl.com`)
+
+Events:
+- Client emits: `join_order` with payload `{ "orderId": "<orderId>" }`
+- Server emits to room `order:<orderId>`: `order:rider_moved`
+  Payload:
+  {
+    "riderId": "cuid_rider_id",
+    "orderId": "cuid_order_id",
+    "latitude": 8.47123,
+    "longitude": -13.25123,
+    "heading": 145,
+    "speed": 6.4,
+    "timestamp": 1732100000000
+  }
+
+What Seller Mobile Developer Needs to Implement:
+1. Unlike the Customer app, the Seller app CAN see live tracking during both phases:
+   - Pre-Pickup (`ACCEPTED`, `AT_PICKUP`): draw route from Rider (`currentLocation`) -> Seller Store (`pickupLocation`).
+   - Post-Pickup (`PICKED_UP`, `OUT_FOR_DELIVERY`): draw route from Rider (`currentLocation`) -> Customer (`destinationLocation` / `dropoffLocation`).
+2. When `activeDeliveryTracking.isLiveTrackingActive === true`, connect to Socket.IO, emit `join_order` with `{ orderId }`, and update the rider marker on `order:rider_moved`.
+3. Use Google Directions API for the road polyline with automatic fallback to a straight/geodesic line if Directions API is unavailable or denied.
+4. Once `isDelivered === true`, leave the socket room and show the completed delivery state.

@@ -631,8 +631,12 @@ export async function completeWebNextAuthLogin({
     finalRedirect = "/hotel-seller/onboarding"
   } else if (role === UserRole.SELLER_RESTAURANT && user.restaurantSeller && !user.restaurantSeller.onboardingCompleted) {
     finalRedirect = "/restaurant-seller/onboarding"
-  } else if (role === UserRole.RIDER && user.rider?.isFirstLogin) {
-    finalRedirect = "/riderapp/change-password?first=true"
+  } else if (
+    role === UserRole.RIDER &&
+    user.rider &&
+    (!user.rider.onboardingCompleted || user.rider.isFirstLogin)
+  ) {
+    finalRedirect = "/riderapp/onboarding"
   }
 
   return NextResponse.json(

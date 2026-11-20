@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { resolveSavedAddressCoords } from "@/lib/order-location"
 import type { AddressApi } from "../../types"
 
 function toAddressApi(row: {
@@ -89,12 +90,22 @@ export async function PATCH(
   const country = typeof payload.country === "string" && payload.country.trim() ? payload.country.trim() : existing.country
   const addressLine2 = typeof payload.addressLine2 === "string" ? payload.addressLine2.trim() || null : existing.addressLine2
 
-  const latitude = payload.latitude != null && !isNaN(Number(payload.latitude))
-    ? Number(payload.latitude)
-    : existing.latitude
-  const longitude = payload.longitude != null && !isNaN(Number(payload.longitude))
-    ? Number(payload.longitude)
-    : existing.longitude
+  const addressChanged =
+    addressLine1 !== existing.addressLine1 ||
+    addressLine2 !== existing.addressLine2 ||
+    city !== existing.city ||
+    state !== existing.state ||
+    postalCode !== existing.postalCode ||
+    country !== existing.country
+
+  const resolvedCoords = await resolveSavedAddressCoords({
+    explicitLat: payload.latitude,
+    explicitLng: payload.longitude,
+    existingLat: existing.latitude,
+    existingLng: existing.longitude,
+    addressChanged,
+    addressParts: [addressLine1, addressLine2, city, state, postalCode, country],
+  })
 
   const isDefault = payload.isDefault === true
   if (isDefault && !existing.isDefault) {
@@ -115,8 +126,8 @@ export async function PATCH(
       state,
       postalCode,
       country,
-      latitude,
-      longitude,
+      latitude: resolvedCoords?.latitude ?? null,
+      longitude: resolvedCoords?.longitude ?? null,
       isDefault,
     },
   })

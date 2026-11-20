@@ -10,6 +10,7 @@ import { validateCoupon } from "@/lib/coupons"
 import { calculateShippingBreakup, getRegionDeliveryCharge } from "@/lib/shipping-calculator"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 import { createFlotPaymentLink, normalizeFlotPaymentType } from "@/lib/flot"
+import { resolveCheckoutOrderCoords } from "@/lib/order-location"
 
 export const dynamic = "force-dynamic"
 
@@ -318,6 +319,7 @@ export async function POST(request: NextRequest) {
     return { itemShippingAmount, itemCommissionAmount, effectiveRate }
   })
 
+  const dropoffCoords = await resolveCheckoutOrderCoords(address)
   const order = await prisma.$transaction(async (tx) => {
     const orderNumber = await allocateNextOrderNumberTx(tx)
     const newOrder = await tx.order.create({
@@ -345,6 +347,8 @@ export async function POST(request: NextRequest) {
         shippingState: address.state,
         shippingPostalCode: address.postalCode,
         shippingCountry: address.country,
+        shippingLatitude: dropoffCoords?.latitude ?? null,
+        shippingLongitude: dropoffCoords?.longitude ?? null,
         couponId: coupon ? (coupon as any).id : null,
         couponCode: coupon ? (coupon as any).code : null,
         couponDiscount,

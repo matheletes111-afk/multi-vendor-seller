@@ -7,10 +7,8 @@ import {
   Truck,
   Phone,
   ShieldCheck,
-  MapPin,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Store,
   Navigation,
   RefreshCw,
@@ -175,6 +173,20 @@ export function CustomerOrderDeliveryCard({
   const isAtPickup = primaryAssignment.status === "AT_PICKUP"
   const isAccepted = primaryAssignment.status === "ACCEPTED"
 
+  // Customer sees live route map & Rider -> Delivery Address polyline ONLY after pickup is completed
+  const isPickupDone = isPickedUp || isOutForDelivery || isDelivered
+
+  const destinationLat =
+    primaryAssignment?.destinationLocation?.latitude ??
+    order.activeDeliveryTracking?.destinationLocation?.latitude ??
+    order.shippingLatitude ??
+    null
+  const destinationLng =
+    primaryAssignment?.destinationLocation?.longitude ??
+    order.activeDeliveryTracking?.destinationLocation?.longitude ??
+    order.shippingLongitude ??
+    null
+
   // Handover OTP
   const deliveryOtp =
     primaryAssignment.deliveryOtp ||
@@ -276,7 +288,7 @@ export function CustomerOrderDeliveryCard({
                 Dispatching nearby delivery rider
               </p>
               <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-                We are alerting nearby available delivery riders. Real-time GPS location will appear here immediately once a rider confirms.
+                We are alerting nearby available delivery riders. Real-time GPS location will appear here once your package is picked up.
               </p>
             </div>
           </div>
@@ -334,8 +346,25 @@ export function CustomerOrderDeliveryCard({
           </div>
         )}
 
-        {/* ── Sub-card C: Interactive Live GPS Map ─────────────────────────── */}
-        {!isOffered && (
+        {/* ── Pre-Pickup Status Info (Shown while ACCEPTED / AT_PICKUP) ─────── */}
+        {(isAccepted || isAtPickup) && (
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 flex items-start gap-3">
+            <div className="h-8 w-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 flex items-center justify-center shrink-0 text-indigo-600">
+              <Store className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                {isAtPickup ? "Rider Arrived at Store for Pickup" : "Rider Heading to Store for Pickup"}
+              </p>
+              <p className="text-[11px] text-indigo-700/90 dark:text-indigo-300/90 leading-relaxed">
+                Live route tracking to your delivery address will appear here automatically once the rider picks up your package.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Sub-card C: Interactive Live GPS Map (Only after Pickup) ──────── */}
+        {isPickupDone && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-gray-500 px-1">
               <span className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
@@ -366,6 +395,9 @@ export function CustomerOrderDeliveryCard({
                 postalCode: order.shippingPostalCode,
                 country: order.shippingCountry,
               }}
+              destinationLat={destinationLat}
+              destinationLng={destinationLng}
+              viewerRole="customer"
               height={mapHeight}
               className="rounded-2xl"
             />

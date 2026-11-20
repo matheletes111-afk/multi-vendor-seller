@@ -8,6 +8,13 @@ import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
+import {
+  buildCustomerDeliveryTracking,
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+  resolveOrderDropoffPoint,
+  sanitizeAssignmentRiderTelemetry,
+} from "@/lib/order-location"
 
 function maskPhone(phone: string | null | undefined): string | null {
   if (!phone) return null
@@ -45,7 +52,22 @@ export async function GET(
         seller: { include: { store: true } },
         deliveryAssignments: {
           include: {
-            seller: { include: { store: true } },
+            seller: {
+              include: {
+                store: true,
+                businessInfo: {
+                  select: {
+                    businessName: true,
+                    street: true,
+                    city: true,
+                    district: true,
+                    postalCode: true,
+                    latitude: true,
+                    longitude: true,
+                  },
+                },
+              },
+            },
             rider: {
               include: {
                 user: {
@@ -265,6 +287,24 @@ export async function GET(
   const dimensionRanges = (globalSetting?.dimensionDeliveryChargeRanges as any[]) || []
   const regionCharges = (globalSetting?.regionDeliveryCharges as any[]) || []
 
+  const dropoffPoint = await resolveOrderDropoffPoint(order)
+  const orderWithResolvedDropoff = {
+    ...order,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+  }
+  const resolvedAssignmentPairs = await Promise.all(
+    (order.deliveryAssignments || []).map((a) =>
+      resolveAssignmentLocations(
+        { ...a, order: orderWithResolvedDropoff },
+        { geocodeIfMissing: true, persistBackfill: true }
+      )
+    )
+  )
+  const resolvedByAssignmentId = new Map(
+    (order.deliveryAssignments || []).map((a, idx) => [a.id, resolvedAssignmentPairs[idx]])
+  )
+
   const sellerGroups = [...sellerGroupMap.values()].map((group) => {
     const statusSummary = summarizeSellerItemStatuses(group.statuses)
     const sellerItems = order.items.filter((i) => (i.sellerId ?? "unknown") === (group.sellerId ?? "unknown"))
@@ -290,91 +330,13 @@ export async function GET(
         (a.sellerId === group.sellerId || (!a.sellerId && (order.deliveryAssignments || []).length === 1))
     )
 
-    let activeDeliveryTracking: any = null
-    if (groupAssignment) {
-      const r = groupAssignment.rider
-      const rUser = r?.user
-      const pickupStoreName =
-        groupAssignment.seller?.store?.name ||
-        group.sellerStoreName ||
-        order.seller?.store?.name ||
-        "Seller Store"
-
-        const isAssignmentDelivered =
-          groupAssignment.status === "DELIVERED" ||
-          order.status === "DELIVERED" ||
-          (Array.isArray(order.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
-
-        const isLiveTrackingActive =
-          !isAssignmentDelivered &&
-          ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(groupAssignment.status)
-
-        activeDeliveryTracking = {
-          assignmentId: groupAssignment.id,
-          sellerId: groupAssignment.sellerId,
-          sellerStoreName: pickupStoreName,
-          status: groupAssignment.status,
-          dispatchMode: groupAssignment.dispatchMode,
-          distanceKm: groupAssignment.distanceKm,
-          deliveryOtp: groupAssignment.deliveryOtp,
-          deliveryProofImage: groupAssignment.deliveryProofImage,
-          isDelivered: isAssignmentDelivered,
-          isLiveTrackingActive,
-          deliveryStatus: isAssignmentDelivered ? "DELIVERED" : isLiveTrackingActive ? "IN_TRANSIT" : groupAssignment.status,
-          deliveredAt: groupAssignment.deliveredAt ? groupAssignment.deliveredAt.toISOString() : null,
-          rider: {
-            id: r?.id,
-            userId: r?.userId || null,
-            name: rUser?.name || "Delivery Rider",
-            email: rUser?.email || null,
-            phone: rUser?.phone || null,
-            phoneCountryCode: rUser?.phoneCountryCode || "+232",
-            image: rUser?.image || r?.profileImage || null,
-            vehicleName: r?.vehicleName || null,
-            vehicleNumber: r?.vehicleNumber || null,
-            drivingLicenseNo: r?.drivingLicenseNo || null,
-            vehicleTypes: r?.vehicleTypes || [],
-            isOnline: Boolean(
-              r?.isOnline &&
-              r?.lastLocationUpdate &&
-              (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-            ),
-          },
-          currentLocation: isAssignmentDelivered
-            ? {
-                latitude: (order.shippingAddress as any)?.latitude || null,
-                longitude: (order.shippingAddress as any)?.longitude || null,
-                heading: 0,
-                speed: 0,
-                lastLocationUpdate: groupAssignment.deliveredAt ? groupAssignment.deliveredAt.toISOString() : null,
-              }
-            : {
-                latitude: r?.currentLatitude || groupAssignment.riderLatitudeAtOffer || null,
-                longitude: r?.currentLongitude || groupAssignment.riderLongitudeAtOffer || null,
-                heading: r?.heading || 0,
-                speed: r?.speed || 0,
-                lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
-              },
-          pickupLocation: {
-            name: pickupStoreName,
-            latitude: groupAssignment.sellerLatitude || null,
-            longitude: groupAssignment.sellerLongitude || null,
-          },
-          destinationLocation: {
-            fullName: order.shippingFullName,
-            phone: order.shippingPhone,
-            addressLine1: order.shippingAddressLine1,
-            addressLine2: order.shippingAddressLine2,
-            city: order.shippingCity,
-            state: order.shippingState,
-            postalCode: order.shippingPostalCode,
-            country: order.shippingCountry,
-            latitude: (order.shippingAddress as any)?.latitude || null,
-            longitude: (order.shippingAddress as any)?.longitude || null,
-          },
-          socketRoom: isAssignmentDelivered ? null : `order:${order.id}`,
-        }
-      }
+    const activeDeliveryTracking = buildCustomerDeliveryTracking({
+      assignment: groupAssignment,
+      order,
+      dropoffPoint,
+      resolvedLoc: groupAssignment ? resolvedByAssignmentId.get(groupAssignment.id) : undefined,
+      fallbackStoreName: group.sellerStoreName,
+    })
 
     return {
       sellerId: group.sellerId,
@@ -446,26 +408,31 @@ export async function GET(
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     shippingCountry: order.shippingCountry,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+    dropoffLocation: dropoffPoint,
     createdAt: order.createdAt.toISOString(),
     sellerStoreName: order.seller?.store?.name ?? null,
     sellerGroups,
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: (order.deliveryAssignments || []).map((a: any) => ({
-      ...a,
-      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
-      rider: a.rider
-        ? {
-            ...a.rider,
-            isOnline: Boolean(
-              a.rider.isOnline &&
-              a.rider.lastLocationUpdate &&
-              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-            ),
-          }
-        : null,
-    })),
+    deliveryAssignments: (order.deliveryAssignments || []).map((a: any) => {
+      const resolved = resolvedByAssignmentId.get(a.id)
+      const enriched = resolved ? buildEnrichedAssignmentPayload(a, resolved) : a
+      const isAssignmentDelivered =
+        a.status === "DELIVERED" ||
+        order.status === "DELIVERED" ||
+        (Array.isArray(order.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
+      const hideCustomerRiderGps =
+        isAssignmentDelivered || !["PICKED_UP", "OUT_FOR_DELIVERY"].includes(a.status)
+      return {
+        ...enriched,
+        isDelivered: isAssignmentDelivered,
+        deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+        rider: sanitizeAssignmentRiderTelemetry(a.rider, hideCustomerRiderGps),
+      }
+    }),
     activeDeliveryTracking,
     activeDeliveryTrackings,
   }

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { DeliveryAssignmentStatus, Prisma } from "@prisma/client"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveManyAssignmentLocations,
+} from "@/lib/order-location"
 
 export async function GET(req: NextRequest) {
   try {
@@ -215,9 +219,10 @@ export async function GET(req: NextRequest) {
       else if (cancelledStatuses.includes(item.status)) cancelledCount += c
     }
 
+    const resolvedLocations = await resolveManyAssignmentLocations(assignments, 3)
+
     // 9. Annotate each assignment with delivery earnings and scope seller/items
-    let annotatedAssignments = assignments.map((a) => {
-      const assignedSeller = a.seller || a.order?.seller || null
+    let annotatedAssignments = assignments.map((a, idx) => {
       const assignedItems = (a.order?.items || []).filter(
         (item) => !a.sellerId || item.sellerId === a.sellerId
       )
@@ -226,14 +231,14 @@ export async function GET(req: NextRequest) {
           (sum, item) => sum + (Number((item as any).shippingAmount) || 0),
           0
         ) || Number(a.order?.shipping || 0)
+      const enriched = buildEnrichedAssignmentPayload(a, resolvedLocations[idx])
 
       return {
-        ...a,
+        ...enriched,
         earningForThisDelivery,
-        order: a.order
+        order: enriched.order
           ? {
-              ...a.order,
-              seller: assignedSeller,
+              ...enriched.order,
               items: assignedItems,
             }
           : null,

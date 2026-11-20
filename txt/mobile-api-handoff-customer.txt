@@ -1,0 +1,128 @@
+================================================================================
+CUSTOMER MOBILE APP — BACKEND API CHANGES & IMPLEMENTATION HANDOFF
+================================================================================
+
+OVERVIEW
+--------
+- All changes are 100% backward-compatible (no existing field was removed or renamed).
+- Every coordinate field (`latitude`, `longitude`, `shippingLatitude`, `shippingLongitude`) is `number | null`. Always null-check before rendering a map pin or polyline.
+- Shared `LocationPoint` object shape:
+  {
+    "name": "Apex Electronics",
+    "address": "124 Siaka Stevens St, Freetown",
+    "latitude": 8.484245,
+    "longitude": -13.234125,
+    "phone": "+23277987654"
+  }
+
+--------------------------------------------------------------------------------
+1. CUSTOMER ADDRESS APIS (SAVE DELIVERY GPS PIN)
+--------------------------------------------------------------------------------
+Endpoints:
+- POST  /mobileapi/customer/checkout/addresses
+- PATCH /mobileapi/customer/checkout/addresses/:id
+- GET   /mobileapi/customer/checkout/addresses
+- GET   /mobileapi/customer/checkout/addresses/:id
+
+Backend Changes:
+- `POST` and `PATCH` now accept optional `latitude` and `longitude` (number or numeric string).
+- `GET` responses now return `latitude` and `longitude` on every saved address object.
+- Validation rules on Backend:
+  * Empty strings `""`, non-numeric values, and `(0, 0)` are rejected/ignored as "no pin".
+  * On `POST`: If `latitude` and `longitude` are omitted, backend falls back to server-side geocoding of the text address (approximate fallback).
+  * On `PATCH`: If `latitude` and `longitude` are omitted and the address text did not change, the existing saved GPS pin is preserved.
+
+Request Body Example (POST / PATCH):
+{
+  "fullName": "John Doe",
+  "phone": "+23278999111",
+  "addressLine1": "14 Lumley Beach Road",
+  "addressLine2": "Near Atlantic Hotel",
+  "city": "Freetown",
+  "state": "Western Area",
+  "postalCode": "00232",
+  "country": "Sierra Leone",
+  "latitude": 8.463210,
+  "longitude": -13.277840
+}
+
+What Customer Mobile Developer Needs to Implement:
+1. In the Add / Edit Address screen, add a Map Pin Picker (or Google Places Autocomplete) and send `latitude` and `longitude` in `POST` and `PATCH` requests.
+2. When editing an existing address, pre-position the map pin using the `latitude` and `longitude` returned by `GET`.
+
+--------------------------------------------------------------------------------
+2. CUSTOMER CHECKOUT / PLACE ORDER APIS
+--------------------------------------------------------------------------------
+Endpoints:
+- POST /mobileapi/customer/checkout/place-order
+- POST /mobileapi/customer/checkout/place-service-order
+
+Backend Changes:
+- No request payload change needed (still accepts `addressId`).
+- Backend automatically snapshots the selected address's coordinates onto the created order (`shippingLatitude`, `shippingLongitude`), geocoding once if the saved address had no coordinates.
+
+--------------------------------------------------------------------------------
+3. CUSTOMER ORDER DETAILS & LIVE TRACKING (OPTION B VISIBILITY)
+--------------------------------------------------------------------------------
+Endpoints:
+- GET /mobileapi/customer/orders
+- GET /mobileapi/customer/orders/:id
+
+Backend Changes:
+- Order object now includes:
+  * `shippingLatitude`: number | null
+  * `shippingLongitude`: number | null
+  * `dropoffLocation`: LocationPoint
+- `activeDeliveryTracking` (and each entry in `sellerDeliveryTrackings`) now follows Option B Pre-Pickup Privacy and includes:
+  * `assignmentId`: string
+  * `sellerId`: string
+  * `sellerStoreName`: string
+  * `status`: "OFFERED" | "ACCEPTED" | "AT_PICKUP" | "PICKED_UP" | "OUT_FOR_DELIVERY" | "DELIVERED"
+  * `isDelivered`: boolean
+  * `isPickupDone`: boolean (`true` ONLY for `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`)
+  * `isLiveTrackingActive`: boolean (`true` ONLY for `PICKED_UP`, `OUT_FOR_DELIVERY`)
+  * `routePhase`: "awaiting_pickup" | "dropoff" | "delivered"
+  * `deliveryStatus`: "IN_TRANSIT" (when live) | "DELIVERED" (when delivered) | raw status
+  * `currentLocation`:
+    - When `routePhase === "awaiting_pickup"` (`OFFERED`, `ACCEPTED`, `AT_PICKUP`): `null` (rider live GPS is hidden from customer before pickup)
+    - When `routePhase === "dropoff"` (`PICKED_UP`, `OUT_FOR_DELIVERY`): `{ latitude, longitude, heading, speed, lastLocationUpdate }`
+    - When `routePhase === "delivered"` (`DELIVERED`): locked to dropoff coordinates `{ latitude, longitude, heading: 0, speed: 0, lastLocationUpdate }`
+  * `pickupLocation`: LocationPoint (seller store name, address, latitude, longitude, phone)
+  * `destinationLocation`: `{ fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, address, latitude, longitude }`
+  * `socketRoom`: `"order:<orderId>"` ONLY when `isLiveTrackingActive === true`, otherwise `null`
+- Inside `deliveryAssignments[].rider`:
+  * `currentLatitude` and `currentLongitude` are masked to `null` (and `speed: 0`, `heading: 0`) before pickup (`!isPickupDone`) and after delivery (`isDelivered`).
+
+--------------------------------------------------------------------------------
+4. SOCKET.IO LIVE TRACKING FOR CUSTOMER APP
+--------------------------------------------------------------------------------
+Socket Server URL: `NEXT_PUBLIC_SOCKET_URL` (default: `https://socket.meeemsl.com`)
+
+Events:
+- Client emits: `join_order` with payload `{ "orderId": "<orderId>" }`
+- Server emits to room `order:<orderId>`: `order:rider_moved`
+  Payload:
+  {
+    "riderId": "cuid_rider_id",
+    "orderId": "cuid_order_id",
+    "latitude": 8.47123,
+    "longitude": -13.25123,
+    "heading": 145,
+    "speed": 6.4,
+    "timestamp": 1732100000000
+  }
+
+What Customer Mobile Developer Needs to Implement:
+1. Phase 1 — `routePhase === "awaiting_pickup"` (`ACCEPTED` / `AT_PICKUP`):
+   - Show the assigned Rider Info Card (rider name, phone, vehicle, OTP if present, and status message e.g. "Rider is heading to the store to pick up your order").
+   - DO NOT render the live rider marker or rider-to-store polyline on the customer map.
+   - Ignore `order:rider_moved` socket events while `isLiveTrackingActive === false`.
+2. Phase 2 — `routePhase === "dropoff"` (`PICKED_UP` / `OUT_FOR_DELIVERY`):
+   - Show the Live Tracking Map.
+   - Connect to Socket.IO and emit `join_order` with `{ orderId }` (or use `activeDeliveryTracking.socketRoom`).
+   - Listen to `order:rider_moved` and animate the rider marker + road polyline from Rider (`currentLocation`) -> Customer (`destinationLocation`).
+   - Use Google Directions API for turn-by-turn road polyline; if Directions API is disabled/denied, fall back cleanly to a straight/geodesic polyline between Rider and Customer.
+3. Phase 3 — `routePhase === "delivered"` (`DELIVERED`):
+   - Disconnect/leave socket room, hide live rider marker, and show "Delivered" state at `destinationLocation`.
+4. Status Transitions:
+   - Whenever order status updates (via push notification, pull-to-refresh, or polling), re-fetch `GET /mobileapi/customer/orders/:id` so `isLiveTrackingActive`, `routePhase`, `currentLocation`, and `socketRoom` refresh automatically.

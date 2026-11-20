@@ -9,6 +9,11 @@ import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-const
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper";
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation";
+import {
+  parseOptionalCoordNumber,
+  resolveSellerBusinessCoords,
+  resolveSellerStoreCoords,
+} from "@/lib/order-location";
 
 /**
  * GET /mobileapi/product-seller/onboarding
@@ -176,8 +181,8 @@ export async function POST(request: NextRequest) {
         haveGst,
         gstInvNo: haveGst ? (formData.get("gstInvNo") as string) : null,
         gstCustomerName: haveGst ? (formData.get("gstCustomerName") as string) : null,
-        latitude: (() => { const v = formData.get("latitude"); return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
-        longitude: (() => { const v = formData.get("longitude"); return v != null && !isNaN(Number(v)) ? Number(v) : null })(),
+        latitude: parseOptionalCoordNumber(formData.get("latitude")),
+        longitude: parseOptionalCoordNumber(formData.get("longitude")),
         busRegCertUrl: seller.businessInfo?.busRegCertUrl || null,
         cityCouncilCertUrl: seller.businessInfo?.cityCouncilCertUrl || null,
         gstTinCertUrl: seller.businessInfo?.gstTinCertUrl || null,
@@ -188,8 +193,8 @@ export async function POST(request: NextRequest) {
         taxIdNumber: jsonBody.data.taxIdNumber,
         gstInvNo: haveGst ? jsonBody.data.gstInvNo : null,
         gstCustomerName: haveGst ? jsonBody.data.gstCustomerName : null,
-        latitude: jsonBody.data?.latitude != null && !isNaN(Number(jsonBody.data.latitude)) ? Number(jsonBody.data.latitude) : null,
-        longitude: jsonBody.data?.longitude != null && !isNaN(Number(jsonBody.data.longitude)) ? Number(jsonBody.data.longitude) : null,
+        latitude: parseOptionalCoordNumber(jsonBody.data?.latitude),
+        longitude: parseOptionalCoordNumber(jsonBody.data?.longitude),
         busRegCertUrl: jsonBody.data?.busRegCertUrl || seller.businessInfo?.busRegCertUrl || null,
         cityCouncilCertUrl: jsonBody.data?.cityCouncilCertUrl || seller.businessInfo?.cityCouncilCertUrl || null,
         gstTinCertUrl: jsonBody.data?.gstTinCertUrl || seller.businessInfo?.gstTinCertUrl || null,
@@ -286,6 +291,10 @@ export async function POST(request: NextRequest) {
       if (haveGst && !businessData.gstTinCertUrl) {
         return NextResponse.json({ success: false, error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 });
       }
+
+      const bizCoords = await resolveSellerBusinessCoords(businessData, seller);
+      businessData.latitude = bizCoords?.latitude ?? null;
+      businessData.longitude = bizCoords?.longitude ?? null;
 
       await prisma.seller.update({
         where: { id: seller.id },
@@ -458,23 +467,38 @@ export async function POST(request: NextRequest) {
       let categoryIds = formData ? formData.getAll("categoryIds") : (jsonBody.data.categoryIds || []);
       
       const zipCodeRaw = (formData ? (formData.get("zipCode") || formData.get("postalCode")) : (jsonBody?.data?.zipCode || jsonBody?.data?.postalCode)) as string | null;
-      const latRaw = formData ? formData.get("lat") : jsonBody?.data?.lat;
-      const lngRaw = formData ? formData.get("lng") : jsonBody?.data?.lng;
-      const parsedLat = latRaw ? parseFloat(latRaw as string) : null;
-      const parsedLng = lngRaw ? parseFloat(lngRaw as string) : null;
+      const latRaw = formData ? (formData.get("lat") || formData.get("storeLat")) : (jsonBody?.data?.lat ?? jsonBody?.data?.storeLat);
+      const lngRaw = formData ? (formData.get("lng") || formData.get("storeLng")) : (jsonBody?.data?.lng ?? jsonBody?.data?.storeLng);
+
+      const storeAddressVal = (formData ? formData.get("address") : jsonBody?.data?.address) as string | null || null;
+      const storeCityVal = (formData ? formData.get("city") : jsonBody?.data?.city) as string | null || null;
+      const storeStateVal = (formData ? formData.get("state") : jsonBody?.data?.state) as string | null || null;
+      const storeCountryVal = (formData ? formData.get("country") : jsonBody?.data?.country) as string | null || null;
+
+      const storeCoords = await resolveSellerStoreCoords(
+        {
+          address: storeAddressVal,
+          city: storeCityVal,
+          state: storeStateVal,
+          zipCode: zipCodeRaw || null,
+          country: storeCountryVal,
+          lat: latRaw,
+          lng: lngRaw,
+        },
+        seller
+      );
 
       const storeData: any = {
         name: (formData ? (formData.get("storeName") || formData.get("name")) : (jsonBody?.data?.storeName || jsonBody?.data?.name)) as string || "My Store",
         description: (formData ? formData.get("description") : jsonBody?.data?.description) as string | null || null,
-        address: (formData ? formData.get("address") : jsonBody?.data?.address) as string | null || null,
-        city: (formData ? formData.get("city") : jsonBody?.data?.city) as string | null || null,
-        state: (formData ? formData.get("state") : jsonBody?.data?.state) as string | null || null,
-        country: (formData ? formData.get("country") : jsonBody?.data?.country) as string | null || null,
+        address: storeAddressVal,
+        city: storeCityVal,
+        state: storeStateVal,
+        country: storeCountryVal,
         zipCode: zipCodeRaw || null,
         phone: (formData ? formData.get("phone") : jsonBody?.data?.phone) as string | null || null,
         website: (formData ? formData.get("website") : jsonBody?.data?.website) as string | null || null,
-        ...(parsedLat !== null && !isNaN(parsedLat) ? { lat: parsedLat } : {}),
-        ...(parsedLng !== null && !isNaN(parsedLng) ? { lng: parsedLng } : {}),
+        ...(storeCoords ? { lat: storeCoords.latitude, lng: storeCoords.longitude } : {}),
       };
 
       if (formData) {
@@ -507,16 +531,6 @@ export async function POST(request: NextRequest) {
             buffer: Buffer.from(await banner.arrayBuffer()),
             prefix: "store-banner",
           });
-        }
-        const latRaw = formData.get("lat");
-        const lngRaw = formData.get("lng");
-        if (latRaw && lngRaw) {
-          const lat = parseFloat(latRaw as string);
-          const lng = parseFloat(lngRaw as string);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            storeData.lat = lat;
-            storeData.lng = lng;
-          }
         }
       }
 

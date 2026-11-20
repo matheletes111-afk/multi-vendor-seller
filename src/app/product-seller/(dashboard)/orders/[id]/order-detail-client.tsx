@@ -1618,6 +1618,8 @@ export function ProductSellerOrderDetailClient({ orderId }: { orderId: string })
                     postalCode: order.shippingPostalCode,
                     country: order.shippingCountry,
                   }}
+                  destinationLat={order.shippingLatitude ?? null}
+                  destinationLng={order.shippingLongitude ?? null}
                   onRefresh={fetchOrder}
                 />
 

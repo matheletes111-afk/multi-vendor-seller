@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { generateMobileTokens } from "@/lib/mobile-jwt"
+import { ensureRiderProfile, isRiderSuspended, upsertRiderDeviceToken } from "@/lib/rider-auth"
 import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
 import { isValidE164, normalizePhoneNumber } from "@/lib/twilio-sms"
 import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
@@ -56,14 +57,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid phone number or OTP." }, { status: 400 })
     }
 
-    if (!user.rider) {
+    const riderProfile = await ensureRiderProfile(user.id, user.rider)
+    if (!riderProfile) {
       return NextResponse.json(
         { success: false, error: "Rider profile not found. Please contact support." },
         { status: 403 }
       )
     }
 
-    if (user.rider.isSuspended || user.rider.status === "SUSPENDED") {
+    if (isRiderSuspended(riderProfile)) {
       return NextResponse.json(
         {
           success: false,
@@ -101,36 +103,12 @@ export async function POST(request: Request) {
 
     await resetOtpRateLimit(rateLimitKey)
 
-    // Auto-register device token if provided
-    if (deviceToken || deviceId) {
-      try {
-        const tokenToStore = deviceToken || deviceId!
-        const existingTokens: any[] = Array.isArray(user.rider.deviceTokens)
-          ? (user.rider.deviceTokens as any[])
-          : []
-
-        const now = new Date().toISOString()
-        const otherTokens = existingTokens.filter((t) => t && t.token !== tokenToStore && t.deviceId !== deviceId)
-
-        const newEntry = {
-          token: tokenToStore,
-          deviceId: deviceId || null,
-          platform: platform || "android",
-          userAgent: userAgent || null,
-          lastActiveAt: now,
-          createdAt: now,
-        }
-
-        await prisma.rider.update({
-          where: { id: user.rider.id },
-          data: {
-            deviceTokens: [...otherTokens, newEntry],
-          },
-        })
-      } catch (tokenErr) {
-        console.error("Failed to register device token in phone OTP verify:", tokenErr)
-      }
-    }
+    await upsertRiderDeviceToken(riderProfile.id, riderProfile.deviceTokens, {
+      deviceId,
+      platform,
+      deviceToken,
+      userAgent,
+    })
 
     const tokens = generateMobileTokens({
       userId: user.id,
@@ -142,7 +120,7 @@ export async function POST(request: Request) {
       platform,
     })
 
-    const { password: _, rider, ...userWithoutPassword } = user
+    const { password: _, rider: _rider, ...userWithoutPassword } = user
 
     return NextResponse.json(
       {
@@ -154,18 +132,18 @@ export async function POST(request: Request) {
             isEmailVerified: true,
           },
           rider: {
-            id: rider.id,
-            isApproved: rider.isApproved,
-            isSuspended: rider.isSuspended,
-            status: rider.status,
-            onboardingCompleted: rider.onboardingCompleted,
-            isFirstLogin: rider.isFirstLogin,
-            vehicleTypes: rider.vehicleTypes,
-            vehicleNumber: rider.vehicleNumber,
-            drivingLicenseNo: rider.drivingLicenseNo,
-            profileImage: rider.profileImage,
-            selectedZones: rider.selectedZones,
-            selectedLocations: rider.selectedLocations,
+            id: riderProfile.id,
+            isApproved: riderProfile.isApproved,
+            isSuspended: riderProfile.isSuspended,
+            status: riderProfile.status,
+            onboardingCompleted: riderProfile.onboardingCompleted,
+            isFirstLogin: riderProfile.isFirstLogin,
+            vehicleTypes: riderProfile.vehicleTypes,
+            vehicleNumber: riderProfile.vehicleNumber,
+            drivingLicenseNo: riderProfile.drivingLicenseNo,
+            profileImage: riderProfile.profileImage,
+            selectedZones: riderProfile.selectedZones,
+            selectedLocations: riderProfile.selectedLocations,
           },
           tokens,
           sessionInfo: {

@@ -1516,6 +1516,8 @@ model Order {
   shippingState  String?
   shippingPostalCode String?
   shippingCountry String?
+  shippingLatitude  Float?
+  shippingLongitude Float?
   couponId        String?
   couponCode      String?
   couponDiscount  Float         @default(0)

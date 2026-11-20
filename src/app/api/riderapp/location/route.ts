@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { syncRiderLocationToSocket } from "@/lib/order-location"
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,23 +45,15 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const socketPayload = {
+    await syncRiderLocationToSocket({
       riderId: rider.id,
       orderId: body.orderId || null,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
-      heading: heading != null ? Number(heading) : 0,
-      speed: speed != null ? Number(speed) : 0,
-    }
-    const socketServerUrl =
-      process.env.SOCKET_SERVER_INTERNAL_URL ||
-      process.env.NEXT_PUBLIC_SOCKET_URL ||
-      "https://socket.meeemsl.com"
-    fetch(`${socketServerUrl}/internal/location`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(socketPayload),
-    }).catch(() => {})
+      latitude,
+      longitude,
+      heading,
+      speed,
+      isOnline: isOnlineBool,
+    })
 
     return NextResponse.json({ success: true, rider })
   } catch (error: any) {

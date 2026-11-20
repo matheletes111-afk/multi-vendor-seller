@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "../../_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
-
-const SOCKET_SERVER_URL =
-  process.env.SOCKET_SERVER_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  "https://socket.meeemsl.com"
+import { syncRiderLocationToSocket } from "@/lib/order-location"
 
 export async function POST(request: NextRequest) {
   const authResult = await getMobileRiderAuth(request)
@@ -82,22 +78,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Fire-and-forget: push GPS to Socket.IO server so live tracking maps update
-    // Mobile riders who use REST (vs native Socket.IO) still broadcast to watchers
-    const socketPayload = {
+    // Fire-and-forget: resolve active order & push GPS / status to Socket.IO server
+    await syncRiderLocationToSocket({
       riderId: authResult.rider.id,
       orderId: orderId || null,
       latitude: numLat,
       longitude: numLng,
-      heading: heading != null ? Number(heading) : 0,
-      speed: speed != null ? Number(speed) : 0,
-    }
-    fetch(`${SOCKET_SERVER_URL}/internal/location`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(socketPayload),
-    }).catch(() => {
-      /* non-critical — socket server may not have this REST endpoint */
+      heading,
+      speed,
+      isOnline: isOnlineBool,
     })
 
     return NextResponse.json({

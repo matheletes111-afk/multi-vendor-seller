@@ -1,0 +1,188 @@
+================================================================================
+RIDER MOBILE APP — BACKEND API CHANGES & IMPLEMENTATION HANDOFF
+================================================================================
+
+OVERVIEW
+--------
+- All changes are 100% backward-compatible (no existing field was removed or renamed).
+- Every coordinate field is `number | null`. Always null-check before rendering a map pin or starting turn-by-turn routing.
+- Shared `LocationPoint` object shape:
+  {
+    "name": "Apex Electronics",
+    "address": "124 Siaka Stevens Street, Freetown",
+    "latitude": 8.484245,
+    "longitude": -13.234125,
+    "phone": "+23277987654"
+  }
+
+--------------------------------------------------------------------------------
+1. RIDER ORDERS & NAVIGATION APIS (PICKUP & DROPOFF COORDINATES)
+--------------------------------------------------------------------------------
+Endpoints:
+- GET  /mobileapi/rider/orders?tab=active|offered|completed|...
+- GET  /mobileapi/rider/orders/:id
+- POST /mobileapi/rider/orders/:id/accept
+- POST /mobileapi/rider/orders/:id/status
+
+Backend Changes:
+- Every assignment returned by `GET /mobileapi/rider/orders`, `GET /mobileapi/rider/orders/:id`, `POST /mobileapi/rider/orders/:id/accept`, and `POST /mobileapi/rider/orders/:id/status` is now enriched with:
+  {
+    "id": "cuid_assignment_id",
+    "orderId": "cuid_order_id",
+    "status": "ACCEPTED",
+    "distanceKm": 2.4,
+    "sellerLatitude": 8.484245,
+    "sellerLongitude": -13.234125,
+    "dropoffLatitude": 8.463210,
+    "dropoffLongitude": -13.277840,
+    "pickupLocation": {
+      "name": "Apex Electronics",
+      "address": "124 Siaka Stevens Street, Freetown",
+      "latitude": 8.484245,
+      "longitude": -13.234125,
+      "phone": "+23277987654"
+    },
+    "dropoffLocation": {
+      "name": "John Doe",
+      "address": "14 Lumley Beach Road, Freetown",
+      "latitude": 8.463210,
+      "longitude": -13.277840,
+      "phone": "+23278999111"
+    },
+    "earningForThisDelivery": 25.0,
+    "deliveryFee": 25.0,
+    "order": {
+      "orderNumber": "meeem00000103",
+      "shippingLatitude": 8.463210,
+      "shippingLongitude": -13.277840,
+      "dropoffLatitude": 8.463210,
+      "dropoffLongitude": -13.277840,
+      "seller": {
+        "store": { "lat": 8.484245, "lng": -13.234125, "...": "..." },
+        "businessInfo": { "latitude": 8.484245, "longitude": -13.234125, "...": "..." }
+      }
+    }
+  }
+- For older orders or stores without saved pins, the backend automatically geocodes the store/shipping address on the server and backfills the database so coordinates are consistently available.
+
+What Rider Mobile Developer Needs to Implement:
+1. Phase 1 — Heading to Store (`OFFERED`, `ACCEPTED`, `AT_PICKUP`):
+   - Navigate from Rider's current GPS -> `assignment.pickupLocation.latitude` / `longitude`.
+2. Phase 2 — Heading to Customer (`PICKED_UP`, `OUT_FOR_DELIVERY`):
+   - Navigate from Rider's current GPS -> `assignment.dropoffLocation.latitude` / `longitude`.
+3. Stop doing client-side address geocoding whenever `pickupLocation.latitude/longitude` or `dropoffLocation.latitude/longitude` are non-null.
+4. Road Polyline & Fallback:
+   - Use Google Directions API (or OSRM / Google Maps intent `daddr=lat,lng`) using the exact `pickupLocation` and `dropoffLocation` coordinates.
+   - If Google Directions API returns `REQUEST_DENIED` or `OVER_DAILY_LIMIT` (or is offline), gracefully fall back to a geodesic/straight polyline so the map never breaks.
+   - If coordinates are still `null` (e.g. unresolvable rural text address), display the text address and open external Google Maps search by address string.
+5. Immediate State Update after Actions:
+   - `POST /accept` and `POST /status` now return the full enriched `data` (`assignment`) with `pickupLocation` and `dropoffLocation`—you can transition the navigation target immediately from the POST response without an extra GET request.
+
+--------------------------------------------------------------------------------
+2. RIDER LIVE GPS STREAMING, STATUS & 2-PHONE DEVICE SWITCH (SOCKET.IO + REST)
+--------------------------------------------------------------------------------
+Endpoints & Socket Server:
+- REST Location: `POST /mobileapi/rider/location`
+  Body: `{ latitude, longitude, heading?, speed?, isOnline?, orderId? }`
+- REST Status: `GET /mobileapi/rider/status` & `POST /mobileapi/rider/status`
+- Socket Server URL: `NEXT_PUBLIC_SOCKET_URL` (default: `https://socket.meeemsl.com`)
+
+Backend Changes:
+- If `orderId` is omitted in `POST /mobileapi/rider/location` or Socket event `rider:location_update`, the backend & socket server automatically resolve the rider's current active assignment (`ACCEPTED`, `AT_PICKUP`, `PICKED_UP`, `OUT_FOR_DELIVERY`) and broadcast `order:rider_moved` to `order:<orderId>` and `rider:moved` to `admin:fleet`.
+- When a rider goes offline (`isOnline: false`), the socket server immediately clears its active order cache and broadcasts `rider:status_changed`.
+- 2-Phone Device Switch Integrity Preserved:
+  * `/internal/rider-status` preserves all device-switch fields (`activeDeviceId`, `switchedDevice`, `previousDeviceId`, `switchMessage`, `latitude`, `longitude`, `timestamp`) and emits `rider:status_changed` to both `rider:<riderId>` and `admin:fleet`.
+
+What Rider Mobile Developer Needs to Implement:
+- Keep emitting `join_rider` with `{ riderId: rider.id }` upon socket connection and listening for `rider:status_changed` to handle 2-phone device switch alerts and online/offline sync across devices.
+
+--------------------------------------------------------------------------------
+3. RIDER AUTHENTICATION — 3 LOGIN WAYS (NEW EMAIL OTP ADDED)
+--------------------------------------------------------------------------------
+The Rider Mobile API now supports all 3 login methods with identical final token/session response shapes:
+
+Method A: Email or Mobile Number + Password (+ 2FA OTP) [Existing]
+- Step 1: `POST /mobileapi/rider/auth/login`
+  Body: `{ identifier | email | phone, password, phoneCountryCode?, deviceId?, platform?, deviceToken?, userAgent? }`
+  Response: `{ success: true, requiresOtp: true, message, data: { preAuthToken, maskedPhone, maskedEmail, channels, expiresIn, resendCooldown } }`
+- Step 2: `POST /mobileapi/rider/auth/verify-2fa`
+  Body: `{ preAuthToken, otp, deviceId?, platform?, deviceToken?, userAgent? }`
+- Resend 2FA: `POST /mobileapi/rider/auth/resend-2fa`
+  Body: `{ preAuthToken }`
+
+Method B: Mobile SMS OTP Login (Passwordless) [Existing, now auto-heals missing Rider profile]
+- Step 1 (Send SMS OTP): `POST /mobileapi/rider/auth/phone-otp/send-otp`
+  Body: `{ "phone": "+23276123456" }` (E.164 format with country code)
+  Response (200):
+  {
+    "success": true,
+    "message": "Login OTP sent to your phone.",
+    "data": { "phone": "+23276123456", "expiresIn": 600, "resendCooldown": 60 }
+  }
+- Step 2 (Verify SMS OTP): `POST /mobileapi/rider/auth/phone-otp/verify-otp`
+  Body: `{ "phone": "+23276123456", "otp": "123456", "deviceId"?: "...", "platform"?: "android" | "ios", "deviceToken"?: "...", "userAgent"?: "..." }`
+
+Method C: Email OTP Login (Passwordless) [NEW]
+- Step 1 (Send Email OTP): `POST /mobileapi/rider/auth/email-otp/send-otp`
+  Body: `{ "email": "rider@example.com" }`
+  Response (200):
+  {
+    "success": true,
+    "message": "Login OTP sent to your email.",
+    "data": { "email": "rider@example.com", "expiresIn": 600, "resendCooldown": 60 }
+  }
+- Step 2 (Verify Email OTP): `POST /mobileapi/rider/auth/email-otp/verify-otp`
+  Body: `{ "email": "rider@example.com", "otp": "123456", "deviceId"?: "...", "platform"?: "android" | "ios", "deviceToken"?: "...", "userAgent"?: "..." }`
+
+Unified Login Success Response (Method A Verify-2FA, Method B Verify-OTP, Method C Verify-OTP):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": "...",
+      "email": "rider@example.com",
+      "phone": "76123456",
+      "phoneCountryCode": "+232",
+      "role": "RIDER",
+      "isEmailVerified": true
+    },
+    "rider": {
+      "id": "...",
+      "isApproved": true,
+      "isSuspended": false,
+      "status": "APPROVED",
+      "onboardingCompleted": true,
+      "isFirstLogin": false,
+      "vehicleTypes": ["2_WHEELER"],
+      "vehicleNumber": "...",
+      "drivingLicenseNo": "...",
+      "profileImage": "...",
+      "selectedZones": [...],
+      "selectedLocations": [...]
+    },
+    "tokens": {
+      "accessToken": "...",
+      "refreshToken": "...",
+      "expiresIn": 604800
+    },
+    "sessionInfo": {
+      "expiresIn": 604800,
+      "tokenType": "Bearer"
+    }
+  }
+}
+
+Email OTP Error Status Codes to Handle in Mobile App:
+- `404`: `{ success: false, error: "No rider account found with this email." }`
+- `403` (Unverified account):
+  `{ success: false, error: "Please verify your account first before Email OTP login.", needsVerification: true, authStatus: "PENDING_VERIFICATION", verifyUrl: "/mobileapi/rider/auth/verify-otp", data: { email } }`
+  -> Redirect user to the Account Verification OTP screen (using `/mobileapi/rider/auth/resend-otp` & `/mobileapi/rider/auth/verify-otp`).
+- `403` (Suspended): `{ success: false, error: "Your rider account has been suspended...", isSuspended: true, authStatus: "SUSPENDED" }`
+- `429` (Cooldown): `{ success: false, error: "Please wait X seconds...", waitTime: X }`
+- `400` (Expired OTP on verify): `{ success: false, error: "OTP has expired. Please request a new one.", expired: true }`
+
+What Rider Mobile Developer Needs to Implement for Login:
+1. Add an "Email OTP" login tab/option alongside "Password" and "SMS OTP" on the Rider App login screen.
+2. Include the same mobile app security headers on `POST /mobileapi/rider/auth/email-otp/send-otp` as used on `phone-otp/send-otp`.
+3. Pass `deviceId`, `platform`, `deviceToken`, and `userAgent` to `POST /mobileapi/rider/auth/email-otp/verify-otp` so push notifications and 2-phone device tracking register automatically on login.

@@ -6,6 +6,7 @@ import { sendNotificationSms } from "./twilio-sms"
 import { sendDeliveryOtp } from "./delivery-otp"
 import { applySellerCreditForOrderLineDelivered } from "./seller-order-line-settlement"
 import { determineRequiredVehicleForItems, isRiderVehicleCompatible } from "./ai-vehicle-matcher"
+import { resolveDispatchSellerCoords } from "./order-location"
 import { DeliveryAssignmentStatus, DispatchMode, OrderStatus, Prisma } from "@prisma/client"
 
 const OFFER_TIMEOUT_SECONDS = 60
@@ -219,7 +220,7 @@ export async function triggerOrderAutoDispatch(
         }
       }
 
-      // Determine Seller coordinates (Shop location)
+      // Determine Seller coordinates (Shop location: businessInfo -> store -> geocode fallback)
       const sellerInfo =
         order.items.find((i) => i.sellerId === sellerId)?.seller ||
         (order.sellerId === sellerId ? order.seller : null) ||
@@ -228,8 +229,9 @@ export async function triggerOrderAutoDispatch(
           include: { businessInfo: true, store: true, user: true },
         }))
 
-      const sellerLat = sellerInfo?.businessInfo?.latitude || null
-      const sellerLng = sellerInfo?.businessInfo?.longitude || null
+      const sellerCoords = await resolveDispatchSellerCoords(sellerInfo)
+      const sellerLat = sellerCoords?.latitude ?? null
+      const sellerLng = sellerCoords?.longitude ?? null
 
       // Match customer delivery location name or zone
       const customerLocation = (order.shippingCity || order.shippingAddressLine1 || "").trim()
@@ -1406,8 +1408,9 @@ export async function manualAssignRiderToOrder(
     }
   }
 
-  const sellerLat = sellerInfo?.businessInfo?.latitude || null
-  const sellerLng = sellerInfo?.businessInfo?.longitude || null
+  const sellerCoords = await resolveDispatchSellerCoords(sellerInfo)
+  const sellerLat = sellerCoords?.latitude ?? null
+  const sellerLng = sellerCoords?.longitude ?? null
   let distanceKm: number | null = null
 
   if (sellerLat != null && sellerLng != null && rider.currentLatitude != null && rider.currentLongitude != null) {

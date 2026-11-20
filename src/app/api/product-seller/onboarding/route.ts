@@ -10,6 +10,7 @@ import { formatHearAboutUs } from "@/lib/onboarding-constants"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import { resolveSellerBusinessCoords, resolveSellerStoreCoords } from "@/lib/order-location"
 
 
 export async function GET() {
@@ -273,6 +274,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "GST TIN Certificate is mandatory when selling with GST." }, { status: 400 })
       }
 
+      const rawLat = formData ? formData.get("latitude") : jsonBody?.data?.latitude
+      const rawLng = formData ? formData.get("longitude") : jsonBody?.data?.longitude
+      const bizCoords = await resolveSellerBusinessCoords(
+        {
+          street: data.street,
+          city: data.city,
+          district: data.district,
+          postalCode: data.postalCode,
+          latitude: rawLat,
+          longitude: rawLng,
+        },
+        seller
+      )
+      if (bizCoords) {
+        data.latitude = bizCoords.latitude
+        data.longitude = bizCoords.longitude
+      }
+
       await (prisma as any).sellerBusinessInfo.upsert({
         where: { sellerId: seller.id },
         update: { ...data, busRegCertUrl, cityCouncilCertUrl, gstTinCertUrl, addressProofUrl } as any,
@@ -530,23 +549,38 @@ export async function POST(request: NextRequest) {
       }
 
       const zipCodeRaw = (formData ? (formData.get("zipCode") || formData.get("postalCode")) : (jsonBody?.data?.zipCode || jsonBody?.data?.postalCode)) as string | null
-      const latRaw = formData ? formData.get("lat") : jsonBody?.data?.lat
-      const lngRaw = formData ? formData.get("lng") : jsonBody?.data?.lng
-      const parsedLat = latRaw ? parseFloat(latRaw as string) : null
-      const parsedLng = lngRaw ? parseFloat(lngRaw as string) : null
+      const latRaw = formData ? (formData.get("lat") || formData.get("storeLat")) : (jsonBody?.data?.lat ?? jsonBody?.data?.storeLat)
+      const lngRaw = formData ? (formData.get("lng") || formData.get("storeLng")) : (jsonBody?.data?.lng ?? jsonBody?.data?.storeLng)
+
+      const storeAddressVal = (formData ? formData.get("address") : jsonBody?.data?.address) as string | null || null
+      const storeCityVal = (formData ? formData.get("city") : jsonBody?.data?.city) as string | null || null
+      const storeStateVal = (formData ? formData.get("state") : jsonBody?.data?.state) as string | null || null
+      const storeCountryVal = (formData ? formData.get("country") : jsonBody?.data?.country) as string | null || null
+
+      const storeCoords = await resolveSellerStoreCoords(
+        {
+          address: storeAddressVal,
+          city: storeCityVal,
+          state: storeStateVal,
+          zipCode: zipCodeRaw || null,
+          country: storeCountryVal,
+          lat: latRaw,
+          lng: lngRaw,
+        },
+        seller
+      )
 
       const storeData: any = {
         name: (formData ? (formData.get("storeName") || formData.get("name")) : (jsonBody?.data?.storeName || jsonBody?.data?.name)) as string || "My Store",
         description: (formData ? formData.get("description") : jsonBody?.data?.description) as string | null || null,
-        address: (formData ? formData.get("address") : jsonBody?.data?.address) as string | null || null,
-        city: (formData ? formData.get("city") : jsonBody?.data?.city) as string | null || null,
-        state: (formData ? formData.get("state") : jsonBody?.data?.state) as string | null || null,
-        country: (formData ? formData.get("country") : jsonBody?.data?.country) as string | null || null,
+        address: storeAddressVal,
+        city: storeCityVal,
+        state: storeStateVal,
+        country: storeCountryVal,
         zipCode: zipCodeRaw || null,
         phone: (formData ? formData.get("phone") : jsonBody?.data?.phone) as string | null || null,
         website: (formData ? formData.get("website") : jsonBody?.data?.website) as string | null || null,
-        ...(parsedLat !== null && !isNaN(parsedLat) ? { lat: parsedLat } : {}),
-        ...(parsedLng !== null && !isNaN(parsedLng) ? { lng: parsedLng } : {}),
+        ...(storeCoords ? { lat: storeCoords.latitude, lng: storeCoords.longitude } : {}),
       }
 
       if (formData) {

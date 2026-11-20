@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getMobileSellerAuth } from "../../../../_helpers/seller-auth"
 import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
+import { resolveEnrichedAssignmentById } from "@/lib/order-location"
 
 export async function POST(
   request: NextRequest,
@@ -102,10 +103,14 @@ export async function POST(
       return NextResponse.json({ success: false, error: result.message }, { status: 400 })
     }
 
+    const enrichedAssignment = result.assignment?.id
+      ? await resolveEnrichedAssignmentById(result.assignment.id).catch(() => null)
+      : null
+
     return NextResponse.json({
       success: true,
       message: "Rider assigned successfully",
-      data: result.assignment,
+      data: enrichedAssignment ?? result.assignment,
     })
   } catch (error: any) {
     console.error("[Mobile API] Seller assign rider error:", error)
