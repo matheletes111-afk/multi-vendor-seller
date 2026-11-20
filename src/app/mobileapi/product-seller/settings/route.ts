@@ -10,6 +10,11 @@ import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
 import { generateSlug } from "@/lib/utils"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import {
+  parseOptionalCoordNumber,
+  resolveSellerBusinessCoords,
+  resolveSellerStoreCoords,
+} from "@/lib/order-location"
 
 export const dynamic = "force-dynamic"
 
@@ -293,8 +298,10 @@ export async function PUT(request: NextRequest) {
       }
       const latRaw = fd.get("latitude")
       const lngRaw = fd.get("longitude")
-      if (latRaw !== null && !isNaN(Number(latRaw))) busInfoData.latitude = Number(latRaw)
-      if (lngRaw !== null && !isNaN(Number(lngRaw))) busInfoData.longitude = Number(lngRaw)
+      const parsedBusLat = parseOptionalCoordNumber(latRaw)
+      const parsedBusLng = parseOptionalCoordNumber(lngRaw)
+      if (parsedBusLat !== null) busInfoData.latitude = parsedBusLat
+      if (parsedBusLng !== null) busInfoData.longitude = parsedBusLng
 
       const busRegCert = fd.get("busRegCert") as File | null
       if (busRegCert && busRegCert.size > 0) {
@@ -341,6 +348,14 @@ export async function PUT(request: NextRequest) {
       }
 
       if (Object.keys(busInfoData).length > 0) {
+        const bizCoords = await resolveSellerBusinessCoords(busInfoData, seller)
+        if (bizCoords) {
+          busInfoData.latitude = bizCoords.latitude
+          busInfoData.longitude = bizCoords.longitude
+        } else {
+          delete busInfoData.latitude
+          delete busInfoData.longitude
+        }
         sellerUpdateData.businessInfo = {
           upsert: {
             update: busInfoData,
@@ -482,6 +497,11 @@ export async function PUT(request: NextRequest) {
       }
 
       if (Object.keys(storeUpdates).length > 0) {
+        const resolvedStoreCoords = await resolveSellerStoreCoords(storeUpdates, seller)
+        if (resolvedStoreCoords) {
+          storeUpdates.lat = resolvedStoreCoords.latitude
+          storeUpdates.lng = resolvedStoreCoords.longitude
+        }
         sellerUpdateData.store = {
           upsert: {
             update: storeUpdates,
@@ -679,8 +699,25 @@ export async function PUT(request: NextRequest) {
       if (storeInput.storeState !== undefined && data.state === undefined) data.state = storeInput.storeState
       if (storeInput.storeZipCode !== undefined && data.zipCode === undefined) data.zipCode = storeInput.storeZipCode
       if (storeInput.storeCountry !== undefined && data.country === undefined) data.country = storeInput.storeCountry
+      if (storeInput.storeLat !== undefined && data.lat === undefined) data.lat = storeInput.storeLat
+      if (storeInput.storeLng !== undefined && data.lng === undefined) data.lng = storeInput.storeLng
+
+      const parsedStoreLat = parseOptionalCoordNumber(data.lat)
+      const parsedStoreLng = parseOptionalCoordNumber(data.lng)
+      if (parsedStoreLat !== null) data.lat = parsedStoreLat
+      else delete data.lat
+      if (parsedStoreLng !== null) data.lng = parsedStoreLng
+      else delete data.lng
 
       if (Object.keys(data).length > 0) {
+        const resolvedStoreCoords = await resolveSellerStoreCoords(data, seller)
+        if (resolvedStoreCoords) {
+          data.lat = resolvedStoreCoords.latitude
+          data.lng = resolvedStoreCoords.longitude
+        } else {
+          delete data.lat
+          delete data.lng
+        }
         finalSellerUpdate.store = {
           upsert: {
             update: data,
@@ -718,11 +755,23 @@ export async function PUT(request: NextRequest) {
         }
         if (cleanBusInfo.latitude !== undefined && cleanBusInfo.latitude !== null && cleanBusInfo.latitude !== "") {
           cleanBusInfo.latitude = Number(cleanBusInfo.latitude)
+        } else {
+          delete cleanBusInfo.latitude
         }
         if (cleanBusInfo.longitude !== undefined && cleanBusInfo.longitude !== null && cleanBusInfo.longitude !== "") {
           cleanBusInfo.longitude = Number(cleanBusInfo.longitude)
+        } else {
+          delete cleanBusInfo.longitude
         }
         if (Object.keys(cleanBusInfo).length > 0) {
+          const bizCoords = await resolveSellerBusinessCoords(cleanBusInfo, seller)
+          if (bizCoords) {
+            cleanBusInfo.latitude = bizCoords.latitude
+            cleanBusInfo.longitude = bizCoords.longitude
+          } else {
+            delete cleanBusInfo.latitude
+            delete cleanBusInfo.longitude
+          }
           finalSellerUpdate.businessInfo = {
             upsert: {
               update: cleanBusInfo,

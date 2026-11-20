@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { syncRiderStatusToSocket } from "@/lib/order-location"
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,6 +58,13 @@ export async function POST(req: NextRequest) {
         currentLongitude: true,
         lastLocationUpdate: true,
       },
+    })
+
+    await syncRiderStatusToSocket({
+      riderId: rider.id,
+      isOnline: rider.isOnline,
+      latitude: rider.currentLatitude,
+      longitude: rider.currentLongitude,
     })
 
     return NextResponse.json({ success: true, rider })

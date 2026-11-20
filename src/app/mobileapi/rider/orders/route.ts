@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "../../_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveManyAssignmentLocations,
+} from "@/lib/order-location"
 
 export async function GET(request: NextRequest) {
   const authResult = await getMobileRiderAuth(request)
@@ -95,7 +99,9 @@ export async function GET(request: NextRequest) {
       orderBy: { offeredAt: "desc" },
     })
 
-    const mappedAssignments = assignments.map((a) => {
+    const resolvedLocations = await resolveManyAssignmentLocations(assignments, 3)
+
+    const mappedAssignments = assignments.map((a, idx) => {
       const filteredItems = a.order.items.filter(
         (item) => !a.sellerId || item.sellerId === a.sellerId
       )
@@ -104,18 +110,20 @@ export async function GET(request: NextRequest) {
         0
       )
       const earningForThisDelivery = itemsShippingSum > 0 ? itemsShippingSum : Number(a.order?.shipping || 0)
+      const enriched = buildEnrichedAssignmentPayload(a, resolvedLocations[idx])
 
       return {
-        ...a,
+        ...enriched,
         earningForThisDelivery,
         deliveryFee: earningForThisDelivery,
         deliveryEarning: earningForThisDelivery,
         earning: earningForThisDelivery,
-        order: {
-          ...a.order,
-          seller: a.seller || a.order.seller,
-          items: filteredItems,
-        },
+        order: enriched.order
+          ? {
+              ...enriched.order,
+              items: filteredItems,
+            }
+          : null,
       }
     })
 

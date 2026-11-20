@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { getSocketClient } from "@/lib/socket-client"
 
@@ -8,10 +8,23 @@ export function RiderLocationStreamer() {
   const { data: session } = useSession()
   const watchIdRef = useRef<number | null>(null)
   const lastHttpPostRef = useRef<number>(0)
+  const activeOrderIdRef = useRef<string | null>(null)
   const [riderId, setRiderId] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState<boolean>(true)
 
-  // Fetch actual Rider DB ID and initial online status
+  const syncActiveOrder = useCallback(async () => {
+    try {
+      const res = await fetch("/api/riderapp/orders?tab=active")
+      if (!res.ok) return
+      const data = await res.json()
+      const firstActive = Array.isArray(data?.assignments) ? data.assignments[0] : null
+      activeOrderIdRef.current = firstActive?.orderId || null
+    } catch {
+      // Non-blocking
+    }
+  }, [])
+
+  // Fetch actual Rider DB ID, initial online status, and current active order
   useEffect(() => {
     if (session?.user?.id && session.user.role === "RIDER") {
       fetch("/api/riderapp/profile")
@@ -27,6 +40,8 @@ export function RiderLocationStreamer() {
           }
         })
         .catch(() => setRiderId(session.user.id))
+
+      syncActiveOrder()
     }
 
     const handleStatusEvent = (e: any) => {
@@ -35,15 +50,21 @@ export function RiderLocationStreamer() {
       }
     }
 
+    const handleAssignmentChanged = () => {
+      syncActiveOrder()
+    }
+
     if (typeof window !== "undefined") {
       window.addEventListener("rider:status_changed", handleStatusEvent)
+      window.addEventListener("rider:assignment_changed", handleAssignmentChanged)
     }
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("rider:status_changed", handleStatusEvent)
+        window.removeEventListener("rider:assignment_changed", handleAssignmentChanged)
       }
     }
-  }, [session])
+  }, [session, syncActiveOrder])
 
   useEffect(() => {
     if (!session?.user?.id || session.user.role !== "RIDER") {
@@ -76,23 +97,28 @@ export function RiderLocationStreamer() {
     }
 
     const socket = getSocketClient()
+    const targetRiderRoom = riderId || session.user.id
+    socket.auth = { riderId: targetRiderRoom }
     if (!socket.connected) {
-      socket.auth = { riderId: riderId || session.user.id }
       socket.connect()
+    } else if (riderId) {
+      socket.emit("join_rider", { riderId })
     }
 
     const handlePosition = (position: GeolocationPosition) => {
       const { latitude, longitude, heading, speed } = position.coords
       const currentRiderId = riderId || session.user.id
+      const currentOrderId = activeOrderIdRef.current
 
       // 1. Emit real-time coordinates over Socket.IO
       if (socket.connected) {
         socket.emit("rider:location_update", {
           riderId: currentRiderId,
+          orderId: currentOrderId,
           latitude,
           longitude,
           heading: heading || 0,
-          speed: speed || 0,
+          speed: speed != null && speed >= 0 ? speed * 3.6 : 0,
           isOnline: true,
         })
       }
@@ -105,10 +131,11 @@ export function RiderLocationStreamer() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            orderId: currentOrderId,
             latitude,
             longitude,
             heading: heading || 0,
-            speed: speed || 0,
+            speed: speed != null && speed >= 0 ? speed * 3.6 : 0,
             isOnline: true,
           }),
         }).catch((err) => console.debug("[GPS Streamer] HTTP post error:", err))

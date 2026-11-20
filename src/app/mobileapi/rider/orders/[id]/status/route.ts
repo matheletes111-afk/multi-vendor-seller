@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileRiderAuth } from "../../../../_helpers/rider-auth"
 import { prisma } from "@/lib/prisma"
 import { handleRiderStatusUpdate } from "@/lib/delivery-dispatch"
+import { resolveEnrichedAssignmentById } from "@/lib/order-location"
 import path from "path"
 import { uploadPublicFile } from "@/lib/upload-public-file"
 import { DeliveryAssignmentStatus } from "@prisma/client"
@@ -233,10 +234,14 @@ export async function POST(
       return NextResponse.json({ success: false, error: result.message }, { status: 400 })
     }
 
+    const enrichedAssignment = result.assignment?.id
+      ? await resolveEnrichedAssignmentById(result.assignment.id).catch(() => null)
+      : null
+
     return NextResponse.json({
       success: true,
       message: `Delivery status updated to ${status}`,
-      data: result.assignment,
+      data: enrichedAssignment ?? result.assignment,
     })
   } catch (error: any) {
     console.error("[Mobile API] Update delivery status error:", error)

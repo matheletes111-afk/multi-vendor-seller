@@ -4,6 +4,13 @@ import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-stat
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 import { parseStoredFlotLink } from "@/lib/flot"
+import {
+  buildCustomerDeliveryTracking,
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+  resolveOrderDropoffPoint,
+  sanitizeAssignmentRiderTelemetry,
+} from "@/lib/order-location"
 
 export type CustomerOrderKind = "product" | "service"
 
@@ -262,6 +269,8 @@ export async function listCustomerOrders({
       shippingState: order.shippingState,
       shippingPostalCode: order.shippingPostalCode,
       shippingCountry: order.shippingCountry,
+      shippingLatitude: (order as any).shippingLatitude ?? (order.shippingAddress as any)?.latitude ?? null,
+      shippingLongitude: (order as any).shippingLongitude ?? (order.shippingAddress as any)?.longitude ?? null,
       createdAt: order.createdAt.toISOString(),
       sellerStoreName: order.seller?.store?.name ?? null,
       sellerGroups,
@@ -309,7 +318,13 @@ export async function getCustomerOrderDetail({
       seller: { include: { store: true } },
       deliveryAssignments: {
         include: {
-          seller: { include: { store: true } },
+          seller: {
+            include: {
+              store: true,
+              businessInfo: true,
+              user: { select: { name: true, phone: true } },
+            },
+          },
           rider: {
             include: {
               user: {
@@ -501,91 +516,36 @@ export async function getCustomerOrderDetail({
     sellerGroupMap.set(key, current)
   }
   const assignments = (order as any).deliveryAssignments || []
+  const dropoffPoint = await resolveOrderDropoffPoint(order)
+  const orderWithResolvedDropoff = {
+    ...order,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+  }
+  const resolvedAssignmentPairs = await Promise.all(
+    assignments.map((a: any) =>
+      resolveAssignmentLocations(
+        { ...a, order: orderWithResolvedDropoff },
+        { geocodeIfMissing: true, persistBackfill: true }
+      )
+    )
+  )
+  const resolvedByAssignmentId = new Map<string, { pickupLocation: any; dropoffLocation: any }>(
+    assignments.map((a: any, idx: number) => [a.id, resolvedAssignmentPairs[idx]])
+  )
 
   function mapAssignmentToTracking(assignment: any) {
     if (!assignment) return null
-    const r = assignment.rider
-    const rUser = r?.user
-    const pickupStoreName =
-      assignment.seller?.store?.name ||
-      order?.items?.find((i) => i.sellerId === assignment.sellerId)?.seller?.store?.name ||
-      order?.seller?.store?.name ||
-      "Seller Store"
-
-    const isAssignmentDelivered =
-      assignment.status === "DELIVERED" ||
-      order?.status === "DELIVERED" ||
-      (Array.isArray(order?.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
-
-    const isLiveTrackingActive =
-      !isAssignmentDelivered &&
-      ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(assignment.status)
-
-    return {
-      assignmentId: assignment.id,
-      sellerId: assignment.sellerId,
-      sellerStoreName: pickupStoreName,
-      status: assignment.status,
-      dispatchMode: assignment.dispatchMode,
-      distanceKm: assignment.distanceKm,
-      deliveryOtp: assignment.deliveryOtp,
-      deliveryProofImage: assignment.deliveryProofImage,
-      isDelivered: isAssignmentDelivered,
-      isLiveTrackingActive,
-      deliveryStatus: isAssignmentDelivered ? "DELIVERED" : isLiveTrackingActive ? "IN_TRANSIT" : assignment.status,
-      deliveredAt: assignment.deliveredAt ? assignment.deliveredAt.toISOString() : null,
-      rider: {
-        id: r?.id,
-        userId: r?.userId || null,
-        name: rUser?.name || "Delivery Rider",
-        email: rUser?.email || null,
-        phone: rUser?.phone || null,
-        phoneCountryCode: rUser?.phoneCountryCode || "+232",
-        image: rUser?.image || r?.profileImage || null,
-        vehicleName: r?.vehicleName || null,
-        vehicleNumber: r?.vehicleNumber || null,
-        drivingLicenseNo: r?.drivingLicenseNo || null,
-        vehicleTypes: r?.vehicleTypes || [],
-        isOnline: Boolean(
-          r?.isOnline &&
-          r?.lastLocationUpdate &&
-          (Date.now() - new Date(r.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-        ),
-      },
-      currentLocation: isAssignmentDelivered
-        ? {
-            latitude: (order?.shippingAddress as any)?.latitude || null,
-            longitude: (order?.shippingAddress as any)?.longitude || null,
-            heading: 0,
-            speed: 0,
-            lastLocationUpdate: assignment.deliveredAt ? assignment.deliveredAt.toISOString() : null,
-          }
-        : {
-            latitude: r?.currentLatitude || assignment.riderLatitudeAtOffer || null,
-            longitude: r?.currentLongitude || assignment.riderLongitudeAtOffer || null,
-            heading: r?.heading || 0,
-            speed: r?.speed || 0,
-            lastLocationUpdate: r?.lastLocationUpdate ? r.lastLocationUpdate.toISOString() : null,
-          },
-      pickupLocation: {
-        name: pickupStoreName,
-        latitude: assignment.sellerLatitude || null,
-        longitude: assignment.sellerLongitude || null,
-      },
-      destinationLocation: {
-        fullName: order?.shippingFullName || null,
-        phone: order?.shippingPhone || null,
-        addressLine1: order?.shippingAddressLine1 || null,
-        addressLine2: order?.shippingAddressLine2 || null,
-        city: order?.shippingCity || null,
-        state: order?.shippingState || null,
-        postalCode: order?.shippingPostalCode || null,
-        country: order?.shippingCountry || null,
-        latitude: (order?.shippingAddress as any)?.latitude || null,
-        longitude: (order?.shippingAddress as any)?.longitude || null,
-      },
-      socketRoom: isAssignmentDelivered ? null : `order:${order?.id}`,
-    }
+    const resolvedLoc = resolvedByAssignmentId.get(assignment.id)
+    const fallbackStoreName =
+      order?.items?.find((i) => i.sellerId === assignment.sellerId)?.seller?.store?.name ?? null
+    return buildCustomerDeliveryTracking({
+      assignment,
+      order,
+      dropoffPoint,
+      resolvedLoc,
+      fallbackStoreName,
+    })
   }
 
   const ACTIVE_STATUSES = ["OFFERED", "ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"]
@@ -665,26 +625,31 @@ export async function getCustomerOrderDetail({
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     shippingCountry: order.shippingCountry,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+    dropoffLocation: dropoffPoint,
     createdAt: order.createdAt.toISOString(),
     sellerStoreName: order.seller?.store?.name ?? null,
     sellerGroups,
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: (assignments || []).map((a: any) => ({
-      ...a,
-      deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
-      rider: a.rider
-        ? {
-            ...a.rider,
-            isOnline: Boolean(
-              a.rider.isOnline &&
-              a.rider.lastLocationUpdate &&
-              (Date.now() - new Date(a.rider.lastLocationUpdate).getTime()) < 10 * 60 * 1000
-            ),
-          }
-        : null,
-    })),
+    deliveryAssignments: (assignments || []).map((a: any) => {
+      const resolved = resolvedByAssignmentId.get(a.id)
+      const enriched = resolved ? buildEnrichedAssignmentPayload(a, resolved) : a
+      const isAssignmentDelivered =
+        a.status === "DELIVERED" ||
+        order.status === "DELIVERED" ||
+        (Array.isArray(order.items) && order.items.length > 0 && order.items.every((i: any) => i.itemStatus === "DELIVERED"))
+      const hideCustomerRiderGps =
+        isAssignmentDelivered || !["PICKED_UP", "OUT_FOR_DELIVERY"].includes(a.status)
+      return {
+        ...enriched,
+        isDelivered: isAssignmentDelivered,
+        deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
+        rider: sanitizeAssignmentRiderTelemetry(a.rider, hideCustomerRiderGps),
+      }
+    }),
     activeDeliveryTracking,
     activeDeliveryTrackings,
   }

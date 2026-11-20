@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { manualAssignRiderToOrder, triggerOrderAutoDispatch, stopOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
+import { resolveEnrichedAssignmentById } from "@/lib/order-location"
 
 export async function POST(
   req: NextRequest,
@@ -115,10 +116,14 @@ export async function POST(
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
 
+    const enrichedAssignment = result.assignment?.id
+      ? await resolveEnrichedAssignmentById(result.assignment.id).catch(() => null)
+      : null
+
     return NextResponse.json({
       success: true,
       message: "Rider assigned successfully",
-      assignment: result.assignment,
+      assignment: enrichedAssignment ?? result.assignment,
     })
   } catch (error: any) {
     console.error("[API] Assign rider error:", error)

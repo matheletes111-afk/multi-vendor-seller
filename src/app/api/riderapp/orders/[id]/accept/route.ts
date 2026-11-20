@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { handleRiderAcceptAssignment } from "@/lib/delivery-dispatch"
+import { resolveEnrichedAssignmentById } from "@/lib/order-location"
 
 export async function POST(
   req: NextRequest,
@@ -45,10 +46,14 @@ export async function POST(
       return NextResponse.json({ error: result.message }, { status: 400 })
     }
 
+    const enrichedAssignment = result.assignment?.id
+      ? await resolveEnrichedAssignmentById(result.assignment.id).catch(() => null)
+      : null
+
     return NextResponse.json({
       success: true,
       message: "Delivery assignment accepted successfully",
-      assignment: result.assignment,
+      assignment: enrichedAssignment ?? result.assignment,
       deliveryOtp: result.deliveryOtp,
     })
   } catch (error: any) {

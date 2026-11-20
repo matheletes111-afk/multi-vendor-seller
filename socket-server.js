@@ -7,6 +7,52 @@ const { Server } = require("socket.io")
 const { PrismaClient } = require("@prisma/client")
 const http = require("http")
 
+const prisma = new PrismaClient()
+const activeOrderCache = new Map() // riderId -> { orderId, expiresAt }
+const MAX_ACTIVE_ORDER_CACHE = 2000
+
+async function resolveActiveOrderIdForRider(riderId, explicitOrderId) {
+  if (!riderId && !explicitOrderId) return null
+
+  const now = Date.now()
+  if (explicitOrderId) {
+    if (riderId) {
+      if (activeOrderCache.size >= MAX_ACTIVE_ORDER_CACHE) {
+        const oldestKey = activeOrderCache.keys().next().value
+        if (oldestKey !== undefined) activeOrderCache.delete(oldestKey)
+      }
+      activeOrderCache.set(riderId, { orderId: explicitOrderId, expiresAt: now + 10000 })
+    }
+    return explicitOrderId
+  }
+
+  const cached = activeOrderCache.get(riderId)
+  if (cached && cached.expiresAt > now) {
+    return cached.orderId
+  }
+
+  try {
+    const activeAssignment = await prisma.riderDeliveryAssignment.findFirst({
+      where: {
+        rider: { OR: [{ id: riderId }, { userId: riderId }] },
+        status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"] },
+      },
+      select: { orderId: true },
+      orderBy: { offeredAt: "desc" },
+    })
+    const orderId = activeAssignment?.orderId || null
+    if (activeOrderCache.size >= MAX_ACTIVE_ORDER_CACHE) {
+      const oldestKey = activeOrderCache.keys().next().value
+      if (oldestKey !== undefined) activeOrderCache.delete(oldestKey)
+    }
+    // Cache resolved orderId for 10s, and empty state briefly (2s) so newly accepted orders go live fast
+    activeOrderCache.set(riderId, { orderId, expiresAt: now + (orderId ? 10000 : 2000) })
+    return orderId
+  } catch (err) {
+    return null
+  }
+}
+
 const PORT = process.env.SOCKET_PORT || 3001
 const NEXT_URL = process.env.NEXTJS_INTERNAL_URL || "http://localhost:3000"
 const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET || ""
@@ -26,7 +72,7 @@ const server = http.createServer((req, res) => {
   if (req.method === "POST" && req.url === "/internal/location") {
     let body = ""
     req.on("data", (chunk) => { body += chunk })
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const data = JSON.parse(body)
         const { riderId, orderId, latitude, longitude, heading, speed } = data || {}
@@ -34,10 +80,11 @@ const server = http.createServer((req, res) => {
           const numLat = Number(latitude)
           const numLng = Number(longitude)
           if (!isNaN(numLat) && !isNaN(numLng) && numLat >= -90 && numLat <= 90 && numLng >= -180 && numLng <= 180) {
-            if (orderId) {
-              io.to(`order:${orderId}`).emit("order:rider_moved", {
+            const targetOrderId = await resolveActiveOrderIdForRider(riderId, orderId)
+            if (targetOrderId) {
+              io.to(`order:${targetOrderId}`).emit("order:rider_moved", {
                 riderId,
-                orderId,
+                orderId: targetOrderId,
                 latitude: numLat,
                 longitude: numLng,
                 heading: heading || 0,
@@ -70,21 +117,22 @@ const server = http.createServer((req, res) => {
     req.on("data", (chunk) => {
       body += chunk
     })
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const data = JSON.parse(body)
         const { riderId, isOnline } = data || {}
         if (riderId && isOnline !== undefined) {
-          io.to("admin:fleet").emit("rider:status_changed", {
+          if (!Boolean(isOnline)) {
+            activeOrderCache.delete(riderId)
+          }
+          const payload = {
+            ...data,
             riderId,
             isOnline: Boolean(isOnline),
-            timestamp: Date.now(),
-          })
-          io.to(`rider:${riderId}`).emit("rider:status_changed", {
-            riderId,
-            isOnline: Boolean(isOnline),
-            timestamp: Date.now(),
-          })
+            timestamp: data.timestamp || Date.now(),
+          }
+          io.to("admin:fleet").emit("rider:status_changed", payload)
+          io.to(`rider:${riderId}`).emit("rider:status_changed", payload)
         }
         res.writeHead(200, { "Content-Type": "application/json" })
         res.end(JSON.stringify({ success: true }))
@@ -172,11 +220,12 @@ io.on("connection", (socket) => {
       return
     }
 
-    // 1. INSTANT BROADCAST (<50ms) to customer/seller watching this delivery
-    if (orderId) {
-      io.to(`order:${orderId}`).emit("order:rider_moved", {
+    // 1. INSTANT BROADCAST (<50ms) to customer/seller/rider watching this delivery
+    const targetOrderId = await resolveActiveOrderIdForRider(riderId, orderId)
+    if (targetOrderId) {
+      io.to(`order:${targetOrderId}`).emit("order:rider_moved", {
         riderId,
-        orderId,
+        orderId: targetOrderId,
         latitude: numLat,
         longitude: numLng,
         heading: heading || 0,
@@ -226,6 +275,9 @@ io.on("connection", (socket) => {
   socket.on("rider:status_update", async (data) => {
     const { riderId, isOnline } = data || {}
     if (!riderId || isOnline === undefined) return
+    if (!Boolean(isOnline)) {
+      activeOrderCache.delete(riderId)
+    }
     try {
       await prisma.rider.updateMany({
         where: { OR: [{ id: riderId }, { userId: riderId }] },

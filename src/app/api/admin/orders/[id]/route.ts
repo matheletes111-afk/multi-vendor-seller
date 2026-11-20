@@ -22,6 +22,11 @@ import {
 } from "@/lib/order-cancel-guard"
 import { sendDeliveryOtp } from "@/lib/delivery-otp"
 import { triggerOrderAutoDispatch, cancelAcceptedRiderAssignment } from "@/lib/delivery-dispatch"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+  resolveOrderDropoffPoint,
+} from "@/lib/order-location"
 
 function isValidAdminStatus(s: string): s is PatchOrderStatusPayload["status"] {
   return ADMIN_ORDER_STATUSES.includes(s as PatchOrderStatusPayload["status"])
@@ -83,6 +88,33 @@ export async function GET(
       seller: { include: { store: { select: { name: true } } } },
       deliveryAssignments: {
         include: {
+          seller: {
+            include: {
+              store: {
+                select: {
+                  name: true,
+                  address: true,
+                  city: true,
+                  state: true,
+                  zipCode: true,
+                  country: true,
+                  lat: true,
+                  lng: true,
+                },
+              },
+              businessInfo: {
+                select: {
+                  businessName: true,
+                  street: true,
+                  city: true,
+                  district: true,
+                  postalCode: true,
+                  latitude: true,
+                  longitude: true,
+                },
+              },
+            },
+          },
           rider: {
             include: {
               user: {
@@ -337,6 +369,20 @@ export async function GET(
   })
 
   const orderHasDeliveredLine = order.items.some((i) => i.itemStatus === "DELIVERED")
+  const dropoffPoint = await resolveOrderDropoffPoint(order)
+  const orderWithResolvedDropoff = {
+    ...order,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+  }
+  const resolvedAssignmentLocations = await Promise.all(
+    order.deliveryAssignments.map((a) =>
+      resolveAssignmentLocations(
+        { ...a, order: orderWithResolvedDropoff },
+        { geocodeIfMissing: true, persistBackfill: true }
+      )
+    )
+  )
 
   const body: AdminOrderDetailApi = {
     id: order.id,
@@ -385,6 +431,9 @@ export async function GET(
     shippingState: order.shippingState,
     shippingPostalCode: order.shippingPostalCode,
     shippingCountry: order.shippingCountry,
+    shippingLatitude: dropoffPoint.latitude,
+    shippingLongitude: dropoffPoint.longitude,
+    dropoffLocation: dropoffPoint,
     createdAt: order.createdAt.toISOString(),
     customerName: order.customer?.name ?? null,
     customerEmail: order.customer?.email ?? null,
@@ -395,13 +444,14 @@ export async function GET(
     items,
     couponCode: order.couponCode,
     couponDiscount: order.couponDiscount,
-    deliveryAssignments: order.deliveryAssignments.map((a) => {
+    deliveryAssignments: order.deliveryAssignments.map((a, idx) => {
       const isAssignmentDelivered =
         a.status === "DELIVERED" ||
         order.status === "DELIVERED" ||
         orderHasDeliveredLine
+      const enriched = buildEnrichedAssignmentPayload(a, resolvedAssignmentLocations[idx])
       return {
-        ...a,
+        ...enriched,
         isDelivered: isAssignmentDelivered,
         deliveryOtp: a.status === "DELIVERED" ? a.deliveryOtp : null,
         rider: a.rider

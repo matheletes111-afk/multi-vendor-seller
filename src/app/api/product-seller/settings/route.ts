@@ -11,6 +11,11 @@ import { checkDisallowedName } from "@/lib/name-validation"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { generateSlug } from "@/lib/utils"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import {
+  parseOptionalCoordNumber,
+  resolveSellerBusinessCoords,
+  resolveSellerStoreCoords,
+} from "@/lib/order-location"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -279,8 +284,10 @@ export async function PUT(request: NextRequest) {
     if (yearsInOpRaw !== null && yearsInOpRaw !== "" && !isNaN(Number(yearsInOpRaw))) {
       busInfoData.yearsInOperation = parseInt(yearsInOpRaw)
     }
-    if (busLatRaw !== null && !isNaN(Number(busLatRaw))) busInfoData.latitude = Number(busLatRaw)
-    if (busLngRaw !== null && !isNaN(Number(busLngRaw))) busInfoData.longitude = Number(busLngRaw)
+    const parsedBusLat = parseOptionalCoordNumber(busLatRaw)
+    const parsedBusLng = parseOptionalCoordNumber(busLngRaw)
+    if (parsedBusLat !== null) busInfoData.latitude = parsedBusLat
+    if (parsedBusLng !== null) busInfoData.longitude = parsedBusLng
 
     const busRegCert = fd.get("busRegCert") as File | null
     if (busRegCert && busRegCert.size > 0) {
@@ -324,6 +331,14 @@ export async function PUT(request: NextRequest) {
     }
 
     if (Object.keys(busInfoData).length > 0) {
+        const bizCoords = await resolveSellerBusinessCoords(busInfoData, seller)
+        if (bizCoords) {
+          busInfoData.latitude = bizCoords.latitude
+          busInfoData.longitude = bizCoords.longitude
+        } else {
+          delete busInfoData.latitude
+          delete busInfoData.longitude
+        }
         await (prisma as any).sellerBusinessInfo.upsert({
             where: { sellerId: seller.id },
             update: busInfoData,
@@ -509,6 +524,11 @@ export async function PUT(request: NextRequest) {
     }
 
     if (Object.keys(storeUpdates).length > 0) {
+        const resolvedStoreCoords = await resolveSellerStoreCoords(storeUpdates, seller)
+        if (resolvedStoreCoords) {
+          storeUpdates.lat = resolvedStoreCoords.latitude
+          storeUpdates.lng = resolvedStoreCoords.longitude
+        }
         if (seller.store) {
             await prisma.store.update({
                 where: { id: seller.store.id },
@@ -653,8 +673,25 @@ export async function PUT(request: NextRequest) {
     if (storeData.storeState !== undefined && data.state === undefined) data.state = storeData.storeState
     if (storeData.storeZipCode !== undefined && data.zipCode === undefined) data.zipCode = storeData.storeZipCode
     if (storeData.storeCountry !== undefined && data.country === undefined) data.country = storeData.storeCountry
+    if (storeData.storeLat !== undefined && data.lat === undefined) data.lat = storeData.storeLat
+    if (storeData.storeLng !== undefined && data.lng === undefined) data.lng = storeData.storeLng
+
+    const parsedStoreLat = parseOptionalCoordNumber(data.lat)
+    const parsedStoreLng = parseOptionalCoordNumber(data.lng)
+    if (parsedStoreLat !== null) data.lat = parsedStoreLat
+    else delete data.lat
+    if (parsedStoreLng !== null) data.lng = parsedStoreLng
+    else delete data.lng
 
     if (Object.keys(data).length > 0) {
+      const resolvedStoreCoords = await resolveSellerStoreCoords(data, seller)
+      if (resolvedStoreCoords) {
+        data.lat = resolvedStoreCoords.latitude
+        data.lng = resolvedStoreCoords.longitude
+      } else {
+        delete data.lat
+        delete data.lng
+      }
       if (seller.store) {
         await prisma.store.update({
           where: { id: seller.store.id },
@@ -771,11 +808,23 @@ export async function PUT(request: NextRequest) {
       }
       if (cleanBusInfo.latitude !== undefined && cleanBusInfo.latitude !== null && cleanBusInfo.latitude !== "") {
         cleanBusInfo.latitude = Number(cleanBusInfo.latitude)
+      } else {
+        delete cleanBusInfo.latitude
       }
       if (cleanBusInfo.longitude !== undefined && cleanBusInfo.longitude !== null && cleanBusInfo.longitude !== "") {
         cleanBusInfo.longitude = Number(cleanBusInfo.longitude)
+      } else {
+        delete cleanBusInfo.longitude
       }
       if (Object.keys(cleanBusInfo).length > 0) {
+        const bizCoords = await resolveSellerBusinessCoords(cleanBusInfo, seller)
+        if (bizCoords) {
+          cleanBusInfo.latitude = bizCoords.latitude
+          cleanBusInfo.longitude = bizCoords.longitude
+        } else {
+          delete cleanBusInfo.latitude
+          delete cleanBusInfo.longitude
+        }
         await (prisma as any).sellerBusinessInfo.upsert({
           where: { sellerId: seller.id },
           update: cleanBusInfo,

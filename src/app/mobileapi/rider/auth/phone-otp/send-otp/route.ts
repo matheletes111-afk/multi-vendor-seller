@@ -114,6 +114,7 @@ export async function POST(request: Request) {
       to: normalizedPhone,
       body: `Your MEEEM Rider login OTP is ${otp}. Valid for 10 minutes. Do not share this code.`,
     })
+    sec.recordSuccess()
 
     return NextResponse.json(
       {

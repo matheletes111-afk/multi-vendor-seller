@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/rbac"
+import { extractOrderDropoffData, extractSellerPickupData } from "@/lib/order-location"
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,18 +52,34 @@ export async function GET(req: NextRequest) {
             status: { in: ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"] },
           },
           include: {
+            seller: {
+              include: {
+                store: true,
+                businessInfo: true,
+                user: { select: { name: true, phone: true } },
+              },
+            },
             order: {
               select: {
                 id: true,
                 orderNumber: true,
                 status: true,
                 shippingAddress: true,
-                shippingCity: true,
+                shippingFullName: true,
+                shippingPhone: true,
                 shippingAddressLine1: true,
+                shippingAddressLine2: true,
+                shippingCity: true,
+                shippingState: true,
+                shippingPostalCode: true,
+                shippingCountry: true,
+                shippingLatitude: true,
+                shippingLongitude: true,
                 seller: {
                   include: {
                     store: true,
                     businessInfo: true,
+                    user: { select: { name: true, phone: true } },
                   },
                 },
               },
@@ -105,16 +122,15 @@ export async function GET(req: NextRequest) {
       const vehicleTypesList = Array.isArray(r.vehicleTypes) ? (r.vehicleTypes as string[]) : []
       const primaryVehicleType = vehicleTypesList[0] || "2_WHEELER"
 
-      const sellerObj = activeAssignment?.order?.seller
-      const sellerStoreName =
-        sellerObj?.store?.name ||
-        sellerObj?.businessInfo?.companyName ||
-        "Store"
-
-      const sellerAddress =
-        sellerObj?.store?.address ||
-        sellerObj?.businessInfo?.address ||
-        null
+      const sellerObj = activeAssignment?.seller || activeAssignment?.order?.seller
+      const pickupData = activeAssignment
+        ? extractSellerPickupData(sellerObj, activeAssignment)
+        : null
+      const dropoffData = activeAssignment?.order
+        ? extractOrderDropoffData(activeAssignment.order)
+        : null
+      const sellerStoreName = pickupData?.name || "Store"
+      const sellerAddress = pickupData?.address || null
 
       return {
         id: r.id,
@@ -177,8 +193,8 @@ export async function GET(req: NextRequest) {
               orderStatus: activeAssignment.order?.status,
               sellerName: sellerStoreName,
               sellerAddress: sellerAddress,
-              sellerLat: activeAssignment.sellerLatitude || null,
-              sellerLng: activeAssignment.sellerLongitude || null,
+              sellerLat: pickupData?.latitude ?? null,
+              sellerLng: pickupData?.longitude ?? null,
               customerAddress:
                 activeAssignment.order?.shippingAddressLine1 ||
                 (activeAssignment.order?.shippingAddress as any)?.addressLine1 ||
@@ -187,6 +203,8 @@ export async function GET(req: NextRequest) {
                 activeAssignment.order?.shippingCity ||
                 (activeAssignment.order?.shippingAddress as any)?.city ||
                 null,
+              destinationLat: dropoffData?.latitude ?? null,
+              destinationLng: dropoffData?.longitude ?? null,
             }
           : null,
       }

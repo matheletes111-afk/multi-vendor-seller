@@ -68,6 +68,10 @@ export async function middleware(request: NextRequest) {
     "/restaurant-seller/forgot-password",
     "/restaurant-seller/reset-password",
     "/riderapp/login",
+    "/riderapp/login/email-otp",
+    "/riderapp/login/email-otp/verify",
+    "/riderapp/login/phone-otp",
+    "/riderapp/login/phone-otp/verify",
     "/riderapp/registration",
     "/riderapp/verify-email",
     "/riderapp/forgot-password",
@@ -300,11 +304,19 @@ export async function middleware(request: NextRequest) {
   if (path.startsWith("/riderapp")) {
     const isPublicRiderAuth =
       path === "/riderapp/login" ||
+      path === "/riderapp/login/email-otp" ||
+      path === "/riderapp/login/email-otp/verify" ||
+      path === "/riderapp/login/phone-otp" ||
+      path === "/riderapp/login/phone-otp/verify" ||
       path === "/riderapp/registration" ||
       path === "/riderapp/verify-email" ||
       path === "/riderapp/forgot-password" ||
       path === "/riderapp/reset-password" ||
       path.startsWith("/riderapp/login?") ||
+      path.startsWith("/riderapp/login/email-otp?") ||
+      path.startsWith("/riderapp/login/email-otp/verify?") ||
+      path.startsWith("/riderapp/login/phone-otp?") ||
+      path.startsWith("/riderapp/login/phone-otp/verify?") ||
       path.startsWith("/riderapp/registration?") ||
       path.startsWith("/riderapp/verify-email?") ||
       path.startsWith("/riderapp/forgot-password?") ||

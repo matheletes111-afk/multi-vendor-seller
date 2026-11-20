@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
+import { resolveSavedAddressCoords } from "@/lib/order-location"
 import type { AddressApi } from "../types"
 
 function toAddressApi(row: {
@@ -93,9 +94,6 @@ export async function POST(request: NextRequest) {
   const postalCode = typeof payload.postalCode === "string" && payload.postalCode.trim() ? payload.postalCode.trim() : null
   const country = typeof payload.country === "string" && payload.country.trim() ? payload.country.trim() : null
 
-  const latitude = payload.latitude != null && !isNaN(Number(payload.latitude)) ? Number(payload.latitude) : null
-  const longitude = payload.longitude != null && !isNaN(Number(payload.longitude)) ? Number(payload.longitude) : null
-
   if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode || !country) {
     return NextResponse.json(
       { error: "Missing required fields: fullName, phone, addressLine1, city, state, postalCode, country" },
@@ -103,6 +101,11 @@ export async function POST(request: NextRequest) {
     )
   }
   const addressLine2 = typeof payload.addressLine2 === "string" ? payload.addressLine2.trim() || null : null
+  const resolvedCoords = await resolveSavedAddressCoords({
+    explicitLat: payload.latitude,
+    explicitLng: payload.longitude,
+    addressParts: [addressLine1, addressLine2, city, state, postalCode, country],
+  })
   const isDefault = payload.isDefault === true
   if (isDefault) {
     await prisma.userAddress.updateMany({
@@ -122,8 +125,8 @@ export async function POST(request: NextRequest) {
       state,
       postalCode,
       country,
-      latitude,
-      longitude,
+      latitude: resolvedCoords?.latitude ?? null,
+      longitude: resolvedCoords?.longitude ?? null,
       isDefault,
     },
   })

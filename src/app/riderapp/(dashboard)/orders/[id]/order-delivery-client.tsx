@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/ui/dialog"
 import { cn, formatCurrency } from "@/lib/utils"
+import { OrderLiveTrackingMap } from "@/components/delivery/order-live-tracking-map"
 
 export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: string }) {
   const router = useRouter()
@@ -166,8 +167,14 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
         }
         if (nextStatus === "CANCELLED_BY_RIDER") {
           setCancelModalOpen(false)
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("rider:assignment_changed"))
+          }
           router.push("/riderapp/orders")
           return
+        }
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("rider:assignment_changed"))
         }
         fetchDetail()
       } else {
@@ -209,22 +216,43 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
   }
 
   const order = assignment.order
+  const assignedSeller = assignment.seller || order?.seller
   const shopName =
-    order?.seller?.store?.name ||
-    order?.seller?.businessInfo?.businessName ||
+    assignedSeller?.store?.name ||
+    assignedSeller?.businessInfo?.businessName ||
     "Seller Store"
   const shopPhone =
-    order?.seller?.user?.phone ||
-    order?.seller?.businessInfo?.pocContact ||
+    assignedSeller?.user?.phone ||
+    assignedSeller?.businessInfo?.pocContact ||
     ""
-  const shopAddress = [
-    order?.seller?.businessInfo?.street,
-    order?.seller?.businessInfo?.city,
-  ]
-    .filter(Boolean)
-    .join(", ")
-  const shopLat = order?.seller?.businessInfo?.latitude || assignment.sellerLatitude
-  const shopLng = order?.seller?.businessInfo?.longitude || assignment.sellerLongitude
+  const shopAddress =
+    [
+      assignedSeller?.businessInfo?.street,
+      assignedSeller?.businessInfo?.city,
+      assignedSeller?.businessInfo?.district,
+      assignedSeller?.businessInfo?.postalCode,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    [
+      assignedSeller?.store?.address,
+      assignedSeller?.store?.city,
+      assignedSeller?.store?.state,
+    ]
+      .filter(Boolean)
+      .join(", ")
+  const shopLat =
+    assignment.pickupLocation?.latitude ??
+    assignment.sellerLatitude ??
+    assignedSeller?.businessInfo?.latitude ??
+    assignedSeller?.store?.lat ??
+    null
+  const shopLng =
+    assignment.pickupLocation?.longitude ??
+    assignment.sellerLongitude ??
+    assignedSeller?.businessInfo?.longitude ??
+    assignedSeller?.store?.lng ??
+    null
 
   const customerName = order?.shippingFullName || order?.customer?.name || "Customer"
   const customerPhone = order?.shippingPhone || order?.customer?.phone || ""
@@ -232,21 +260,41 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
     order?.shippingAddressLine1,
     order?.shippingAddressLine2,
     order?.shippingCity,
+    order?.shippingState,
     order?.shippingPostalCode,
+    order?.shippingCountry,
   ]
     .filter(Boolean)
     .join(", ")
+  const destLat =
+    assignment.dropoffLocation?.latitude ??
+    order?.shippingLatitude ??
+    (order?.shippingAddress as any)?.latitude ??
+    null
+  const destLng =
+    assignment.dropoffLocation?.longitude ??
+    order?.shippingLongitude ??
+    (order?.shippingAddress as any)?.longitude ??
+    null
 
   const isDelivered = assignment.status === "DELIVERED"
   const isCancelled = assignment.status === "CANCELLED_BY_RIDER"
+  const showRouteMap =
+    !isCancelled &&
+    ["ACCEPTED", "AT_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED"].includes(
+      assignment.status
+    )
 
   // Google Maps Deep Links
   const shopMapsUrl =
-    shopLat && shopLng
+    shopLat != null && shopLng != null
       ? `https://www.google.com/maps/dir/?api=1&destination=${shopLat},${shopLng}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shopAddress || shopName)}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shopAddress || shopName)}`
 
-  const dropMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dropAddress || customerName)}`
+  const dropMapsUrl =
+    destLat != null && destLng != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dropAddress || customerName)}`
 
   // Status Stepper
   const steps = [
@@ -346,6 +394,37 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
           </div>
         )}
       </div>
+
+      {/* Live Route Map & Phase Polyline (Rider -> Pickup before pickup, Rider -> Delivery after pickup) */}
+      {showRouteMap && (
+        <div className="p-4 sm:p-5 rounded-3xl border border-border/80 bg-card shadow-xs">
+          <OrderLiveTrackingMap
+            orderId={assignment.orderId}
+            orderNumber={order?.orderNumber}
+            orderStatus={assignment.status === "DELIVERED" ? "DELIVERED" : order?.status}
+            deliveryAssignments={[assignment]}
+            pickupName={shopName}
+            pickupAddress={shopAddress}
+            pickupLat={shopLat}
+            pickupLng={shopLng}
+            shippingAddress={{
+              fullName: customerName,
+              phone: customerPhone,
+              addressLine1: order?.shippingAddressLine1,
+              addressLine2: order?.shippingAddressLine2,
+              city: order?.shippingCity,
+              state: order?.shippingState,
+              postalCode: order?.shippingPostalCode,
+              country: order?.shippingCountry,
+            }}
+            destinationLat={destLat}
+            destinationLng={destLng}
+            viewerRole="rider"
+            enableBrowserGps={true}
+            height="340px"
+          />
+        </div>
+      )}
 
       {/* Pickup & Drop Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

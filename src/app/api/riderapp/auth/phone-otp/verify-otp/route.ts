@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { UserRole } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { createOtpLoginToken } from "@/lib/web-otp-login"
+import { ensureRiderProfile, isRiderSuspended } from "@/lib/rider-auth"
 import { getCandidateCountryCodePhonePairs } from "@/lib/phone-otp-lookup"
 import { isValidE164, normalizePhoneNumber } from "@/lib/twilio-sms"
 import { checkOtpRateLimit, recordOtpFailure, resetOtpRateLimit } from "@/lib/rate-limit"
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
         isEmailVerified: true,
         rider: {
           select: {
+            id: true,
             isSuspended: true,
             status: true,
           },
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid phone number or OTP." }, { status: 400 })
     }
 
-    if (user.rider?.isSuspended || user.rider?.status === "SUSPENDED") {
+    if (isRiderSuspended(user.rider)) {
       return NextResponse.json(
         { error: "Your rider account has been suspended. Please contact support." },
         { status: 403 }
@@ -96,6 +98,14 @@ export async function POST(request: Request) {
     })
 
     await resetOtpRateLimit(rateLimitKey)
+
+    const riderProfile = await ensureRiderProfile(user.id, user.rider)
+    if (!riderProfile) {
+      return NextResponse.json(
+        { error: "Rider profile not found. Please contact support." },
+        { status: 403 }
+      )
+    }
 
     const otpLoginToken = createOtpLoginToken(user.email || user.phone, UserRole.RIDER, {
       userId: user.id,

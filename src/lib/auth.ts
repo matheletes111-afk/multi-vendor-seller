@@ -26,33 +26,53 @@ const providers: any[] = [
       }
 
       const identifier = (credentials.email as string).trim()
+      const requestedRole = credentials.role as string | undefined
+      const roleFilter =
+        requestedRole && Object.values(UserRole).includes(requestedRole as UserRole)
+          ? { role: requestedRole as UserRole }
+          : {}
+
+      const otpLoginToken =
+        typeof credentials.otpLoginToken === "string" ? credentials.otpLoginToken.trim() : ""
+      const isOtpLogin = otpLoginToken.length > 0
+      const otpPayload = isOtpLogin ? verifyOtpLoginToken(otpLoginToken) : null
+
       let user: any = null
 
-      if (identifier.includes("@")) {
-        user = await prisma.user.findFirst({
-          where: { email: identifier.toLowerCase() },
-        })
-      } else {
-        const variants = getEquivalentPhoneVariants(identifier)
-        user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { phone: { in: variants } },
-              { phone: identifier },
-            ],
-          },
-        })
+      if (isOtpLogin) {
+        if (!otpPayload) return null
+        if (otpPayload.userId) {
+          user = await prisma.user.findFirst({
+            where: { id: otpPayload.userId, ...roleFilter },
+          })
+        }
+      }
+
+      if (!user) {
+        if (identifier.includes("@")) {
+          user = await prisma.user.findFirst({
+            where: { email: identifier.toLowerCase(), ...roleFilter },
+          })
+        } else {
+          const variants = getEquivalentPhoneVariants(identifier)
+          user = await prisma.user.findFirst({
+            where: {
+              ...roleFilter,
+              OR: [
+                { phone: { in: variants } },
+                { phone: identifier },
+              ],
+            },
+          })
+        }
       }
 
       if (!user) {
         return null
       }
 
-      const otpLoginToken =
-        typeof credentials.otpLoginToken === "string" ? credentials.otpLoginToken.trim() : ""
-      const isOtpLogin = otpLoginToken.length > 0
       if (isOtpLogin) {
-        const payload = verifyOtpLoginToken(otpLoginToken)
+        const payload = otpPayload
         if (!payload) return null
         if (payload.userId) {
           if (payload.userId !== user.id) return null
@@ -77,7 +97,6 @@ const providers: any[] = [
         }
       }
 
-      const requestedRole = credentials.role as string | undefined
       if (requestedRole && user.role !== requestedRole) {
         return null
       }

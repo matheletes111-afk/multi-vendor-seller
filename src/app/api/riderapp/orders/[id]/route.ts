@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import {
+  buildEnrichedAssignmentPayload,
+  resolveAssignmentLocations,
+} from "@/lib/order-location"
 
 export async function GET(
   req: NextRequest,
@@ -30,6 +34,18 @@ export async function GET(
         OR: [{ id }, { orderId: id }],
       },
       include: {
+        rider: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                image: true,
+              },
+            },
+          },
+        },
         seller: {
           include: {
             store: true,
@@ -76,7 +92,6 @@ export async function GET(
     }
 
     // Filter items to only show the items for this rider's assigned seller package
-    const assignedSeller = assignment.seller || assignment.order?.seller || null
     const assignedItems = (assignment.order?.items || []).filter(
       (item) => !assignment.sellerId || item.sellerId === assignment.sellerId
     )
@@ -85,13 +100,15 @@ export async function GET(
       0
     ) || Number(assignment.order?.shipping || 0)
 
+    const resolved = await resolveAssignmentLocations(assignment)
+    const enriched = buildEnrichedAssignmentPayload(assignment, resolved)
+
     const sanitizedAssignment = {
-      ...assignment,
+      ...enriched,
       earningForThisDelivery,
-      order: assignment.order
+      order: enriched.order
         ? {
-            ...assignment.order,
-            seller: assignedSeller,
+            ...enriched.order,
             items: assignedItems,
           }
         : null,

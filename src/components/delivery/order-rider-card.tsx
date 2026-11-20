@@ -835,7 +835,7 @@ export function OrderRiderCard({
                   orderId={orderId}
                   orderNumber={orderNumber}
                   orderStatus={orderStatus || activeAssignment.status}
-                  deliveryAssignments={deliveryAssignments}
+                  deliveryAssignments={[activeAssignment]}
                   shippingAddress={shippingAddress}
                   destinationLat={destinationLat}
                   destinationLng={destinationLng}
