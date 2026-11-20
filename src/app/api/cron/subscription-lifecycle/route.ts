@@ -40,23 +40,44 @@ function isAuthorized(req: NextRequest): boolean {
   return false
 }
 
+async function handleLifecycleRequest(req: NextRequest, dryRun: boolean, method: "GET" | "POST") {
+  if (!isAuthorized(req)) {
+    console.warn(`[${method} /api/cron/subscription-lifecycle] Unauthorized request rejected (401)`)
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        message: "Valid authorization secret (x-internal-secret, x-cron-secret header, Bearer token, or ?secret= query) is required.",
+      },
+      { status: 401 }
+    )
+  }
+
+  const startTime = Date.now()
+  const sweepResult = await runSubscriptionLifecycleSweep({ dryRun })
+  const durationMs = Date.now() - startTime
+
+  console.log(`[${method} /api/cron/subscription-lifecycle] Sweep completed`, {
+    success: sweepResult.success,
+    dryRun,
+    durationMs,
+    stalePendingFailedCount: sweepResult.stalePendingFailedCount,
+    expiredCount: sweepResult.expiredCount,
+    promotedCount: sweepResult.promotedCount,
+    remindersSent: sweepResult.remindersSent,
+    errorCount: sweepResult.errors.length,
+  })
+
+  return NextResponse.json(
+    { ...sweepResult, durationMs },
+    { status: sweepResult.success ? 200 : 500 }
+  )
+}
+
 export async function GET(req: NextRequest) {
   try {
-    if (!isAuthorized(req)) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-          message: "Valid authorization secret (x-cron-secret header or ?secret= query) is required.",
-        },
-        { status: 401 }
-      )
-    }
-
     const { searchParams } = req.nextUrl
     const dryRun = searchParams.get("dryRun") === "true" // default false on GET if explicitly run by cron
-
-    const sweepResult = await runSubscriptionLifecycleSweep({ dryRun })
-    return NextResponse.json(sweepResult)
+    return await handleLifecycleRequest(req, dryRun, "GET")
   } catch (error: any) {
     console.error("[GET /api/cron/subscription-lifecycle] Error:", error)
     return NextResponse.json(
@@ -68,21 +89,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!isAuthorized(req)) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-          message: "Valid authorization secret (x-cron-secret header or ?secret= query) is required.",
-        },
-        { status: 401 }
-      )
-    }
-
-    const body = await req.json().catch(() => ({}))
-    const dryRun = body.dryRun === true
-
-    const sweepResult = await runSubscriptionLifecycleSweep({ dryRun })
-    return NextResponse.json(sweepResult)
+    const rawBody = await req.json().catch(() => ({}))
+    const parsedBody =
+      typeof rawBody === "string"
+        ? await Promise.resolve().then(() => JSON.parse(rawBody)).catch(() => ({}))
+        : rawBody
+    const dryRun = parsedBody?.dryRun === true
+    return await handleLifecycleRequest(req, dryRun, "POST")
   } catch (error: any) {
     console.error("[POST /api/cron/subscription-lifecycle] Error:", error)
     return NextResponse.json(
@@ -91,4 +104,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-
