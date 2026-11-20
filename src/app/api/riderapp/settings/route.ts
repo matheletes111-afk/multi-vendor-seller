@@ -522,6 +522,7 @@ export async function POST(request: Request) {
       success: true,
       message: "Settings updated successfully!",
       rider: updatedRider,
+      passwordHash: userUpdates.password || undefined,
     })
   } catch (error) {
     console.error("Rider settings update error:", error)

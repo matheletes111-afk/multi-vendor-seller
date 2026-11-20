@@ -45,6 +45,15 @@ export function ApprovalLiveSync({
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null)
   const [approvedNotice, setApprovedNotice] = useState<boolean>(false)
   const [checking, setChecking] = useState<boolean>(false)
+  const [sessionIssue, setSessionIssue] = useState<string | null>(null)
+
+  const loginPath = (() => {
+    if (role === "SELLER_SERVICE") return "/service-seller/login"
+    if (role === "SELLER_HOTEL") return "/hotel-seller/login"
+    if (role === "SELLER_RESTAURANT") return "/restaurant-seller/login"
+    if (role === "RIDER") return "/riderapp/login"
+    return "/product-seller/login"
+  })()
 
   const isApprovedRef = useRef(isApproved)
   isApprovedRef.current = isApproved
@@ -63,7 +72,18 @@ export function ApprovalLiveSync({
       const res = await fetch("/api/auth/live-status", {
         headers: { "Cache-Control": "no-cache" },
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 400) {
+          const errBody = await res.json().catch(() => ({}))
+          setSessionIssue(
+            res.status === 400 && String(errBody?.error || "").includes("Unsupported role")
+              ? "Your browser session switched to another portal (e.g. Customer/Admin). Please sign in here again."
+              : "Your session has expired. Please sign in again to continue."
+          )
+        }
+        return
+      }
+      setSessionIssue(null)
 
       const data: ApprovalStatusPayload = await res.json()
       if (!data) return
@@ -137,7 +157,7 @@ export function ApprovalLiveSync({
 
   // Polling loop while pending approval
   useEffect(() => {
-    if (isApproved) return
+    if (isApproved || sessionIssue) return
 
     const interval = setInterval(() => {
       checkLiveStatus()
@@ -146,7 +166,7 @@ export function ApprovalLiveSync({
     return () => {
       clearInterval(interval)
     }
-  }, [isApproved, checkLiveStatus])
+  }, [isApproved, sessionIssue, checkLiveStatus])
 
   // Re-check on tab focus / visibility so status changes or suspensions are detected immediately
   useEffect(() => {
@@ -171,6 +191,26 @@ export function ApprovalLiveSync({
 
   return (
     <>
+      {sessionIssue && (
+        <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2.5 text-xs flex items-center justify-between gap-3 text-red-700 dark:text-red-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="font-semibold">{sessionIssue}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-xs rounded-lg font-semibold shrink-0"
+            onClick={() => {
+              const cb = typeof window !== "undefined" ? encodeURIComponent(window.location.pathname + window.location.search) : ""
+              window.location.href = cb ? `${loginPath}?callbackUrl=${cb}` : loginPath
+            }}
+          >
+            Sign In Again
+          </Button>
+        </div>
+      )}
+
       {/* Real-time Approval Success Toast Banner */}
       {approvedNotice && (
         <div className="fixed top-4 right-4 z-50 max-w-md animate-in slide-in-from-top duration-500 shadow-2xl">

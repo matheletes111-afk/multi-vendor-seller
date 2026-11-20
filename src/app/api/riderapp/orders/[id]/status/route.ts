@@ -12,8 +12,24 @@ export async function POST(
 ) {
   try {
     const session = await auth()
-    if (!session?.user?.id || session.user.role !== "RIDER") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          error: "Your rider session has expired. Please sign in again.",
+          code: "SESSION_EXPIRED",
+        },
+        { status: 401 }
+      )
+    }
+    if (session.user.role !== "RIDER") {
+      return NextResponse.json(
+        {
+          error:
+            "Active browser session belongs to another portal/account. Please sign in to the Rider Portal again (use Incognito or a separate browser when testing Customer and Rider on the same site).",
+          code: "ROLE_MISMATCH",
+        },
+        { status: 401 }
+      )
     }
 
     const { id } = await params

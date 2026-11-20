@@ -278,6 +278,7 @@ export function RiderSettingsClient({ user: initialUser }: { user: any }) {
         await update({
           name: name.trim(),
           image: newPfp,
+          ...(data.passwordHash ? { passwordHash: data.passwordHash } : {}),
         })
       }
     } catch (err: any) {

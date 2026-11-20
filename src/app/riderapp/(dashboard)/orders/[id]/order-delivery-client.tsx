@@ -80,7 +80,15 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
       setLoading(true)
       setError(null)
       const res = await fetch(`/api/riderapp/orders/${assignmentId}`)
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        const msg = data.error || "Your Rider session expired. Redirecting to login..."
+        setError(msg)
+        setTimeout(() => {
+          router.push(`/riderapp/login?callbackUrl=${encodeURIComponent(`/riderapp/orders/${assignmentId}`)}`)
+        }, 1200)
+        return
+      }
       if (res.ok) {
         setAssignment(data.assignment)
       } else {
@@ -155,7 +163,21 @@ export function RiderOrderDeliveryClient({ assignmentId }: { assignmentId: strin
         }),
       })
 
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        const sessionMsg =
+          data.error || "Your Rider session has expired or switched in this browser. Please sign in again."
+        if (nextStatus === "DELIVERED") {
+          setOtpError(sessionMsg)
+        } else {
+          setError(sessionMsg)
+          alert(sessionMsg)
+        }
+        setTimeout(() => {
+          router.push(`/riderapp/login?callbackUrl=${encodeURIComponent(`/riderapp/orders/${assignmentId}`)}`)
+        }, 1500)
+        return
+      }
       if (res.ok) {
         if (nextStatus === "PICKED_UP") {
           setPickupModalOpen(false)

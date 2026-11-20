@@ -87,13 +87,17 @@ export async function runSubscriptionLifecycleSweep(options: SweepOptions = {}):
     // =========================================================================
     // 1. PROCESS OVERDUE SUBSCRIPTIONS (Expiry & Queued Promotion)
     // =========================================================================
+    // Include rows where provider IS NULL so non-Apple subscriptions without explicit provider are not skipped in SQL
+    const nonAppleProviderWhere = {
+      OR: [{ provider: null }, { provider: { not: "apple_iap" } }],
+    }
 
     // 1A. Product & Service Sellers
     const overdueProductSubs = await prisma.subscription.findMany({
       where: {
         status: { in: ["ACTIVE", "TRIALING", "IN_GRACE_PERIOD"] },
         currentPeriodEnd: { lte: now },
-        provider: { not: "apple_iap" },
+        ...nonAppleProviderWhere,
       },
       include: {
         seller: {
@@ -176,7 +180,7 @@ export async function runSubscriptionLifecycleSweep(options: SweepOptions = {}):
       where: {
         status: { in: ["ACTIVE", "TRIALING", "IN_GRACE_PERIOD"] },
         currentPeriodEnd: { lte: now },
-        provider: { not: "apple_iap" },
+        ...nonAppleProviderWhere,
       },
       include: {
         hotelSeller: {
@@ -257,7 +261,7 @@ export async function runSubscriptionLifecycleSweep(options: SweepOptions = {}):
       where: {
         status: { in: ["ACTIVE", "TRIALING", "IN_GRACE_PERIOD"] },
         currentPeriodEnd: { lte: now },
-        provider: { not: "apple_iap" },
+        ...nonAppleProviderWhere,
       },
       include: {
         restaurantSeller: {
@@ -359,11 +363,13 @@ export async function runSubscriptionLifecycleSweep(options: SweepOptions = {}):
         hotelSeller: {
           include: {
             user: { select: { id: true, email: true, phone: true, name: true, deviceTokens: true } },
+            businessInfo: { select: { businessName: true } },
           },
         },
         restaurantSeller: {
           include: {
             user: { select: { id: true, email: true, phone: true, name: true, deviceTokens: true } },
+            businessInfo: { select: { businessName: true } },
           },
         },
         reminderLogs: true,
@@ -387,10 +393,10 @@ export async function runSubscriptionLifecycleSweep(options: SweepOptions = {}):
         storeName = purchase.seller.store?.name || user.name || "Store"
       } else if (purchase.sellerType === PlanType.HOTEL && purchase.hotelSeller) {
         user = purchase.hotelSeller.user
-        storeName = (purchase.hotelSeller as any).businessInfo?.businessName || user.name || "Hotel"
+        storeName = purchase.hotelSeller.businessInfo?.businessName || user.name || "Hotel"
       } else if (purchase.sellerType === PlanType.RESTAURANT && purchase.restaurantSeller) {
         user = purchase.restaurantSeller.user
-        storeName = (purchase.restaurantSeller as any).businessInfo?.businessName || user.name || "Restaurant"
+        storeName = purchase.restaurantSeller.businessInfo?.businessName || user.name || "Restaurant"
       }
 
       if (!user) continue
