@@ -9,6 +9,7 @@ import { HEAR_ABOUT_US_OPTIONS, formatHearAboutUs } from "@/lib/onboarding-const
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation";
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper";
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation";
+import { parseCleanStringArray } from "@/lib/utils";
 
 /**
  * GET /mobileapi/restaurant-seller/onboarding
@@ -22,6 +23,19 @@ export async function GET(request: NextRequest) {
     const sectionNames = ["business", "kyc", "restaurant", "bank", "agreement"];
     const currentStep1Based = seller.status === "CORRECTION_NEEDED" ? 1 : Math.max(1, seller.onboardingStep - 1);
     const currentSection = sectionNames[currentStep1Based - 1] || "business";
+
+    const { getPresignedUrlOrOriginal } = await import("@/lib/s3-presigned");
+    const [resolvedLogo, resolvedBanner, resolvedMainPhoto] = await Promise.all([
+        getPresignedUrlOrOriginal(seller.logo),
+        getPresignedUrlOrOriginal(seller.banner),
+        getPresignedUrlOrOriginal(seller.mainPhoto),
+    ]);
+    const cleanPrimaryCuisines = seller.primaryCuisine
+        ? JSON.stringify(parseCleanStringArray(seller.primaryCuisine))
+        : seller.primaryCuisine;
+    const cleanServiceTypes = seller.serviceTypes
+        ? JSON.stringify(parseCleanStringArray(seller.serviceTypes))
+        : seller.serviceTypes;
 
     return NextResponse.json({
         success: true,
@@ -45,12 +59,12 @@ export async function GET(request: NextRequest) {
                 ...seller.agreement,
                 agreedToReturnPolicy: false, // Not stored in DB for restaurant; mobile resets this to false on each session
             } : null,
-            logo: seller.logo,
-            banner: seller.banner,
-            mainPhoto: seller.mainPhoto,
+            logo: resolvedLogo,
+            banner: resolvedBanner,
+            mainPhoto: resolvedMainPhoto,
             estimateRestaurantCount: seller.estimateRestaurantCount,
-            primaryCuisine: seller.primaryCuisine,
-            serviceTypes: seller.serviceTypes,
+            primaryCuisine: cleanPrimaryCuisines,
+            serviceTypes: cleanServiceTypes,
             hearAboutUsOptions: HEAR_ABOUT_US_OPTIONS,
         },
     });
@@ -392,8 +406,8 @@ export async function POST(request: NextRequest) {
             // Step 4: Outlet Setup
             const countVal = formData ? formData.get("estimateRestaurantCount") : jsonBody?.data?.estimateRestaurantCount;
             const estimateRestaurantCount = parseInt(countVal as string, 10) || 0;
-            const cuisines = formData ? formData.getAll("cuisines") : (jsonBody?.data?.cuisines || []);
-            const services = formData ? formData.getAll("services") : (jsonBody?.data?.services || []);
+            const cuisines = parseCleanStringArray(formData ? formData.getAll("cuisines") : (jsonBody?.data?.cuisines || []));
+            const services = parseCleanStringArray(formData ? formData.getAll("services") : (jsonBody?.data?.services || []));
 
             let logoUrl = seller.logo;
             let bannerUrl = seller.banner;

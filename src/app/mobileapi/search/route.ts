@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       ratingAggs.map((r) => [r.productId, parseFloat(Number(r._avg.rating ?? 0).toFixed(1))])
     ) as Record<string, number>
 
+    const origin = getRequestPublicOrigin(request)
     const products = rawProducts.map((p) => {
       const v = p.variants[0]
       const basePrice = v?.price ?? 0
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
         id: p.id,
         name: p.name,
         slug: p.slug,
-        images: p.images,
+        images: toPublicMediaUrlList(p.images, origin),
         price: finalPrice,
         originalPrice: discount > 0 ? basePrice : null,
         discountPercentage: basePrice > 0 && discount > 0 ? Math.round((discount / basePrice) * 100) : 0,
@@ -97,7 +99,17 @@ export async function GET(request: NextRequest) {
         totalReviews: reviewsCount,
         category: p.category,
         subcategory: p.subcategory,
-        seller: p.seller,
+        seller: p.seller
+          ? {
+              ...p.seller,
+              store: p.seller.store
+                ? {
+                    ...p.seller.store,
+                    logo: toPublicMediaUrl(p.seller.store.logo, origin),
+                  }
+                : p.seller.store,
+            }
+          : p.seller,
         inStock: v ? v.stock > 0 : true,
       }
     })

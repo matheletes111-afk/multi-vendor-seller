@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -49,6 +50,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get("activeOnly") !== "false" // default true
@@ -108,8 +110,16 @@ export async function GET(
 
     const mapped: ServiceItem[] = services.map((s) => ({
       ...s,
-      images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
+      images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }).map(
+        (u) => toPublicMediaUrl(u, origin) || u
+      ),
     }))
+
+    const normalizedCategory: ServiceCategoryDetail = {
+      ...category,
+      image: toPublicMediaUrl(category.image, origin),
+      mobileIcon: toPublicMediaUrl(category.mobileIcon, origin),
+    }
 
     const totalServices = await prisma.service.count({
       where: { 
@@ -125,7 +135,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       message: "Service category fetched successfully",
-      data: { category, services: mapped, totalServices },
+      data: { category: normalizedCategory, services: mapped, totalServices },
     })
   } catch (error) {
     console.error("Mobile service category detail API error:", error)

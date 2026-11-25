@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 /** Prisma delegate after `npx prisma generate` (UserCategoryInterest). */
 const p = prisma as any
@@ -64,7 +65,7 @@ interface InterestProductsResponse {
 }
 
 // Helper function to format product response with proper typing
-function formatProductResponse(product: any): ProductResponse {
+function formatProductResponse(product: any, origin?: string): ProductResponse {
   // Safely extract variant prices
   const variants = product.variants || []
   const prices = variants
@@ -85,7 +86,7 @@ function formatProductResponse(product: any): ProductResponse {
     name: product.name,
     slug: product.slug,
     description: product.description || null,
-    images: product.images || [],
+    images: toPublicMediaUrlList(product.images, origin),
     priceRange: {
       min: lowestPrice,
       max: highestPrice !== lowestPrice ? highestPrice : null
@@ -104,7 +105,7 @@ function formatProductResponse(product: any): ProductResponse {
     seller: {
       id: product.seller?.id || '',
       storeName: product.seller?.store?.name || null,
-      storeLogo: product.seller?.store?.logo || null
+      storeLogo: toPublicMediaUrl(product.seller?.store?.logo || null, origin)
     },
     rating: avgRating,
     reviewCount: reviews.length,
@@ -220,8 +221,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<InterestPr
       }
     })
 
+    const origin = getRequestPublicOrigin(request)
     // Format products with proper typing
-    const formattedProducts: ProductResponse[] = products.map(product => formatProductResponse(product))
+    const formattedProducts: ProductResponse[] = products.map(product => formatProductResponse(product, origin))
 
     // Get category details for meta info
     const categories = await prisma.category.findMany({

@@ -3,6 +3,7 @@ import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { prisma } from "@/lib/prisma"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { parseStoredFlotLink } from "@/lib/flot"
+import { getRequestPublicOrigin, normalizeHotelMedia, normalizeHotelSellerMedia, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       ] : undefined
     }
 
+    const origin = getRequestPublicOrigin(request)
     const [bookings, totalCount] = await Promise.all([
       prisma.hotelBooking.findMany({
         where: whereCondition,
@@ -45,7 +47,19 @@ export async function GET(request: NextRequest) {
         take,
         include: {
           room: { select: { id: true, name: true, price: true, capacityAdults: true, capacityChildren: true, images: true, amenities: true } },
-          hotel: { select: { id: true, name: true, city: true, address: true, images: true, starRating: true } }
+          hotel: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              address: true,
+              images: true,
+              logo: true,
+              banner: true,
+              starRating: true,
+              hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" }
       }),
@@ -53,33 +67,51 @@ export async function GET(request: NextRequest) {
     ])
 
     // Strictly sanitize: never expose platform commission or seller net payout to customer
-    const sanitizedBookings = bookings.map((b) => ({
-      id: b.id,
-      userId: b.userId,
-      roomId: b.roomId,
-      hotelId: b.hotelId,
-      guestName: b.guestName,
-      guestPhone: b.guestPhone,
-      checkIn: b.checkIn,
-      checkOut: b.checkOut,
-      numberOfRooms: b.numberOfRooms,
-      adults: b.adults,
-      children: b.children,
-      subtotal: b.subtotal,
-      couponCode: b.couponCode,
-      couponDiscount: b.couponDiscount,
-      totalPrice: b.totalPrice,
-      status: b.status,
-      paymentMethod: b.paymentMethod ?? "COD",
-      paymentStatus: b.paymentStatus,
-      afriTxnId: b.afriTxnId,
-      flotOrderId: b.flotOrderId ?? null,
-      ...parseStoredFlotLink(b.flotPaymentLink),
-      paidAt: b.paidAt,
-      createdAt: b.createdAt,
-      room: b.room,
-      hotel: b.hotel,
-    }))
+    const sanitizedBookings = bookings.map((b) => {
+      const hotelMedia = b.hotel ? normalizeHotelMedia(b.hotel, origin) : null
+      return {
+        id: b.id,
+        userId: b.userId,
+        roomId: b.roomId,
+        hotelId: b.hotelId,
+        guestName: b.guestName,
+        guestPhone: b.guestPhone,
+        checkIn: b.checkIn,
+        checkOut: b.checkOut,
+        numberOfRooms: b.numberOfRooms,
+        adults: b.adults,
+        children: b.children,
+        subtotal: b.subtotal,
+        couponCode: b.couponCode,
+        couponDiscount: b.couponDiscount,
+        totalPrice: b.totalPrice,
+        status: b.status,
+        paymentMethod: b.paymentMethod ?? "COD",
+        paymentStatus: b.paymentStatus,
+        afriTxnId: b.afriTxnId,
+        flotOrderId: b.flotOrderId ?? null,
+        ...parseStoredFlotLink(b.flotPaymentLink),
+        paidAt: b.paidAt,
+        createdAt: b.createdAt,
+        room: b.room
+          ? {
+              ...b.room,
+              images: toPublicMediaUrlList(b.room.images, origin),
+            }
+          : b.room,
+        hotel: b.hotel && hotelMedia
+          ? {
+              ...b.hotel,
+              hotelSeller: normalizeHotelSellerMedia(b.hotel.hotelSeller, origin),
+              images: hotelMedia.images,
+              logo: hotelMedia.logo,
+              banner: hotelMedia.banner,
+              image_url: hotelMedia.coverImage,
+              coverImage: hotelMedia.coverImage,
+            }
+          : b.hotel,
+      }
+    })
 
     const totalPages = Math.ceil(totalCount / perPage)
 

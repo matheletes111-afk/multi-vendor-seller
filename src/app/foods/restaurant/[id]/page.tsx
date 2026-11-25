@@ -7,7 +7,7 @@ import { ArrowLeft, Star, MapPin, Sparkles, Plus, Minus, ShoppingBag, AlertTrian
 import { Button } from "@/ui/button"
 import { Card, CardContent } from "@/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/ui/dialog"
-import { formatCurrency, extractFoodImages } from "@/lib/utils"
+import { formatCurrency, extractFoodImages, parseCleanStringArray, formatRestaurantLocation } from "@/lib/utils"
 import { toPublicMediaUrl } from "@/lib/media-url"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
@@ -298,7 +298,7 @@ export default function RestaurantMenuPage() {
 
               {/* Cuisines */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
-                {restaurant.cuisines.map((c, i) => (
+                {parseCleanStringArray(restaurant.cuisines).map((c, i) => (
                   <span key={i} className="text-xs font-black text-amber-900 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
                     {c}
                   </span>
@@ -315,7 +315,15 @@ export default function RestaurantMenuPage() {
 
                 <div className="flex items-center gap-1 font-semibold text-amber-900/60">
                   <MapPin className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span>{restaurant.street ? `${restaurant.street}, ` : ""}{restaurant.city}</span>
+                  <span>
+                    {formatRestaurantLocation({
+                      landmark: restaurant.landmark,
+                      street: restaurant.street,
+                      city: restaurant.city,
+                      state: restaurant.state,
+                      fallback: "Local",
+                    })}
+                  </span>
                 </div>
               </div>
             </div>

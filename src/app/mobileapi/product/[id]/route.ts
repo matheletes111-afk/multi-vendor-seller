@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+    const origin = getRequestPublicOrigin(request)
 
     if (!id) {
       return NextResponse.json({
@@ -56,6 +58,7 @@ export async function GET(
       const deliveryDays = v.deliveryDays ?? 7
       const base = {
         ...v,
+        images: toPublicMediaUrlList(v.images, origin),
         deliveryDays,
         delivery_days: deliveryDays,
         estimated_delivery_days: deliveryDays,
@@ -87,6 +90,23 @@ export async function GET(
       success: true,
       data: {
         ...product,
+        images: toPublicMediaUrlList(product.images, origin),
+        seller: product.seller
+          ? {
+              ...product.seller,
+              store: product.seller.store
+                ? {
+                    ...product.seller.store,
+                    logo: toPublicMediaUrl(product.seller.store.logo, origin),
+                  }
+                : product.seller.store,
+            }
+          : product.seller,
+        sellerAds: (product.sellerAds || []).map((ad) => ({
+          ...ad,
+          creativeUrl: toPublicMediaUrl(ad.creativeUrl, origin),
+          mobileCreativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl, origin),
+        })),
         variants: cleanVariants,
         brand,
         averageRating,

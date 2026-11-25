@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { toMobileItemApi, mobileWishlistInclude } from "../route"
+import { getRequestPublicOrigin } from "@/lib/media-url"
 
 const wishlistItem = prisma.wishlistItem as any
 
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
       (r.foodItemId && r.foodItem)
   )
 
-  const mergedItems = validRows.map(toMobileItemApi)
+  const origin = getRequestPublicOrigin(request)
+  const mergedItems = validRows.map((row: any) => toMobileItemApi(row, origin))
   return NextResponse.json({
     success: true,
     message: "Wishlist synced successfully",

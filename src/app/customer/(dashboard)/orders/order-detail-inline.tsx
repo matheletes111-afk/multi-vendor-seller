@@ -24,7 +24,6 @@ import {
 } from "@/lib/return-request-validation"
 import { CustomerOrderReviewSection, type CustomerReviewDraft } from "./customer-order-review-section"
 import { CustomerReturnExchangeStatusDashboard } from "./customer-return-exchange-status-dashboard"
-import { resolveAdministrativeRegion } from "@/lib/shipping-calculator"
 import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import {
   ExchangeCurrentVsReplacement,
@@ -444,15 +443,27 @@ export function OrderDetailInline({
           <p className="font-mono text-sm text-gray-500">#{order.orderNumber}</p>
           <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          aria-label="Close details"
-          className="shrink-0 -mr-2 rounded-lg text-gray-500 transition-colors duration-200 hover:bg-white hover:text-gray-900"
-        >
-          <Minus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="h-8 rounded-lg border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+          >
+            <Link href={`/customer/orders/${order.id}/invoice`} target="_blank">
+              Invoice
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close details"
+            className="shrink-0 -mr-2 rounded-lg text-gray-500 transition-colors duration-200 hover:bg-white hover:text-gray-900"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full min-w-0">
@@ -491,39 +502,41 @@ export function OrderDetailInline({
                 <span className="font-mono text-xs font-bold text-blue-600">{order.flotOrderId}</span>
               </div>
             )}
-            {/* Delivery Price Breakup */}
-            <div className="mt-3 rounded-2xl bg-slate-900 text-white p-3.5 space-y-2 text-xs border border-slate-800">
-              <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 pb-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">Delivery Fee Breakup</span>
-                <span className="text-[10px] text-emerald-400 font-bold bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700 max-w-full truncate" title={getFormattedDeliveryZone({
-                    addressLine1: order.shippingAddressLine1,
-                    addressLine2: order.shippingAddressLine2,
-                    city: order.shippingCity,
-                    state: order.shippingState,
-                  })}>
-                  📍 {getFormattedDeliveryZone({
-                    addressLine1: order.shippingAddressLine1,
-                    addressLine2: order.shippingAddressLine2,
-                    city: order.shippingCity,
-                    state: order.shippingState,
-                  })}
+            {/* Delivery Zone & Total Delivery Charge */}
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <span className="text-gray-500 font-medium">Delivery Zone</span>
+                <span
+                  className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 max-w-full truncate"
+                  title={
+                    order.deliveryZoneLabel ||
+                    getFormattedDeliveryZone({
+                      addressLine1: order.shippingAddressLine1,
+                      addressLine2: order.shippingAddressLine2,
+                      city: order.shippingCity,
+                      state: order.shippingState,
+                    })
+                  }
+                >
+                  📍{" "}
+                  {order.deliveryZoneLabel ||
+                    getFormattedDeliveryZone({
+                      addressLine1: order.shippingAddressLine1,
+                      addressLine2: order.shippingAddressLine2,
+                      city: order.shippingCity,
+                      state: order.shippingState,
+                    })}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Weight Charge</span>
-                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.weightShippingFee ?? 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Dimension Charge</span>
-                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.dimensionShippingFee ?? 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Regional Surcharge</span>
-                <span className="font-bold tabular-nums text-slate-200">{formatCurrency(order.regionShippingFee ?? 0)}</span>
-              </div>
-              <div className="flex justify-between pt-1.5 border-t border-slate-800 font-black">
-                <span className="text-orange-400 uppercase tracking-wider text-[10px]">Total Shipping Fee</span>
-                <span className="text-orange-400 tabular-nums">{formatCurrency(order.shipping ?? 0)}</span>
+              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/80">
+                <span className="text-gray-600 font-medium">Delivery Charge</span>
+                <span className="font-bold tabular-nums text-gray-900">
+                  {(order.shipping ?? 0) <= 0 ? (
+                    <span className="text-emerald-700">FREE</span>
+                  ) : (
+                    formatCurrency(order.shipping ?? 0)
+                  )}
+                </span>
               </div>
             </div>
             {canCancelOrder && (
@@ -567,12 +580,14 @@ export function OrderDetailInline({
                   </p>
                 )}
                 <p className="text-[11px] font-bold text-emerald-700 pt-1.5 break-words">
-                  📍 {getFormattedDeliveryZone({
-                    addressLine1: order.shippingAddressLine1,
-                    addressLine2: order.shippingAddressLine2,
-                    city: order.shippingCity,
-                    state: order.shippingState,
-                  })}
+                  📍{" "}
+                  {order.deliveryZoneLabel ||
+                    getFormattedDeliveryZone({
+                      addressLine1: order.shippingAddressLine1,
+                      addressLine2: order.shippingAddressLine2,
+                      city: order.shippingCity,
+                      state: order.shippingState,
+                    })}
                 </p>
               </>
             ) : (
@@ -693,9 +708,15 @@ export function OrderDetailInline({
                         Refund amount (line): {formatCurrency(lineTotal(item))}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500">
-                      Shipping: {formatCurrency(item.shippingAmount)}
-                    </p>
+                    {item.productId != null && (
+                      <p className="text-xs text-gray-500">
+                        Delivery: {item.shippingAmount <= 0 ? (
+                          <span className="font-semibold text-emerald-700">FREE</span>
+                        ) : (
+                          formatCurrency(item.shippingAmount)
+                        )}
+                      </p>
+                    )}
                     {item.statusHistory.length > 0 && (
                       <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
                         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Tracking timeline</p>
@@ -856,12 +877,16 @@ export function OrderDetailInline({
             </div>
           )}
 
-          {order.shipping > 0 && (
-            <div className="flex justify-between pt-1">
-              <span className="text-gray-500">Shipping</span>
-              <span className="font-medium text-gray-900">{formatCurrency(order.shipping)}</span>
-            </div>
-          )}
+          <div className="flex justify-between pt-1">
+            <span className="text-gray-500">Delivery Charge</span>
+            <span className="font-medium text-gray-900">
+              {(order.shipping ?? 0) <= 0 ? (
+                <span className="font-semibold text-emerald-700">FREE</span>
+              ) : (
+                formatCurrency(order.shipping)
+              )}
+            </span>
+          </div>
           {order.couponDiscount && order.couponDiscount > 0 && (
             <div className="flex justify-between pt-1 text-emerald-600 font-bold">
               <span>Coupon Discount ({order.couponCode})</span>
@@ -907,8 +932,8 @@ export function OrderDetailInline({
           </CardHeader>
           <CardContent className="space-y-2.5 text-sm">
             {order.sellerGroups.map((group) => {
-              const sb = (group as any).shippingBreakup
-              const activeRegionName = resolveAdministrativeRegion(order.shippingState)
+              const useSingleSellerExchange =
+                order.sellerGroups.length === 1 && priceBreakdown.kind === "exchange"
               return (
                 <div
                   key={group.sellerId ?? `group-${group.sellerStoreName ?? "unknown"}`}
@@ -924,51 +949,27 @@ export function OrderDetailInline({
                     <p>Items: {group.itemCount}</p>
                     <p>
                       Subtotal:{" "}
-                      {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displaySubtotal : group.summary.subtotal)}
+                      {formatCurrency(useSingleSellerExchange ? priceBreakdown.displaySubtotal : group.summary.subtotal)}
                     </p>
                     <p>
                       Tax:{" "}
-                      {formatCurrency(priceBreakdown.kind === "exchange" ? priceBreakdown.displayTax : group.summary.tax)}
+                      {formatCurrency(useSingleSellerExchange ? priceBreakdown.displayTax : group.summary.tax)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Shipping: <span className="font-medium text-foreground">{group.summary.shipping <= 0 ? "FREE" : formatCurrency(group.summary.shipping)}</span>
+                      Delivery: <span className="font-medium text-foreground">{group.summary.shipping <= 0 ? "FREE" : formatCurrency(group.summary.shipping)}</span>
                     </p>
                     <p className="font-medium text-foreground">
                       Total:{" "}
                       {formatCurrency(
-                        priceBreakdown.kind === "exchange" ? priceBreakdown.effectiveGrandTotal : group.summary.total,
+                        useSingleSellerExchange ? priceBreakdown.effectiveGrandTotal : group.summary.total,
                       )}
                     </p>
                   </div>
-
-                  {sb && (sb.weightShippingFee > 0 || sb.dimensionShippingFee > 0 || sb.regionShippingFee > 0) && (
-                    <div className="text-[11px] text-slate-600 pl-3 space-y-0.5 border-l-2 border-amber-400 bg-amber-50/50 p-2 rounded-r-lg mt-2">
-                      <p className="font-bold text-[10px] uppercase text-amber-900 mb-1">Delivery Fee Price Breakup</p>
-                      {sb.weightShippingFee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Weight charge</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(sb.weightShippingFee)}</span>
-                        </div>
-                      )}
-                      {sb.dimensionShippingFee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Dimension charge</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(sb.dimensionShippingFee)}</span>
-                        </div>
-                      )}
-                      {sb.regionShippingFee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Region charge ({activeRegionName})</span>
-                          <span className="font-semibold text-slate-700">{formatCurrency(sb.regionShippingFee)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )
             })}
             <p className="text-[11px] text-muted-foreground italic pt-1">
-              🚚 Multi-vendor shipping breakdown: Delivery charges are calculated independently per seller according to package weight (missing weight is calculated as 0 kg).
+              🚚 Multi-vendor shipping: Items from separate sellers are packed and shipped independently.
             </p>
           </CardContent>
         </Card>

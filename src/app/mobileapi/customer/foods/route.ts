@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { formatLocationPart, shuffleArray } from "@/lib/utils"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -78,6 +79,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const origin = getRequestPublicOrigin(request)
     const mappedFoods = foods.map(f => {
       const totalReviews = f.reviews.length
       const averageRating = totalReviews > 0 
@@ -85,17 +87,19 @@ export async function GET(request: NextRequest) {
         : 0
 
       const { reviews, restaurantSeller, ...restFood } = f
-      let firstImage: string | null = null
-      if (Array.isArray(f.images) && f.images.length > 0) {
-        firstImage = f.images[0] as string
-      }
+      const extractedImages = toPublicMediaUrlList(f.images, origin)
+      const firstImage = extractedImages[0] ?? null
       const sellingPrice = Math.max(0, f.price - (f.discount || 0))
+      const restaurantLogo = toPublicMediaUrl(restaurantSeller.logo, origin)
+      const restaurantBanner = toPublicMediaUrl(restaurantSeller.banner, origin)
+      const restaurantMainPhoto = toPublicMediaUrl(restaurantSeller.mainPhoto, origin)
       return {
         ...restFood,
         discount: f.discount || 0,
         sellingPrice,
         selling_price: sellingPrice,
         food_id: f.id,
+        images: extractedImages,
         image: firstImage,
         image_url: firstImage,
         rating: averageRating,
@@ -107,7 +111,13 @@ export async function GET(request: NextRequest) {
         restaurantId: restaurantSeller.id,
         restaurant_id: restaurantSeller.id,
         restaurantName: restaurantSeller.businessInfo?.businessName || restaurantSeller.user.name || "Restaurant",
-        restaurantCity: restaurantSeller.businessInfo?.city || ""
+        restaurantLogo,
+        restaurant_logo: restaurantLogo,
+        restaurantBanner,
+        restaurant_banner: restaurantBanner,
+        restaurantMainPhoto,
+        restaurant_main_photo: restaurantMainPhoto,
+        restaurantCity: formatLocationPart(restaurantSeller.businessInfo?.city)
       }
     })
 

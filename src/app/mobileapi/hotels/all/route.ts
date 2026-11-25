@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, normalizeHotelMedia, normalizeHotelSellerMedia, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -32,15 +33,19 @@ export async function GET(request: NextRequest) {
         : {}),
     }
 
+    const origin = getRequestPublicOrigin(request)
     const [hotels, total] = await Promise.all([
       prisma.hotel.findMany({
         where,
         take: q ? limit : Math.max(limit * 2, 40),
         orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
         include: {
+          hotelSeller: {
+            select: { logo: true, banner: true, mainPhoto: true },
+          },
           rooms: {
             where: { isActive: true, isDeleted: false },
-            select: { id: true, name: true, price: true },
+            select: { id: true, name: true, price: true, images: true },
             orderBy: { price: "asc" },
           },
           reviews: {
@@ -57,13 +62,11 @@ export async function GET(request: NextRequest) {
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
       const avgRating = totalReviews > 0 ? parseFloat((totalRating / totalReviews).toFixed(1)) : 0.0
 
-      let imageUrl: string | null = h.banner || null
-      if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-        imageUrl = String(h.images[0])
-      }
+      const media = normalizeHotelMedia(h, origin)
 
       return {
         ...h,
+        hotelSeller: normalizeHotelSellerMedia(h.hotelSeller, origin),
         id: h.id,
         hotel_id: h.id,
         name: h.name,
@@ -71,8 +74,15 @@ export async function GET(request: NextRequest) {
         address: h.address || "",
         star_rating: h.starRating ?? 0,
         starRating: h.starRating ?? 0,
-        image_url: imageUrl,
-        coverImage: imageUrl,
+        images: media.images,
+        banner: media.banner,
+        logo: media.logo,
+        image_url: media.coverImage,
+        coverImage: media.coverImage,
+        rooms: h.rooms.map((r) => ({
+          ...r,
+          images: toPublicMediaUrlList(r.images, origin),
+        })),
         starting_price_per_night: startingPrice,
         price_per_night: startingPrice,
         rating: avgRating,

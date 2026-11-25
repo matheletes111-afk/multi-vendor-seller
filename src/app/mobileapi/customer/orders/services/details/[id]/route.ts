@@ -5,6 +5,7 @@ import {
   type CustomerOrderKind,
 } from "@/app/mobileapi/customer/orders/_helpers/order-helpers"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
+import { getRequestPublicOrigin } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -36,7 +37,12 @@ export async function GET(
 
     const { id: orderId } = await params
 
-    const order = await getCustomerOrderDetail({ userId: auth.userId, orderId, kind })
+    const order = await getCustomerOrderDetail({
+      userId: auth.userId,
+      orderId,
+      kind,
+      origin: getRequestPublicOrigin(request),
+    })
     if (!order) {
       return NextResponse.json<ErrorResponse>({ success: false, error: "Order not found" }, { status: 404 })
     }

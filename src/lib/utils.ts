@@ -211,4 +211,232 @@ export function fairMarketplaceInterleave<T>(
   return result;
 }
 
+/**
+ * Recursively parses multi-encoded JSON string arrays / CSV / raw string lists
+ * (such as RestaurantSeller.primaryCuisine or serviceTypes) into a clean,
+ * deduplicated array of display labels.
+ */
+export function parseCleanStringArray(raw: unknown, depth = 0): string[] {
+  if (!raw || depth > 6) return [];
+
+  const result: string[] = [];
+  const seenLower = new Set<string>();
+
+  const pushUnique = (val: string) => {
+    const cleaned = val
+      .replace(/\\"/g, '"')
+      .replace(/^[\s\[\]"']+|[\s\[\]"']+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleaned) return;
+    const key = cleaned.toLowerCase();
+    if (!seenLower.has(key)) {
+      seenLower.add(key);
+      result.push(cleaned);
+    }
+  };
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      for (const parsed of parseCleanStringArray(item, depth + 1)) {
+        pushUnique(parsed);
+      }
+    }
+    return result;
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    // Try JSON parsing whenever the string looks like a JSON array, object, or quoted JSON string
+    if (
+      trimmed.startsWith("[") ||
+      trimmed.startsWith("{") ||
+      trimmed.startsWith('"') ||
+      trimmed.startsWith('"[') ||
+      trimmed.includes('\\"')
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed !== raw) {
+          for (const item of parseCleanStringArray(parsed, depth + 1)) {
+            pushUnique(item);
+          }
+          return result;
+        }
+      } catch {
+        // Handle partially valid or double-escaped bracketed arrays like '["American","African"'
+        const stripped = trimmed.replace(/^[\[\s]+|[\]\s]+$/g, "");
+        if (stripped.includes('","') || stripped.includes('", "') || stripped.includes(",")) {
+          const parts = stripped.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+          for (const part of parts) {
+            pushUnique(part);
+          }
+          return result;
+        }
+      }
+    }
+
+    pushUnique(trimmed);
+    if (trimmed.includes(",")) {
+      const csvResult: string[] = [];
+      const csvSeen = new Set<string>();
+      for (const part of trimmed.split(",")) {
+        const cleaned = part
+          .replace(/^[\s\[\]"']+|[\s\[\]"']+$/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!cleaned) continue;
+        const key = cleaned.toLowerCase();
+        if (!csvSeen.has(key)) {
+          csvSeen.add(key);
+          csvResult.push(cleaned);
+        }
+      }
+      return csvResult;
+    }
+    return result;
+  }
+
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const val = obj.name ?? obj.label ?? obj.value ?? obj.title;
+    if (typeof val === "string") {
+      pushUnique(val);
+    }
+  }
+
+  return result;
+}
+
+const KNOWN_UPPERCASE_WORDS = new Set(["SL", "UK", "USA", "US", "UAE", "CBD", "GRA", "PO", "ST", "NW", "NE", "SW", "SE"]);
+const LOWERCASE_CONNECTORS = new Set(["of", "in", "at", "on", "by", "to", "and", "the"]);
+
+function unwrapLocationValue(value: unknown, depth = 0): string {
+  if (value === null || value === undefined || depth > 5) return "";
+  if (Array.isArray(value)) {
+    return parseCleanStringArray(value).join(", ");
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const picked = obj.city ?? obj.street ?? obj.name ?? obj.label ?? obj.address ?? "";
+    return picked ? unwrapLocationValue(picked, depth + 1) : "";
+  }
+  const str = String(value).trim();
+  if (!str) return "";
+  if (
+    str.startsWith("[") ||
+    str.startsWith("{") ||
+    (str.startsWith('"') && str.endsWith('"'))
+  ) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed !== value) {
+        return unwrapLocationValue(parsed, depth + 1);
+      }
+    } catch {
+      if (str.startsWith("[")) {
+        return parseCleanStringArray(str).join(", ");
+      }
+    }
+  }
+  return str;
+}
+
+/**
+ * Formats a single address/location part (city, street, state, landmark),
+ * unwrapping accidental JSON encoding, normalizing spacing/punctuation, and
+ * converting all-lowercase, all-uppercase, or lowercase words in mixed-case
+ * values to readable Title Case.
+ */
+export function formatLocationPart(value: unknown): string {
+  const raw = unwrapLocationValue(value);
+  if (!raw) return "";
+
+  const trimmed = raw
+    .replace(/\\"/g, "")
+    .replace(/^[\s"'`\[\],]+|[\s"'`\[\],]+$/g, "")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!trimmed) return "";
+
+  const isAllUpper = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+
+  return trimmed
+    .split(" ")
+    .map((word, idx) => {
+      const cleanAlpha = word.replace(/[^a-zA-Z]/g, "");
+      if (!cleanAlpha) return word;
+      if (isAllUpper) {
+        if (KNOWN_UPPERCASE_WORDS.has(cleanAlpha.toUpperCase())) {
+          return word;
+        }
+        return word.replace(/[a-zA-Z]+/, (alpha) =>
+          alpha.charAt(0).toUpperCase() + alpha.slice(1).toLowerCase()
+        );
+      }
+      // Capitalize purely lowercase words (while leaving intentional mixed-case brand/street tokens intact)
+      const hasUpper = /[A-Z]/.test(cleanAlpha);
+      if (!hasUpper) {
+        if (idx > 0 && LOWERCASE_CONNECTORS.has(cleanAlpha.toLowerCase())) {
+          return word;
+        }
+        return word.replace(/[a-z]+/, (alpha) =>
+          alpha.charAt(0).toUpperCase() + alpha.slice(1)
+        );
+      }
+      return word;
+    })
+    .join(" ");
+}
+
+/**
+ * Combines street, city, state, and landmark into a clean, deduplicated location label.
+ */
+export function formatRestaurantLocation(loc: {
+  street?: unknown;
+  city?: unknown;
+  state?: unknown;
+  landmark?: unknown;
+  compact?: boolean;
+  fallback?: string;
+}): string {
+  const street = formatLocationPart(loc.street);
+  const city = formatLocationPart(loc.city);
+  const state = formatLocationPart(loc.state);
+  const landmark = formatLocationPart(loc.landmark);
+
+  if (loc.compact) {
+    if (city && street && !street.toLowerCase().includes(city.toLowerCase())) {
+      const combined = `${street}, ${city}`;
+      return combined.length <= 28 ? combined : city;
+    }
+    return city || street || state || landmark || (loc.fallback ?? "Local");
+  }
+
+  const parts: string[] = [];
+  const addPart = (part: string) => {
+    if (!part) return;
+    const lowerPart = part.toLowerCase();
+    const alreadyCovered = parts.some((existing) => {
+      const lowerExisting = existing.toLowerCase();
+      return lowerExisting === lowerPart || lowerExisting.includes(lowerPart);
+    });
+    if (!alreadyCovered) {
+      parts.push(part);
+    }
+  };
+
+  addPart(landmark);
+  addPart(street);
+  addPart(city);
+  addPart(state);
+
+  return parts.join(", ") || (loc.fallback ?? "");
+}
+
 

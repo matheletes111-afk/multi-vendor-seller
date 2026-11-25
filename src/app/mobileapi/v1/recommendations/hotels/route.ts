@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, formatLocationPart, formatRestaurantLocation } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, normalizeHotelMedia } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
       where.city = { equals: cityParam.trim(), mode: "insensitive" }
     }
 
+    const origin = getRequestPublicOrigin(request)
     const [totalItems, hotels] = await Promise.all([
       prisma.hotel.count({ where }),
       prisma.hotel.findMany({
@@ -32,6 +34,7 @@ export async function GET(request: NextRequest) {
         take: page === 1 ? Math.max(limit * 3, 30) : limit,
         orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
         include: {
+          hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
           rooms: {
             where: { isActive: true, isDeleted: false },
             select: { price: true },
@@ -44,10 +47,7 @@ export async function GET(request: NextRequest) {
     ])
 
     const formattedFeed = hotels.map((h, index) => {
-      let imageUrl: string | null = h.banner || null
-      if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-        imageUrl = String(h.images[0])
-      }
+      const media = normalizeHotelMedia(h, origin)
 
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 399
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
@@ -56,18 +56,28 @@ export async function GET(request: NextRequest) {
       const badges = ["TOP CHOICE", "FREE CANCELLATION", "POPULAR STAY", "RECOMMENDED"]
       const badge = badges[index % badges.length]
 
+      const city = formatLocationPart(h.city) || "Local"
+      const locationText = formatRestaurantLocation({
+        street: h.address,
+        city: h.city,
+        fallback: "Local",
+      })
+
       return {
         id: h.id,
         hotel_id: h.id,
         title: h.name,
         name: h.name,
-        city: h.city || "Dubai",
-        location_text: `${h.address || "Downtown"}, ${h.city || "Dubai"}`,
+        city,
+        location_text: locationText,
         star_rating: h.starRating ?? 0,
         starRating: h.starRating ?? 0,
-        image: imageUrl,
-        image_url: imageUrl,
-        coverImage: imageUrl,
+        images: media.images,
+        banner: media.banner,
+        logo: media.logo,
+        image: media.coverImage,
+        image_url: media.coverImage,
+        coverImage: media.coverImage,
         price_per_night: startingPrice,
         starting_price_per_night: startingPrice,
         currency: "NLe",

@@ -11,6 +11,7 @@ import { checkDisallowedName } from "@/lib/name-validation"
 import { validatePhoneAndCountryCode } from "@/lib/phone-validation"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
+import { parseCleanStringArray } from "@/lib/utils"
 
 function getImageExtFromContentType(contentType?: string | null) {
   const ct = (contentType || "").toLowerCase()
@@ -84,28 +85,13 @@ export async function GET() {
     seller.bankDetails.bankLetterUrl = bankLetter
   }
 
-  // Ensure primaryCuisine & serviceTypes are clean parsed arrays (not raw JSON strings)
-  let parsedCuisines: string[] = []
+  // Ensure primaryCuisine & serviceTypes are clean parsed arrays (not raw or double-encoded JSON strings)
+  const parsedCuisines = parseCleanStringArray(seller.primaryCuisine)
   if (seller.primaryCuisine) {
-    try {
-      const parsed = typeof seller.primaryCuisine === "string" ? JSON.parse(seller.primaryCuisine) : seller.primaryCuisine
-      if (Array.isArray(parsed)) {
-        parsedCuisines = parsed.map(String)
-        seller.primaryCuisine = parsedCuisines
-      }
-    } catch {
-      seller.primaryCuisine = []
-    }
+    seller.primaryCuisine = parsedCuisines as any
   }
   if (seller.serviceTypes) {
-    try {
-      const parsed = typeof seller.serviceTypes === "string" ? JSON.parse(seller.serviceTypes) : seller.serviceTypes
-      if (Array.isArray(parsed)) {
-        seller.serviceTypes = parsed.map(String)
-      }
-    } catch {
-      seller.serviceTypes = []
-    }
+    seller.serviceTypes = parseCleanStringArray(seller.serviceTypes) as any
   }
 
   // Also attach categories (combining cuisines, existing dish categories, and standard categories)
@@ -520,8 +506,8 @@ export async function PUT(request: NextRequest) {
 
     const countRaw = getProp("estimateRestaurantCount")
     const estimateRestaurantCount = countRaw ? parseInt(countRaw as string) : NaN
-    const cuisines = fd ? fd.getAll("cuisines") : (Array.isArray(propObj.cuisines) ? propObj.cuisines : (Array.isArray(getVal("cuisines")) ? getVal("cuisines") : []))
-    const services = fd ? fd.getAll("services") : (Array.isArray(propObj.services) ? propObj.services : (Array.isArray(getVal("services")) ? getVal("services") : []))
+    const cuisines = parseCleanStringArray(fd ? fd.getAll("cuisines") : (propObj.cuisines ?? getVal("cuisines") ?? []))
+    const services = parseCleanStringArray(fd ? fd.getAll("services") : (propObj.services ?? getVal("services") ?? []))
 
     const propData: any = {}
     if (!isNaN(estimateRestaurantCount)) propData.estimateRestaurantCount = estimateRestaurantCount

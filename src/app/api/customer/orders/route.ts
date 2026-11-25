@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 import { getPaginationFromSearchParams } from "@/lib/admin-pagination"
 import { deriveOrderStatus } from "@/lib/order-status"
+import { resolveOrderDeliveryRegionMeta } from "@/lib/ai-region-matcher"
 
 /** GET /api/customer/orders — paginated orders for current customer. type=product | service (Web & Mobile) */
 export async function GET(request: NextRequest) {
@@ -85,6 +86,13 @@ export async function GET(request: NextRequest) {
   const serializedOrders = orders.map((order) => {
     const relevantItems =
       type === "service" ? order.items.filter((i) => i.serviceId != null) : order.items.filter((i) => i.productId != null)
+    const regionMeta = resolveOrderDeliveryRegionMeta({
+      addressLine1: order.shippingAddressLine1,
+      addressLine2: order.shippingAddressLine2,
+      city: order.shippingCity,
+      state: order.shippingState,
+      postalCode: order.shippingPostalCode,
+    })
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -93,6 +101,11 @@ export async function GET(request: NextRequest) {
       subtotal: order.subtotal,
       tax: order.tax,
       shipping: order.shipping,
+      deliveryRegion: regionMeta.deliveryRegion,
+      deliveryZone: regionMeta.deliveryZone,
+      deliveryZoneLabel: regionMeta.deliveryZoneLabel,
+      invoiceUrl: `/api/orders/${order.id}/invoice`,
+      invoicePdfUrl: `/api/orders/${order.id}/invoice/pdf`,
       couponCode: order.couponCode,
       couponDiscount: order.couponDiscount,
       paymentMethod: order.paymentMethod,

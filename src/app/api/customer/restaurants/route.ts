@@ -1,42 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
-import { toPublicMediaUrl } from "@/lib/media-url"
+import { shuffleArray, fairMarketplaceInterleave, parseCleanStringArray, formatLocationPart } from "@/lib/utils"
+import { toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 function parseCuisines(primaryCuisine: any): string[] {
-  if (!primaryCuisine) return []
-  let rawList: any[] = []
-  try {
-    rawList = typeof primaryCuisine === "string"
-      ? JSON.parse(primaryCuisine)
-      : (primaryCuisine as any[])
-  } catch {
-    return []
-  }
-  if (!Array.isArray(rawList)) return []
-  
-  const result: string[] = []
-  rawList.forEach(item => {
-    if (typeof item === "string") {
-      const trimmed = item.trim()
-      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-        try {
-          const nested = JSON.parse(trimmed)
-          if (Array.isArray(nested)) {
-            nested.forEach(n => {
-              if (typeof n === "string") result.push(n)
-            })
-            return
-          }
-        } catch {}
-      }
-      result.push(item)
-    }
-  })
-  return result
+  return parseCleanStringArray(primaryCuisine)
 }
 
 export async function GET(request: NextRequest) {
@@ -144,15 +115,7 @@ export async function GET(request: NextRequest) {
 
       // Format randomized preview foods (max 4 for listing card)
       const previewFoods = shuffleArray(r.foods).slice(0, 4).map(f => {
-        let firstImage: string | null = null
-        if (Array.isArray(f.images) && f.images.length > 0) {
-          firstImage = f.images[0] as string
-        } else if (f.images && typeof f.images === "string") {
-          try {
-            const parsed = JSON.parse(f.images)
-            if (Array.isArray(parsed) && parsed.length > 0) firstImage = parsed[0]
-          } catch {}
-        }
+        const firstImage = toFirstPublicMediaUrl(f.images)
         const sellingPrice = Math.max(0, f.price - (f.discount || 0))
         return {
           id: f.id,
@@ -173,9 +136,9 @@ export async function GET(request: NextRequest) {
         logo: toPublicMediaUrl(r.logo),
         banner: toPublicMediaUrl(r.banner),
         mainPhoto: toPublicMediaUrl(r.mainPhoto),
-        street: r.businessInfo?.street || "",
-        city: r.businessInfo?.city || "",
-        state: r.businessInfo?.state || "",
+        street: formatLocationPart(r.businessInfo?.street),
+        city: formatLocationPart(r.businessInfo?.city),
+        state: formatLocationPart(r.businessInfo?.state),
         averageRating,
         totalReviews: totalReviewsCount,
         hasVeg: r.foods.some(f => f.isVeg),

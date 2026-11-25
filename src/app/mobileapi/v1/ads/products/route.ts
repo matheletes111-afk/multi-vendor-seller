@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const ads = await prisma.sellerAd.findMany({
       where: {
         status: "ACTIVE",
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
         is_sponsored: true,
         title: ad.title,
         subtitle: ad.description || "Featured Brand Spotlight",
-        image_url: ad.mobileCreativeUrl || ad.creativeUrl,
+        image_url: toPublicMediaUrl(ad.mobileCreativeUrl || ad.creativeUrl, origin) || toFirstPublicMediaUrl(p?.images, origin),
         product_id: ad.productId,
         price,
         rating,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileHotelRestaurantSellerAuth } from "../../_helpers/hotel-restaurant-seller-auth"
+import { parseCleanStringArray } from "@/lib/utils"
 import { UserRole } from "@prisma/client"
 
 export const dynamic = "force-dynamic"
@@ -25,27 +26,6 @@ const DEFAULT_FOOD_CATEGORIES = [
   "Fast Food",
   "Snacks",
 ]
-
-function extractCleanCategories(raw: any): string[] {
-  if (!raw) return []
-  if (Array.isArray(raw)) {
-    return raw.flatMap(extractCleanCategories)
-  }
-  if (typeof raw === "string") {
-    const trimmed = raw.trim()
-    if (!trimmed) return []
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(trimmed)
-        return extractCleanCategories(parsed)
-      } catch {
-        return [trimmed]
-      }
-    }
-    return [trimmed]
-  }
-  return []
-}
 
 // GET: Retrieve all active unique food categories for mobile
 export async function GET(request: NextRequest) {
@@ -75,12 +55,12 @@ export async function GET(request: NextRequest) {
       })
 
       if (seller) {
-        extractCleanCategories(seller.primaryCuisine).forEach(addCategory)
+        parseCleanStringArray(seller.primaryCuisine).forEach(addCategory)
         const sellerFoods = await prisma.foodItem.findMany({
           where: { restaurantSellerId: seller.id, isDeleted: false },
           select: { category: true },
         })
-        sellerFoods.flatMap((f) => extractCleanCategories(f.category)).forEach(addCategory)
+        sellerFoods.flatMap((f) => parseCleanStringArray(f.category)).forEach(addCategory)
       }
     }
 
@@ -99,7 +79,7 @@ export async function GET(request: NextRequest) {
       take: 200,
     })
 
-    allActiveCategories.flatMap((c) => extractCleanCategories(c.category)).forEach(addCategory)
+    allActiveCategories.flatMap((c) => parseCleanStringArray(c.category)).forEach(addCategory)
     DEFAULT_FOOD_CATEGORIES.forEach(addCategory)
 
     const uniqueCategories = Array.from(categorySet)

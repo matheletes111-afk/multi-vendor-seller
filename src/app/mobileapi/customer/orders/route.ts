@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { listCustomerOrders } from "./_helpers/order-helpers"
+import { getRequestPublicOrigin } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
       kind,
       page,
       pageSize,
+      origin: getRequestPublicOrigin(request),
     })
     return NextResponse.json(result)
   } catch (error) {

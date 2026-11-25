@@ -8,6 +8,14 @@ import { getSellerSubscription, canReceiveReviews } from "@/lib/subscriptions"
 import { deriveOrderStatus, summarizeSellerItemStatuses } from "@/lib/order-status"
 import { parseReturnImagesJson } from "@/lib/return-request-validation"
 import { calculateShippingBreakup } from "@/lib/shipping-calculator"
+import { resolveOrderDeliveryRegionMeta } from "@/lib/ai-region-matcher"
+import { createInvoiceQrToken, resolveAppBaseUrl } from "@/lib/invoice-qr"
+import {
+  getRequestPublicOrigin,
+  toFirstPublicMediaUrl,
+  toPublicMediaUrl,
+  toPublicMediaUrlList,
+} from "@/lib/media-url"
 import {
   buildCustomerDeliveryTracking,
   buildEnrichedAssignmentPayload,
@@ -139,17 +147,7 @@ export async function GET(
     return NextResponse.json({ error: "Order not found" }, { status: 404 })
   }
 
-  function firstImageUrl(images: unknown): string | null {
-    if (Array.isArray(images) && images.length > 0 && typeof images[0] === "string") return images[0]
-    if (typeof images === "string") return images
-    try {
-      const parsed = typeof images === "string" ? JSON.parse(images) : images
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") return parsed[0]
-    } catch {
-      /* ignore */
-    }
-    return null
-  }
+  const origin = getRequestPublicOrigin(request)
 
   const sellerIds = [...new Set(order.items.map((item) => item.sellerId).filter((v): v is string => !!v))]
   const sellerReviewEnabled = new Map<string, boolean>()
@@ -160,25 +158,15 @@ export async function GET(
     })
   )
 
-  function toImageArray(images: unknown): string[] {
-    if (Array.isArray(images)) return images.filter((v): v is string => typeof v === "string")
-    if (typeof images === "string") {
-      try {
-        const parsed = JSON.parse(images)
-        if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === "string")
-      } catch {
-        return []
-      }
-    }
-    return []
-  }
-
   const items: OrderDetailItemApi[] = order.items.map((row) => {
     const productImages = (row.product as { images?: unknown } | null)?.images
     const variantImages = (row.productVariant as { images?: unknown } | null)?.images
     const serviceImages = (row.service as { images?: unknown } | null)?.images
     const imageUrl =
-      firstImageUrl(variantImages) ?? firstImageUrl(productImages) ?? firstImageUrl(serviceImages) ?? null
+      toFirstPublicMediaUrl(variantImages, origin) ??
+      toFirstPublicMediaUrl(productImages, origin) ??
+      toFirstPublicMediaUrl(serviceImages, origin) ??
+      null
     const slot = row.serviceSlot as { startTime?: Date; endTime?: Date } | null
     const variantReturnType = row.productVariant?.returnType ?? null
     const variantReturnDays = row.productVariant?.returnDays ?? null
@@ -209,7 +197,7 @@ export async function GET(
             id: row.review.id,
             rating: row.review.rating,
             comment: row.review.comment,
-            images: toImageArray(row.review.images),
+            images: toPublicMediaUrlList(row.review.images, origin),
             isVerified: row.review.isVerified,
           }
         : null,
@@ -231,11 +219,13 @@ export async function GET(
       exchangeRefundDifferenceAmount: returnAvailable ? request?.exchangeRefundDifferenceAmount ?? 0 : 0,
       exchangeRefundDifferenceStatus: returnAvailable ? request?.exchangeRefundDifferenceStatus ?? null : null,
       returnReason: returnAvailable ? request?.reason ?? null : null,
-      returnImages: returnAvailable ? parseReturnImagesJson(request?.returnImages) : [],
+      returnImages: returnAvailable
+        ? parseReturnImagesJson(request?.returnImages).map((u) => toPublicMediaUrl(u, origin) || u)
+        : [],
       returnRequestStatus: returnAvailable ? request?.status ?? null : null,
       pickupStatus: returnAvailable ? request?.pickupStatus ?? "NOT_REQUESTED" : null,
       refundStatus: returnAvailable ? request?.refundStatus ?? "NOT_REQUESTED" : null,
-      deliveryProofImage: row.deliveryProofImage ?? null,
+      deliveryProofImage: toPublicMediaUrl(row.deliveryProofImage ?? null, origin),
       deliveryOtp: (row as any).deliveryOtp ?? null,
       deliveryOtpExpires: (row as any).deliveryOtpExpires ? (row as any).deliveryOtpExpires.toISOString() : null,
       isSelfDelivery: Boolean((row as any).isSelfDelivery),
@@ -375,6 +365,20 @@ export async function GET(
   activeDeliveryTrackings.sort((a: any, b: any) => (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0))
   const activeDeliveryTracking = activeDeliveryTrackings[0] || null
 
+  const regionMeta = resolveOrderDeliveryRegionMeta({
+    addressLine1: order.shippingAddressLine1,
+    addressLine2: order.shippingAddressLine2,
+    city: order.shippingCity,
+    state: order.shippingState,
+    postalCode: order.shippingPostalCode,
+  })
+  const qrToken = createInvoiceQrToken({
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    sellerId: null,
+  })
+  const qrVerifyUrl = `${resolveAppBaseUrl(origin)}/invoice/verify?t=${encodeURIComponent(qrToken)}`
+
   const body: OrderDetailApi = {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -392,6 +396,12 @@ export async function GET(
       regionShippingFee: (order as any).regionShippingFee ?? 0,
       totalShippingFee: order.shipping,
     },
+    deliveryRegion: regionMeta.deliveryRegion,
+    deliveryZone: regionMeta.deliveryZone,
+    deliveryZoneLabel: regionMeta.deliveryZoneLabel,
+    invoiceUrl: `/api/orders/${order.id}/invoice`,
+    invoicePdfUrl: `/api/orders/${order.id}/invoice/pdf`,
+    qrVerifyUrl,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     afriTxnId: order.afriTxnId,

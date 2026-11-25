@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    const origin = getRequestPublicOrigin(request)
     const formattedServices = services.map((s) => {
       const basePrice = s.basePrice || 0
       const discountAmount = s.discount || 0
@@ -59,10 +61,7 @@ export async function GET(request: NextRequest) {
           ? `${Math.round((discountAmount / basePrice) * 100)}% OFF`
           : null
 
-      let imageUrl: string | null = null
-      if (Array.isArray(s.images) && s.images.length > 0) {
-        imageUrl = String(s.images[0])
-      }
+      const imageUrl = toFirstPublicMediaUrl(s.images, origin)
 
       const totalRating = s.reviews.reduce((acc, r) => acc + r.rating, 0)
       const rating = s.reviews.length > 0 ? parseFloat((totalRating / s.reviews.length).toFixed(1)) : 0.0

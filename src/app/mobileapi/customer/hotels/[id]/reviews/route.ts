@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -15,10 +16,11 @@ function getCustomerId(request: NextRequest): string | null {
 
 // GET: Fetch hotel reviews breakdown & detailed reviews
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { id: hotelId } = await params
 
     const [hotel, reviews, ratingAgg, ratingGroups] = await Promise.all([
@@ -74,10 +76,10 @@ export async function GET(
           id: r.id,
           userId: r.userId,
           userName: r.user?.name || "Customer",
-          userAvatar: r.user?.image || null,
+          userAvatar: toPublicMediaUrl(r.user?.image || null, origin),
           rating: r.rating,
           comment: r.comment,
-          images: Array.isArray(r.images) ? r.images : [],
+          images: toPublicMediaUrlList(r.images, origin),
           createdAt: r.createdAt.toISOString()
         }))
       }

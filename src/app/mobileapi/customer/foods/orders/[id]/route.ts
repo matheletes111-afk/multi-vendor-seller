@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { parseStoredFlotLink } from "@/lib/flot"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -53,6 +54,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 })
     }
 
+    const origin = getRequestPublicOrigin(request)
     // Customer payload: all payment & price breakup data included; commission strictly hidden
     const formatted = {
       id: order.id,
@@ -79,26 +81,16 @@ export async function GET(
       deliveryPostalCode: order.deliveryPostalCode,
       deliveryCountry: order.deliveryCountry,
       restaurantName: order.restaurantSeller.businessInfo?.businessName || order.restaurantSeller.user.name || "Restaurant",
-      items: order.items.map(i => {
-        let imageUrl: string | null = null
-        if (Array.isArray(i.foodItem.images) && i.foodItem.images.length > 0) {
-          imageUrl = i.foodItem.images[0] as string
-        } else if (i.foodItem.images && typeof i.foodItem.images === "string") {
-          try {
-            const parsed = JSON.parse(i.foodItem.images)
-            if (Array.isArray(parsed) && parsed.length > 0) imageUrl = parsed[0]
-          } catch {}
-        }
-        return {
-          id: i.id,
-          foodItemId: i.foodItemId,
-          foodName: i.foodItem.name,
-          foodImage: imageUrl,
-          quantity: i.quantity,
-          price: i.price,
-          subtotal: i.subtotal,
-        }
-      })
+      restaurantLogo: toPublicMediaUrl(order.restaurantSeller.logo, origin),
+      items: order.items.map(i => ({
+        id: i.id,
+        foodItemId: i.foodItemId,
+        foodName: i.foodItem.name,
+        foodImage: toFirstPublicMediaUrl(i.foodItem.images, origin),
+        quantity: i.quantity,
+        price: i.price,
+        subtotal: i.subtotal,
+      }))
     }
 
     return NextResponse.json({

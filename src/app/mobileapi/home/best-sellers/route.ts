@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -40,6 +41,7 @@ type ErrorResponse = {
 /** GET /mobileapi/home/best-sellers?limitSellers=2&productsPerSeller=10 */
 export async function GET(request: NextRequest): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     const params = request.nextUrl.searchParams
     const limitSellers = Math.min(Math.max(Number(params.get("limitSellers")) || 2, 1), 10)
     const productsPerSeller = Math.min(Math.max(Number(params.get("productsPerSeller")) || 10, 1), 20)
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
           id: p.id,
           name: p.name,
           slug: p.slug,
-          images: (p.images as string[]) || [],
+          images: toPublicMediaUrlList(p.images, origin),
           category: p.category,
           basePrice: p.variants[0]?.price ?? 0,
           discount: p.variants[0]?.discount ?? 0,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, normalizeHotelMedia, normalizeHotelSellerMedia, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -48,10 +49,14 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    const origin = getRequestPublicOrigin(request)
     const [hotels, distinctCities] = await Promise.all([
       prisma.hotel.findMany({
         where: whereCondition,
         include: {
+          hotelSeller: {
+            select: { logo: true, banner: true, mainPhoto: true },
+          },
           rooms: {
             where: { isActive: true, isDeleted: false },
             orderBy: { price: "asc" }
@@ -81,9 +86,20 @@ export async function GET(request: NextRequest) {
       const totalReviews = h.reviews.length
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
       const avgRating = totalReviews > 0 ? parseFloat((totalRating / totalReviews).toFixed(1)) : 0.0
+      const media = normalizeHotelMedia(h, origin)
 
       return {
         ...h,
+        hotelSeller: normalizeHotelSellerMedia(h.hotelSeller, origin),
+        images: media.images,
+        banner: media.banner,
+        logo: media.logo,
+        image_url: media.coverImage,
+        coverImage: media.coverImage,
+        rooms: h.rooms.map((r) => ({
+          ...r,
+          images: toPublicMediaUrlList(r.images, origin),
+        })),
         hotel_id: h.id,
         id: h.id,
         name: h.name,

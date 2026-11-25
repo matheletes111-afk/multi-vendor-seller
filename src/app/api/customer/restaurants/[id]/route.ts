@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { extractFoodImages } from "@/lib/utils"
-import { toPublicMediaUrl } from "@/lib/media-url"
+import { formatLocationPart, parseCleanStringArray } from "@/lib/utils"
+import { toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -46,16 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 })
     }
 
-    let cuisines: string[] = []
-    if (restaurant.primaryCuisine) {
-      try {
-        cuisines = typeof restaurant.primaryCuisine === "string"
-          ? JSON.parse(restaurant.primaryCuisine)
-          : (restaurant.primaryCuisine as string[])
-      } catch {
-        cuisines = []
-      }
-    }
+    const cuisines = parseCleanStringArray(restaurant.primaryCuisine)
 
     // Format foods
     const formattedFoods = restaurant.foods.map(f => {
@@ -64,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ? parseFloat((f.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1))
         : 0
 
-      const extractedImages = extractFoodImages(f.images)
+      const extractedImages = toPublicMediaUrlList(f.images)
       const firstImage = extractedImages[0] || null
 
       return {
@@ -110,10 +101,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         logo: toPublicMediaUrl(restaurant.logo),
         banner: toPublicMediaUrl(restaurant.banner),
         mainPhoto: toPublicMediaUrl(restaurant.mainPhoto),
-        street: restaurant.businessInfo?.street || "",
-        city: restaurant.businessInfo?.city || "",
-        state: restaurant.businessInfo?.state || "",
-        landmark: restaurant.businessInfo?.landmark || "",
+        street: formatLocationPart(restaurant.businessInfo?.street),
+        city: formatLocationPart(restaurant.businessInfo?.city),
+        state: formatLocationPart(restaurant.businessInfo?.state),
+        landmark: formatLocationPart(restaurant.businessInfo?.landmark),
         averageRating,
         totalReviews: totalReviewsCount,
         foods: formattedFoods

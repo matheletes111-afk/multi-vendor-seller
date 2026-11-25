@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -11,6 +12,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const origin = getRequestPublicOrigin(request)
 
     const food = await prisma.foodItem.findFirst({
       where: {
@@ -21,6 +23,24 @@ export async function GET(
       },
       include: {
         sellerAds: true,
+        restaurantSeller: {
+          include: {
+            businessInfo: {
+              select: {
+                businessName: true,
+                street: true,
+                city: true,
+                state: true,
+              }
+            },
+            user: {
+              select: {
+                name: true,
+                image: true,
+              }
+            }
+          }
+        },
         reviews: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -51,18 +71,47 @@ export async function GET(
       }
     })
 
-    const { reviews, ...restFood } = food
-    let firstImage: string | null = null
-    if (Array.isArray(food.images) && food.images.length > 0) {
-      firstImage = food.images[0] as string
-    }
+    const { reviews, sellerAds, restaurantSeller, ...restFood } = food
+    const extractedImages = toPublicMediaUrlList(food.images, origin)
+    const firstImage = extractedImages[0] ?? null
     const sellingPrice = Math.max(0, food.price - (food.discount || 0))
+    const restaurantLogo = toPublicMediaUrl(restaurantSeller.logo || restaurantSeller.user?.image, origin)
+    const restaurantBanner = toPublicMediaUrl(restaurantSeller.banner, origin)
+    const restaurantMainPhoto = toPublicMediaUrl(restaurantSeller.mainPhoto, origin)
+    const restaurantName = restaurantSeller.businessInfo?.businessName || restaurantSeller.user?.name || "Restaurant"
+
     const foodData = {
       ...restFood,
+      restaurantSeller: {
+        ...restaurantSeller,
+        logo: restaurantLogo,
+        banner: restaurantBanner,
+        mainPhoto: restaurantMainPhoto,
+        user: restaurantSeller.user
+          ? {
+              ...restaurantSeller.user,
+              image: toPublicMediaUrl(restaurantSeller.user.image, origin),
+            }
+          : restaurantSeller.user,
+      },
+      restaurantName,
+      restaurantLogo,
+      restaurant_logo: restaurantLogo,
+      restaurantBanner,
+      restaurant_banner: restaurantBanner,
+      restaurantMainPhoto,
+      restaurant_main_photo: restaurantMainPhoto,
       discount: food.discount || 0,
       sellingPrice,
       selling_price: sellingPrice,
+      images: extractedImages,
       image: firstImage,
+      image_url: firstImage,
+      sellerAds: (sellerAds || []).map((ad) => ({
+        ...ad,
+        creativeUrl: toPublicMediaUrl(ad.creativeUrl, origin),
+        mobileCreativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl, origin),
+      })),
       averageRating,
       totalReviews: reviewCount,
       reviewCount,
@@ -72,10 +121,10 @@ export async function GET(
         id: r.id,
         userId: r.userId,
         userName: r.user?.name || "Customer",
-        userAvatar: (r.user as any)?.image || null,
+        userAvatar: toPublicMediaUrl((r.user as any)?.image || null, origin),
         rating: r.rating,
         comment: r.comment,
-        images: Array.isArray((r as any).images) ? (r as any).images : [],
+        images: toPublicMediaUrlList((r as any).images, origin),
         createdAt: r.createdAt.toISOString()
       }))
     }

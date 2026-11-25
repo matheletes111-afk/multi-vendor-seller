@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const ads = await prisma.sellerAd.findMany({
       where: {
         status: "ACTIVE",
@@ -23,7 +25,10 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             logo: true,
-            user: { select: { name: true } },
+            banner: true,
+            mainPhoto: true,
+            businessInfo: { select: { businessName: true } },
+            user: { select: { name: true, image: true } },
           },
         },
       },
@@ -34,15 +39,33 @@ export async function GET(request: NextRequest) {
       const price = fi ? fi.price : 0
       const totalRating = fi?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
       const rating = fi?.reviews.length ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0
+      const foodImage = toFirstPublicMediaUrl(fi?.images, origin)
+      const restaurantLogo = toPublicMediaUrl(ad.restaurantSeller?.logo || ad.restaurantSeller?.user?.image, origin)
+      const restaurantBanner = toPublicMediaUrl(ad.restaurantSeller?.banner, origin)
+      const restaurantMainPhoto = toPublicMediaUrl(ad.restaurantSeller?.mainPhoto, origin)
+      const imageUrl =
+        toPublicMediaUrl(ad.mobileCreativeUrl || ad.creativeUrl, origin) ||
+        foodImage ||
+        restaurantBanner ||
+        restaurantMainPhoto ||
+        restaurantLogo
 
       return {
         ad_id: ad.id,
         is_sponsored: true,
         title: ad.title,
         subtitle: ad.description || "Featured Gourmet Restaurant",
-        image_url: ad.mobileCreativeUrl || ad.creativeUrl,
+        image_url: imageUrl,
+        food_image: foodImage,
         food_id: ad.foodItemId,
-        restaurant_name: ad.restaurantSeller?.user?.name || "Featured Kitchen",
+        restaurant_id: ad.restaurantSellerId,
+        restaurant_name:
+          ad.restaurantSeller?.businessInfo?.businessName ||
+          ad.restaurantSeller?.user?.name ||
+          "Featured Kitchen",
+        restaurant_logo: restaurantLogo,
+        restaurant_banner: restaurantBanner,
+        restaurant_main_photo: restaurantMainPhoto,
         price,
         rating,
         averageRating: rating,

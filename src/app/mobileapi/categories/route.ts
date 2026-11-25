@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 // API uses request.url for searchParams — must be dynamic
 export const dynamic = "force-dynamic"
@@ -53,6 +54,7 @@ interface ErrorResponse {
 
 export async function GET(request: Request): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     // Get URL parameters
     const { searchParams } = new URL(request.url)
     const includeCounts = searchParams.get('includeCounts') === 'true'
@@ -107,14 +109,15 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
 
     // Transform the data to include counts if requested
     const transformedCategories: Category[] = categories.map(cat => {
-      const prodImg = Array.isArray((cat as any).products?.[0]?.images) ? (cat as any).products[0].images[0] : null
-      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+      const prodImg = toFirstPublicMediaUrl((cat as any).products?.[0]?.images, origin)
+      const rawResolved = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+      const resolvedImg = toPublicMediaUrl(rawResolved, origin)
 
       const category: Category = {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        mobileIcon: cat.mobileIcon || resolvedImg,
+        mobileIcon: toPublicMediaUrl(cat.mobileIcon, origin) || resolvedImg,
         image: resolvedImg,
         description: cat.description,
         isActive: cat.isActive,
@@ -126,7 +129,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
             id: sub.id,
             name: sub.name,
             slug: sub.slug,
-            image: sub.image,
+            image: toPublicMediaUrl(sub.image, origin),
             description: sub.description,
             isActive: sub.isActive,
             createdAt: sub.createdAt,

@@ -7,6 +7,7 @@ import { isSellerSubscriptionActive } from "@/lib/subscriptions"
 import { PlanType } from "@prisma/client"
 import { initiateAfriMoneyPushUssd } from "@/lib/afrimoney"
 import { createFlotPaymentLink, normalizeFlotPaymentType, parseStoredFlotLink } from "@/lib/flot"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const origin = getRequestPublicOrigin(request)
     const formatted = orders.map(o => ({
       id: o.id,
       orderNumber: o.orderNumber,
@@ -77,11 +79,12 @@ export async function GET(request: NextRequest) {
       status: o.status,
       createdAt: o.createdAt,
       restaurantName: o.restaurantSeller.businessInfo?.businessName || o.restaurantSeller.user.name || "Restaurant",
+      restaurantLogo: toPublicMediaUrl(o.restaurantSeller.logo, origin),
       items: o.items.map((item) => ({
         id: item.id,
         foodItemId: item.foodItemId,
         name: item.foodItem?.name ?? "Food Item",
-        image: Array.isArray(item.foodItem?.images) ? item.foodItem?.images[0] : (typeof item.foodItem?.images === "string" ? item.foodItem?.images : null),
+        image: toFirstPublicMediaUrl(item.foodItem?.images, origin),
         price: item.price,
         quantity: item.quantity,
       })),

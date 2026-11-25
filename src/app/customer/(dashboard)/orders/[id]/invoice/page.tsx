@@ -8,7 +8,7 @@ export default async function CustomerOrderInvoicePage(props: {
 }) {
   const session = await auth()
   if (!session?.user || session.user.role !== "CUSTOMER") {
-    redirect("/login")
+    redirect("/customer/login")
   }
   
   const params = await props.params

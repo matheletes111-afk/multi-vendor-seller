@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { productId } = await request.json()
     if (!productId) return NextResponse.json({ success: false, error: "Product ID is required" }, { status: 400 })
 
@@ -64,11 +66,7 @@ export async function POST(request: NextRequest) {
     // Extract unique images for gallery
     const reviewGallery: string[] = []
     product.reviews.forEach(r => {
-      if (r.images && Array.isArray(r.images)) {
-        r.images.forEach(img => {
-          if (typeof img === 'string') reviewGallery.push(img)
-        })
-      }
+      reviewGallery.push(...toPublicMediaUrlList(r.images, origin))
     })
 
     // Format detailed reviews
@@ -87,11 +85,11 @@ export async function POST(request: NextRequest) {
         id: r.id,
         rating: r.rating,
         comment: r.comment,
-        images: Array.isArray(r.images) ? r.images : [],
+        images: toPublicMediaUrlList(r.images, origin),
         createdAt: r.createdAt.toISOString(),
         isVerified: r.isVerified,
         reviewerName,
-        reviewerImage: r.user?.image,
+        reviewerImage: toPublicMediaUrl(r.user?.image, origin),
         variantInfo
       }
     })
