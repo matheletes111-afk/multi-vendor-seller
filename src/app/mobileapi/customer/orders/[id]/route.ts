@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { getCustomerOrderDetail } from "../_helpers/order-helpers"
+import { getRequestPublicOrigin } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -22,6 +23,7 @@ export async function GET(
       userId: authStatus.userId,
       orderId: id,
       kind,
+      origin: getRequestPublicOrigin(request),
     })
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })

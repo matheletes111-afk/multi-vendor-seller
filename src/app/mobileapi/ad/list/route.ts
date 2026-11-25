@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, normalizeHotelMedia, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export async function GET(request: Request) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { searchParams } = new URL(request.url)
 
     // Pagination parameters
@@ -144,7 +146,7 @@ export async function GET(request: Request) {
               id: ad.seller.id,
               storeName: ad.seller.store?.name || null,
               name: ad.seller.user?.name || null,
-              avatar: ad.seller.store?.logo || ad.seller.user?.image || null,
+              avatar: toPublicMediaUrl(ad.seller.store?.logo || ad.seller.user?.image || null, origin),
               sellerType: ad.seller.type // PRODUCT or SERVICE
             }
             : ad.hotelSeller
@@ -153,7 +155,7 @@ export async function GET(request: Request) {
                 id: ad.hotelSeller.id,
                 storeName: ad.hotelSeller.businessInfo?.businessName || null,
                 name: ad.hotelSeller.user?.name || null,
-                avatar: ad.hotelSeller.logo || ad.hotelSeller.user?.image || null,
+                avatar: toPublicMediaUrl(ad.hotelSeller.logo || ad.hotelSeller.user?.image || null, origin),
                 sellerType: "HOTEL"
               }
               : ad.restaurantSeller
@@ -162,7 +164,7 @@ export async function GET(request: Request) {
                   id: ad.restaurantSeller.id,
                   storeName: ad.restaurantSeller.businessInfo?.businessName || null,
                   name: ad.restaurantSeller.user?.name || null,
-                  avatar: ad.restaurantSeller.logo || ad.restaurantSeller.user?.image || null,
+                  avatar: toPublicMediaUrl(ad.restaurantSeller.logo || ad.restaurantSeller.user?.image || null, origin),
                   sellerType: "RESTAURANT"
                 }
                 : ad.customer
@@ -170,7 +172,7 @@ export async function GET(request: Request) {
                     type: "CUSTOMER",
                     id: ad.customer.id,
                     name: ad.customer.name || null,
-                    avatar: ad.customer.image || null,
+                    avatar: toPublicMediaUrl(ad.customer.image || null, origin),
                     email: ad.customer.email || null
                   }
                   : null,
@@ -181,19 +183,21 @@ export async function GET(request: Request) {
       // @ts-ignore - Prisma needs regeneration
       const mobileType = ad.mobileCreativeType
       // @ts-ignore
-      const mobileUrl = ad.mobileCreativeUrl
+      const mobileUrl = toPublicMediaUrl(ad.mobileCreativeUrl, origin)
+      const webUrl = toPublicMediaUrl(ad.creativeUrl, origin)
       // @ts-ignore
       const placementsArray = ad.placements || ["WEB"]
+      const hotelMedia = ad.hotel ? normalizeHotelMedia(ad.hotel, origin) : null
 
       groupedAdvertisers.get(advertiserId).ads.push({
         id: ad.id,
         title: ad.title,
         description: ad.description,
         creativeType: mobileType || ad.creativeType,
-        creativeUrl: mobileUrl || ad.creativeUrl,
+        creativeUrl: mobileUrl || webUrl,
         placements: placementsArray,
         webCreativeType: ad.creativeType,
-        webCreativeUrl: ad.creativeUrl,
+        webCreativeUrl: webUrl,
         mobileCreativeType: mobileType,
         mobileCreativeUrl: mobileUrl,
         status: ad.status,
@@ -211,16 +215,36 @@ export async function GET(request: Request) {
         restaurantSellerId: ad.restaurantSellerId || null,
         target: {
           product: ad.product
-            ? { ...ad.product, type: "PRODUCT" as const }
+            ? {
+                ...ad.product,
+                images: toPublicMediaUrlList(ad.product.images, origin),
+                type: "PRODUCT" as const,
+              }
             : null,
           service: ad.service
-            ? { ...ad.service, type: "SERVICE" as const }
+            ? {
+                ...ad.service,
+                images: toPublicMediaUrlList(ad.service.images, origin),
+                galleryImages: toPublicMediaUrlList(ad.service.galleryImages, origin),
+                type: "SERVICE" as const,
+              }
             : null,
-          hotel: ad.hotel
-            ? { ...ad.hotel, type: "HOTEL" as const }
+          hotel: ad.hotel && hotelMedia
+            ? {
+                ...ad.hotel,
+                images: hotelMedia.images,
+                banner: hotelMedia.banner,
+                logo: hotelMedia.logo,
+                coverImage: hotelMedia.coverImage,
+                type: "HOTEL" as const,
+              }
             : null,
           foodItem: ad.foodItem
-            ? { ...ad.foodItem, type: "FOOD" as const }
+            ? {
+                ...ad.foodItem,
+                images: toPublicMediaUrlList(ad.foodItem.images, origin),
+                type: "FOOD" as const,
+              }
             : null
         },
         targeting: {

@@ -5,6 +5,7 @@ import type { CartAddPayload, CartItemApi, CartPatchPayload } from "@/app/api/cu
 import { isProductCartPayload } from "@/app/api/customer/cart/types"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { getServiceFirstDisplayImageUrl } from "@/lib/service-images"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -30,7 +31,7 @@ type CartItemPricing = {
 
 type CartItemRow = CartItemWithRelations & CartItemPricing
 
-function toCartItemApi(row: CartItemRow): CartItemApi {
+function toCartItemApi(row: CartItemRow, origin?: string | null): CartItemApi {
   const name =
     row.product != null && row.productVariant != null
       ? `${row.product.name} (${row.productVariant.name})`
@@ -42,17 +43,19 @@ function toCartItemApi(row: CartItemRow): CartItemApi {
             ? row.service.name
             : "Item"
 
-  const variantImages = row.productVariant?.images as string[] | null | undefined
-  const rawImage = row.product
-    ? (Array.isArray(variantImages) && variantImages[0]) ??
-      ((row.product.images as string[] | null) ?? [])[0]
+  const rawServiceImage = row.service
+    ? getServiceFirstDisplayImageUrl({
+        images: row.service.images,
+        galleryImages: row.service.galleryImages,
+      })
+    : null
+  const image = row.product
+    ? (toFirstPublicMediaUrl(row.productVariant?.images, origin) ??
+       toFirstPublicMediaUrl(row.product.images, origin) ??
+       null)
     : row.service
-      ? getServiceFirstDisplayImageUrl({
-          images: row.service.images,
-          galleryImages: row.service.galleryImages,
-        })
+      ? toPublicMediaUrl(rawServiceImage, origin)
       : null
-  const image = typeof rawImage === "string" ? rawImage : null
 
   return {
     id: row.id,
@@ -81,12 +84,13 @@ export async function GET(request: NextRequest) {
   const auth = await getMobileCustomerAuth(request)
   if (!auth.ok) return unauthorized()
 
+  const origin = getRequestPublicOrigin(request)
   const items = await prisma.cartItem.findMany({
     where: { userId: auth.userId },
     include: cartItemInclude,
     orderBy: { createdAt: "asc" },
   })
-  const result: CartItemApi[] = (items as CartItemRow[]).map(toCartItemApi)
+  const result: CartItemApi[] = (items as CartItemRow[]).map((row) => toCartItemApi(row, origin))
   return NextResponse.json(result)
 }
 
@@ -216,12 +220,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
   }
 
+  const origin = getRequestPublicOrigin(request)
   const items = await prisma.cartItem.findMany({
     where: { userId },
     include: cartItemInclude,
     orderBy: { createdAt: "asc" },
   })
-  const result: CartItemApi[] = (items as CartItemRow[]).map(toCartItemApi)
+  const result: CartItemApi[] = (items as CartItemRow[]).map((row) => toCartItemApi(row, origin))
   return NextResponse.json(result)
 }
 
@@ -266,12 +271,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid patch payload" }, { status: 400 })
   }
 
+  const origin = getRequestPublicOrigin(request)
   const items = await prisma.cartItem.findMany({
     where: { userId: auth.userId },
     include: cartItemInclude,
     orderBy: { createdAt: "asc" },
   })
-  const result: CartItemApi[] = (items as CartItemRow[]).map(toCartItemApi)
+  const result: CartItemApi[] = (items as CartItemRow[]).map((row) => toCartItemApi(row, origin))
   return NextResponse.json(result)
 }
 

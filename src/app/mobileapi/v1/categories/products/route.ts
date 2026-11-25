@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const categories = await prisma.category.findMany({
       where: { isActive: true },
       select: {
@@ -35,8 +37,8 @@ export async function GET(request: NextRequest) {
     })
 
     const formatted = categories.map((cat) => {
-      const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null
-      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+      const prodImg = toFirstPublicMediaUrl(cat.products?.[0]?.images, origin)
+      const resolvedImg = toPublicMediaUrl(cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null, origin)
 
       return {
         category_id: cat.id,
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
         slug: cat.slug,
         description: cat.description || "",
         image_url: resolvedImg,
-        mobile_icon: cat.mobileIcon || resolvedImg,
+        mobile_icon: toPublicMediaUrl(cat.mobileIcon, origin) || resolvedImg,
         is_featured: cat.isFeatured,
         product_count: cat._count.products,
         deep_link: `/products?category=${encodeURIComponent(cat.slug)}`,

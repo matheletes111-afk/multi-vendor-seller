@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { POST as postHotelReview } from "@/app/mobileapi/customer/hotels/[id]/reviews/route"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,7 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { id: hotelId } = await props.params
 
     const [hotel, reviews, ratingAgg, ratingGroups] = await Promise.all([
@@ -68,10 +70,10 @@ export async function GET(
           id: r.id,
           userId: r.userId,
           userName: r.user?.name || "Customer",
-          userAvatar: r.user?.image || null,
+          userAvatar: toPublicMediaUrl(r.user?.image || null, origin),
           rating: r.rating,
           comment: r.comment,
-          images: Array.isArray(r.images) ? r.images : [],
+          images: toPublicMediaUrlList(r.images, origin),
           createdAt: r.createdAt.toISOString()
         }))
       }

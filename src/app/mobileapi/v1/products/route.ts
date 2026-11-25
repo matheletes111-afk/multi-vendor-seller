@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.max(1, Math.ceil(totalItems / limit))
     const pagedProducts = interleaved.slice((page - 1) * limit, page * limit)
 
+    const origin = getRequestPublicOrigin(request)
     const formattedProducts = pagedProducts.map((p) => {
       const variant = p.variants[0]
       const originalPrice = variant ? variant.price : 0
@@ -97,10 +99,8 @@ export async function GET(request: NextRequest) {
           ? `${Math.round((discountAmount / originalPrice) * 100)}% OFF`
           : null
 
-      let thumbnail: string | null = null
-      if (Array.isArray(p.images) && p.images.length > 0) {
-        thumbnail = String(p.images[0])
-      }
+      const images = toPublicMediaUrlList(p.images, origin)
+      const thumbnail = images[0] ?? null
 
       const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
       const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
         category: p.category ? { id: p.category.id, name: p.category.name, slug: p.category.slug } : null,
         subcategory: p.subcategory ? { id: p.subcategory.id, name: p.subcategory.name, slug: p.subcategory.slug } : null,
         thumbnail_url: thumbnail,
-        images: Array.isArray(p.images) ? p.images : thumbnail ? [thumbnail] : [],
+        images,
         price: finalPrice,
         current_price: finalPrice,
         original_price: discountAmount > 0 ? originalPrice : null,

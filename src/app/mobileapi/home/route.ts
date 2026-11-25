@@ -4,6 +4,7 @@ import { JsonValue } from "@prisma/client/runtime/library"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -103,8 +104,9 @@ interface ErrorResponse {
   error: string
 }
 
-export async function GET(): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
+export async function GET(request: Request): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     // Fetch banners in parallel
     const bannersPromise = prisma.banner.findMany({
       where: { isActive: true },
@@ -205,6 +207,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
         title: true,
         creativeType: true,
         creativeUrl: true,
+        mobileCreativeUrl: true,
         productId: true,
         serviceId: true,
       },
@@ -258,13 +261,14 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
 
     // Transform featured categories to full Category shape (same as categories)
     const featuredCategories: Category[] = (featuredCategoriesRaw as any[]).map((cat) => {
-      const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null;
-      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      const prodImg = toFirstPublicMediaUrl(cat.products?.[0]?.images, origin);
+      const rawResolved = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      const resolvedImg = toPublicMediaUrl(rawResolved, origin);
       return {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        mobileIcon: cat.mobileIcon || resolvedImg,
+        mobileIcon: toPublicMediaUrl(cat.mobileIcon, origin) || resolvedImg,
         image: resolvedImg,
         description: cat.description,
         isActive: cat.isActive ?? true,
@@ -274,21 +278,22 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
           id: sub.id,
           name: sub.name,
           slug: sub.slug,
-          image: sub.image,
+          image: toPublicMediaUrl(sub.image, origin),
         })),
       };
     })
 
     // Transform categories to match the Category interface
     const transformedCategories: Category[] = categories.map(cat => {
-      const prodImg = Array.isArray((cat as any).products?.[0]?.images) ? (cat as any).products[0].images[0] : null;
-      const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      const prodImg = toFirstPublicMediaUrl((cat as any).products?.[0]?.images, origin);
+      const rawResolved = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null;
+      const resolvedImg = toPublicMediaUrl(rawResolved, origin);
       return {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
         image: resolvedImg,
-        mobileIcon: cat.mobileIcon || resolvedImg,
+        mobileIcon: toPublicMediaUrl(cat.mobileIcon, origin) || resolvedImg,
         description: cat.description,
         isActive: cat.isActive,
         createdAt: cat.createdAt,
@@ -297,7 +302,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
           id: sub.id,
           name: sub.name,
           slug: sub.slug,
-          image: sub.image,
+          image: toPublicMediaUrl(sub.image, origin),
         }))
       };
     })
@@ -307,7 +312,7 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       images: getServiceDisplayImageUrls({
         images: service.images,
         galleryImages: service.galleryImages,
-      }) as unknown as JsonValue,
+      }).map((u) => toPublicMediaUrl(u, origin) || u) as unknown as JsonValue,
     }))
 
     // Transform service categories to full ServiceCategoryItem shape
@@ -316,8 +321,8 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       name: c.name,
       slug: c.slug,
       description: c.description,
-      image: c.image,
-      mobileIcon: c.mobileIcon,
+      image: toPublicMediaUrl(c.image, origin),
+      mobileIcon: toPublicMediaUrl(c.mobileIcon, origin),
       commissionRate: c.commissionRate,
       isActive: c.isActive,
       createdAt: c.createdAt,
@@ -325,16 +330,30 @@ export async function GET(): Promise<NextResponse<SuccessResponse | ErrorRespons
       servicesCount: c._count.services,
     }))
 
+    const normalizedBanners: Banner[] = banners.map((b) => ({
+      ...b,
+      bannerImage: toPublicMediaUrl(b.bannerImage, origin),
+    }))
+
+    const normalizedAds: Ad[] = ads.map((ad) => ({
+      id: ad.id,
+      title: ad.title,
+      creativeType: ad.creativeType,
+      creativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl || ad.creativeUrl, origin),
+      productId: ad.productId,
+      serviceId: ad.serviceId,
+    }))
+
     // Compile randomized homepage data
     const homepageData: HomepageData = {
-      banners: shuffleArray(banners),
+      banners: shuffleArray(normalizedBanners),
       categories: shuffleArray(transformedCategories).map(cat => ({
         ...cat,
         subcategories: shuffleArray(cat.subcategories),
       })),
       featuredCategories: shuffleArray(featuredCategories),
       serviceCategories: shuffleArray(serviceCategories),
-      ads: shuffleArray(ads),
+      ads: shuffleArray(normalizedAds),
       services: fairMarketplaceInterleave(transformedServices, (s) => (s as any).sellerId).slice(0, 10),
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -84,6 +85,7 @@ export async function GET(
       ratingAggs.map((r) => [r.productId, parseFloat(Number(r._avg.rating ?? 0).toFixed(1))])
     ) as Record<string, number>
 
+    const origin = getRequestPublicOrigin(request)
     const products = rawProducts.map((p) => {
       const v = p.variants[0]
       const basePrice = v?.price ?? 0
@@ -96,7 +98,7 @@ export async function GET(
         id: p.id,
         name: p.name,
         slug: p.slug,
-        images: p.images,
+        images: toPublicMediaUrlList(p.images, origin),
         price: finalPrice,
         originalPrice: discount > 0 ? basePrice : null,
         minPrice: basePrice,
@@ -106,7 +108,17 @@ export async function GET(
         reviewsCount,
         totalReviews: reviewsCount,
         category: p.category,
-        seller: p.seller,
+        seller: p.seller
+          ? {
+              ...p.seller,
+              store: p.seller.store
+                ? {
+                    ...p.seller.store,
+                    logo: toPublicMediaUrl(p.seller.store.logo, origin),
+                  }
+                : p.seller.store,
+            }
+          : p.seller,
         isFeatured: p.isFeatured,
       }
     })
@@ -117,7 +129,7 @@ export async function GET(
         id: subcategory.id,
         name: subcategory.name,
         slug: subcategory.slug,
-        image: subcategory.image,
+        image: toPublicMediaUrl(subcategory.image, origin),
         description: subcategory.description,
         category: subcategory.category,
         products,

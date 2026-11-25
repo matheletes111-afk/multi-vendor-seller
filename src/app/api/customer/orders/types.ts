@@ -117,6 +117,12 @@ export type OrderDetailApi = {
   shippingCountry: string | null
   shippingLatitude?: number | null
   shippingLongitude?: number | null
+  deliveryRegion?: string
+  deliveryZone?: string
+  deliveryZoneLabel?: string
+  invoiceUrl?: string
+  invoicePdfUrl?: string
+  qrVerifyUrl?: string
   dropoffLocation?: any
   createdAt: string
   sellerStoreName: string | null

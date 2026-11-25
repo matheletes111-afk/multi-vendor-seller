@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 // Define types
 interface ProductVariant {
@@ -68,6 +69,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const origin = getRequestPublicOrigin(request)
     // Await the params Promise (Next.js 15 pattern)
     const { id } = await params
     
@@ -233,7 +235,7 @@ export async function GET(
         id: product.id,
         name: product.name,
         slug: product.slug,
-        images: product.images,
+        images: toPublicMediaUrlList(product.images, origin),
         isFeatured: product.isFeatured,
         createdAt: product.createdAt,
         category: product.category,
@@ -255,7 +257,7 @@ export async function GET(
       id: sub.id,
       name: sub.name,
       slug: sub.slug,
-      image: sub.image,
+      image: toPublicMediaUrl(sub.image, origin),
       description: sub.description,
       isActive: sub.isActive,
       createdAt: sub.createdAt,
@@ -263,8 +265,11 @@ export async function GET(
       productsCount: sub._count.products,
     }))
 
-    const catProdImg = Array.isArray((category as any).products?.[0]?.images) ? (category as any).products[0].images[0] : null
-    const resolvedCatImg = category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null
+    const catProdImg = toFirstPublicMediaUrl((category as any).products?.[0]?.images, origin)
+    const resolvedCatImg = toPublicMediaUrl(
+      category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null,
+      origin
+    )
 
     // Return category details
     return NextResponse.json({
@@ -275,7 +280,7 @@ export async function GET(
         name: category.name,
         slug: category.slug,
         image: resolvedCatImg,
-        mobileIcon: (category as any).mobileIcon || resolvedCatImg,
+        mobileIcon: toPublicMediaUrl((category as any).mobileIcon, origin) || resolvedCatImg,
         description: category.description,
         isActive: category.isActive,
         createdAt: category.createdAt,

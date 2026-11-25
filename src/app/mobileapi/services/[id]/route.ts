@@ -6,6 +6,7 @@ import {
   getServiceDisplayImageUrls,
   parseServiceImagesForSellerForm,
 } from "@/lib/service-images"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -88,13 +89,13 @@ function mapServiceSeller(seller: {
     phoneCountryCode: string | null
     image: string | null
   }
-}): ServiceSellerPayload {
+}, origin?: string): ServiceSellerPayload {
   return {
     store: seller.store
       ? {
           name: seller.store.name,
           phone: seller.store.phone ?? null,
-          logo: seller.store.logo ?? null,
+          logo: toPublicMediaUrl(seller.store.logo ?? null, origin),
           address: seller.store.address ?? null,
           city: seller.store.city ?? null,
           state: seller.store.state ?? null,
@@ -107,17 +108,18 @@ function mapServiceSeller(seller: {
       email: seller.user.email,
       phone: seller.user.phone ?? null,
       phoneCountryCode: seller.user.phoneCountryCode ?? null,
-      image: seller.user.image ?? null,
+      image: toPublicMediaUrl(seller.user.image ?? null, origin),
     },
   }
 }
 
 /** GET /mobileapi/services/[id] — full service detail (same data as web /service/[id]). Public. */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { id } = await params
     const [service, ratingAgg] = await Promise.all([
       prisma.service.findFirst({
@@ -172,7 +174,7 @@ export async function GET(
         id: review.id,
         rating: review.rating,
         comment: review.comment,
-        images: extractImageUrls(review.images),
+        images: extractImageUrls(review.images).map((u) => toPublicMediaUrl(u, origin) || u),
         createdAt: review.createdAt.toISOString(),
         isVerified: review.isVerified,
         reviewerName,
@@ -189,7 +191,7 @@ export async function GET(
     const combinedImages = getServiceDisplayImageUrls({
       images: service.images,
       galleryImages: service.galleryImages,
-    })
+    }).map((u) => toPublicMediaUrl(u, origin) || u)
 
     const seller = service.seller
     const detail: ServiceDetailData = {
@@ -203,22 +205,26 @@ export async function GET(
       hasGst: service.hasGst,
       displayPrice,
       images: combinedImages,
-      masterImage: masterUrl,
-      galleryImages: galleryUrls,
+      masterImage: toPublicMediaUrl(masterUrl, origin),
+      galleryImages: galleryUrls.map((u) => toPublicMediaUrl(u, origin) || u),
       duration: service.duration,
       isFeatured: service.isFeatured,
       serviceCategory: service.serviceCategory,
       seller: service.seller
         ? { store: service.seller.store ? { name: service.seller.store.name } : null }
         : null,
-      serviceSeller: seller ? mapServiceSeller(seller) : null,
+      serviceSeller: seller ? mapServiceSeller(seller, origin) : null,
       reviewCount: service._count.reviews,
       reviewsCount: service._count.reviews,
       totalRatings: service._count.reviews,
       totalReviews: service._count.reviews,
       averageRating: parseFloat(Number(ratingAgg._avg.rating ?? 0).toFixed(1)),
       reviews,
-      sellerAds: (service as any).sellerAds,
+      sellerAds: ((service as any).sellerAds || []).map((ad: any) => ({
+        ...ad,
+        creativeUrl: toPublicMediaUrl(ad.creativeUrl, origin),
+        mobileCreativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl, origin),
+      })),
     }
 
     return NextResponse.json({

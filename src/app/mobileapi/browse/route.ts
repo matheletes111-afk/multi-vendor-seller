@@ -4,6 +4,7 @@ import { Prisma, ReturnPolicyType, SubscriptionPlan, ProductCondition } from "@p
 import { shuffleArray, seededShuffle, fairMarketplaceInterleave } from "@/lib/utils"
 import { resolveFeedSeed, parseExcludedIds } from "@/lib/feed-session"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -506,8 +507,22 @@ export async function GET(request: NextRequest) {
       serviceRatingRows.map((r) => [r.serviceId, Number(r._avg.rating ?? 0)])
     ) as Record<string, number>
 
+    const origin = getRequestPublicOrigin(request)
     const rawMappedServices = servicesRaw.map((s) => ({
       ...s,
+      images: toPublicMediaUrlList(s.images, origin),
+      galleryImages: toPublicMediaUrlList(s.galleryImages, origin),
+      seller: s.seller
+        ? {
+            ...s.seller,
+            store: s.seller.store
+              ? {
+                  ...s.seller.store,
+                  logo: toPublicMediaUrl(s.seller.store.logo, origin),
+                }
+              : s.seller.store,
+          }
+        : s.seller,
       averageRating: ratingByService[s.id] ?? 0,
     }))
     const services = (!sortParam || sort === "random")
@@ -525,11 +540,21 @@ export async function GET(request: NextRequest) {
       name: p.name,
       slug: p.slug,
       description: p.description,
-      images: p.images,
+      images: toPublicMediaUrlList(p.images, origin),
       isFeatured: p.isFeatured,
       createdAt: p.createdAt.toISOString(),
       category: p.category,
-      seller: p.seller,
+      seller: p.seller
+        ? {
+            ...p.seller,
+            store: p.seller.store
+              ? {
+                  ...p.seller.store,
+                  logo: toPublicMediaUrl(p.seller.store.logo, origin),
+                }
+              : p.seller.store,
+          }
+        : p.seller,
       variants: p.variants,
       _count: p._count,
       price: p.finalPrice,
@@ -573,6 +598,8 @@ export async function GET(request: NextRequest) {
         subcategories,
         sponsoredAds: sponsoredAds.map((ad: AdRow) => ({
           ...ad,
+          creativeUrl: toPublicMediaUrl(ad.creativeUrl as string | null | undefined, origin),
+          mobileCreativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl as string | null | undefined, origin),
           totalBudget: Number(ad.totalBudget),
           spentAmount: Number(ad.spentAmount),
           maxCpc: Number(ad.maxCpc),

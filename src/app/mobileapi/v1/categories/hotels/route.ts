@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { formatLocationPart } from "@/lib/utils"
+import { getRequestPublicOrigin, normalizeHotelMedia, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const hotels = await prisma.hotel.findMany({
       where: { isActive: true, isDeleted: false },
       select: {
         city: true,
         images: true,
         banner: true,
+        logo: true,
+        hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
       },
     })
 
     const cityMap: Record<string, { city: string; hotel_count: number; image_url: string | null }> = {}
 
     hotels.forEach((h) => {
-      if (!h.city || h.city.trim().length === 0) return
-      const cityName = h.city.trim()
+      const cityName = formatLocationPart(h.city)
+      if (!cityName) return
+      const imageUrl = normalizeHotelMedia(h, origin).coverImage
       if (!cityMap[cityName]) {
-        let imageUrl: string | null = h.banner || null
-        if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-          imageUrl = String(h.images[0])
-        }
         cityMap[cityName] = {
           city: cityName,
           hotel_count: 1,
@@ -29,6 +31,9 @@ export async function GET(request: NextRequest) {
         }
       } else {
         cityMap[cityName].hotel_count += 1
+        if (!cityMap[cityName].image_url && imageUrl) {
+          cityMap[cityName].image_url = imageUrl
+        }
       }
     })
 
@@ -36,7 +41,7 @@ export async function GET(request: NextRequest) {
       category_id: `city_cat_${index}`,
       name: `${c.city} Stays`,
       city: c.city,
-      image_url: c.image_url || "/icons/hotel.png",
+      image_url: c.image_url || toPublicMediaUrl("/icons/hotel.png", origin) || "/icons/hotel.png",
       hotel_count: c.hotel_count,
       deep_link: `/hotels?city=${encodeURIComponent(c.city)}`,
     }))

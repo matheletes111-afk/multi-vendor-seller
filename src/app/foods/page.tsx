@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/ui/card"
 import { PublicLayout } from "@/components/site-layout"
 import { FoodDetailModal } from "@/components/foods/food-detail-modal"
 import { PageLoader } from "@/components/ui/page-loader"
-import { formatCurrency, shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
+import { formatCurrency, shuffleArray, fairMarketplaceInterleave, parseCleanStringArray, formatRestaurantLocation } from "@/lib/utils"
 import { WishlistButton } from "@/components/product/WishlistButton"
 import { toPublicMediaUrl } from "@/lib/media-url"
 
@@ -305,6 +305,20 @@ function RestaurantCard({
   const router = useRouter()
   const cover = toPublicMediaUrl(resto.banner || resto.mainPhoto)
   const logo = toPublicMediaUrl(resto.logo)
+  const cleanCuisines = parseCleanStringArray(resto.cuisines)
+  const fullLocation = formatRestaurantLocation({
+    street: resto.street,
+    city: resto.city,
+    state: resto.state,
+    fallback: "Local",
+  })
+  const compactLocation = formatRestaurantLocation({
+    street: resto.street,
+    city: resto.city,
+    state: resto.state,
+    compact: true,
+    fallback: "Local",
+  })
 
   return (
     <div
@@ -328,7 +342,7 @@ function RestaurantCard({
                 }}
               />
             ) : (
-              <span className="text-2xl">{getCuisineEmoji(resto.cuisines[0] || "")}</span>
+              <span className="text-2xl">{getCuisineEmoji(cleanCuisines[0] || "")}</span>
             )}
           </div>
 
@@ -352,14 +366,17 @@ function RestaurantCard({
 
             {/* Cuisines */}
             <p className="text-[11px] font-semibold text-slate-500 truncate mt-0.5">
-              {resto.cuisines.slice(0, 3).join(" • ") || "Delicious Food"}
+              {cleanCuisines.slice(0, 3).join(" • ") || "Delicious Food"}
             </p>
 
             {/* Location + dish count row */}
-            <div className="flex items-center gap-3 mt-1.5">
-              <div className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
+            <div className="flex items-center gap-3 mt-1.5 min-w-0">
+              <div
+                title={fullLocation}
+                className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold min-w-0"
+              >
                 <MapPin className="h-3 w-3 text-emerald-500 shrink-0" />
-                <span className="truncate max-w-[120px]">{resto.city || "Local"}</span>
+                <span className="truncate max-w-[180px]">{compactLocation}</span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold">
                 <Utensils className="h-3 w-3 text-emerald-500 shrink-0" />

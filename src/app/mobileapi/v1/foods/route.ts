@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { formatLocationPart, shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
 
 export const dynamic = "force-dynamic"
@@ -50,8 +51,10 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               logo: true,
+              banner: true,
+              mainPhoto: true,
               businessInfo: { select: { businessName: true, city: true } },
-              user: { select: { name: true } },
+              user: { select: { name: true, image: true } },
             },
           },
           reviews: { select: { rating: true } },
@@ -60,10 +63,15 @@ export async function GET(request: NextRequest) {
     ])
 
     const formattedItems = foodItems.map((fi) => {
-      let imageUrl: string | null = null
-      if (Array.isArray(fi.images) && fi.images.length > 0) {
-        imageUrl = String(fi.images[0])
-      }
+      const origin = getRequestPublicOrigin(request)
+      const images = toPublicMediaUrlList(fi.images, origin)
+      const imageUrl = images[0] ?? null
+      const restaurantLogo = toPublicMediaUrl(
+        fi.restaurantSeller.logo || fi.restaurantSeller.user?.image,
+        origin
+      )
+      const restaurantBanner = toPublicMediaUrl(fi.restaurantSeller.banner, origin)
+      const restaurantMainPhoto = toPublicMediaUrl(fi.restaurantSeller.mainPhoto, origin)
 
       const totalRating = fi.reviews.reduce((acc, r) => acc + r.rating, 0)
       const rating = fi.reviews.length > 0 ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0.0
@@ -88,12 +96,15 @@ export async function GET(request: NextRequest) {
         selling_price: Math.max(0, fi.price - (fi.discount || 0)),
         is_veg: fi.isVeg,
         isVeg: fi.isVeg,
+        images,
         image: imageUrl,
         image_url: imageUrl,
         restaurant_name: restaurantName,
         restaurantName: restaurantName,
-        restaurant_logo: fi.restaurantSeller.logo || null,
-        restaurantCity: fi.restaurantSeller.businessInfo?.city || "",
+        restaurant_logo: restaurantLogo,
+        restaurant_banner: restaurantBanner,
+        restaurant_main_photo: restaurantMainPhoto,
+        restaurantCity: formatLocationPart(fi.restaurantSeller.businessInfo?.city),
         rating,
         averageRating: rating,
         review_count: fi.reviews.length,

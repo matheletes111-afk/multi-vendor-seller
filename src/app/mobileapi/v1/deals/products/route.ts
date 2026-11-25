@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const origin = getRequestPublicOrigin(request)
     const deals = products
       .map((p, index) => {
         const variant = p.variants[0]
@@ -51,10 +53,7 @@ export async function GET(request: NextRequest) {
         const currentPrice = Math.max(0, originalPrice - discountAmount)
         const discountPercentage = Math.round((discountAmount / originalPrice) * 100)
 
-        let imageUrl: string | null = null
-        if (Array.isArray(p.images) && p.images.length > 0) {
-          imageUrl = String(p.images[0])
-        }
+        const imageUrl = toFirstPublicMediaUrl(p.images, origin)
 
         const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
         const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0

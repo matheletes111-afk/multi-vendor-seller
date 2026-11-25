@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
       restaurantSeller: activeRestaurantSellerWhere(),
     }
 
+    const origin = getRequestPublicOrigin(request)
     const [totalItems, foodItems] = await Promise.all([
       prisma.foodItem.count({ where }),
       prisma.foodItem.findMany({
@@ -27,17 +29,28 @@ export async function GET(request: NextRequest) {
         take: page === 1 ? Math.max(limit * 3, 30) : limit,
         orderBy: { createdAt: "desc" },
         include: {
-          restaurantSeller: { select: { user: { select: { name: true } } } },
+          restaurantSeller: {
+            select: {
+              id: true,
+              logo: true,
+              banner: true,
+              mainPhoto: true,
+              businessInfo: { select: { businessName: true } },
+              user: { select: { name: true, image: true } },
+            },
+          },
           reviews: { select: { rating: true } },
         },
       }),
     ])
 
     const formattedFeed = foodItems.map((fi, index) => {
-      let imageUrl: string | null = null
-      if (Array.isArray(fi.images) && fi.images.length > 0) {
-        imageUrl = String(fi.images[0])
-      }
+      const images = toPublicMediaUrlList(fi.images, origin)
+      const imageUrl = images[0] ?? null
+      const restaurantLogo = toPublicMediaUrl(
+        fi.restaurantSeller.logo || fi.restaurantSeller.user?.image,
+        origin
+      )
 
       const totalRating = fi.reviews.reduce((acc, r) => acc + r.rating, 0)
       const rating = fi.reviews.length > 0 ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0.0
@@ -52,9 +65,15 @@ export async function GET(request: NextRequest) {
         name: fi.name,
         description: fi.description || "",
         category: fi.category,
-        restaurant_name: fi.restaurantSeller.user?.name || "Gourmet Kitchen",
+        restaurant_id: fi.restaurantSeller.id,
+        restaurant_name:
+          fi.restaurantSeller.businessInfo?.businessName ||
+          fi.restaurantSeller.user?.name ||
+          "Gourmet Kitchen",
+        restaurant_logo: restaurantLogo,
         is_veg: fi.isVeg,
         isVeg: fi.isVeg,
+        images,
         image: imageUrl,
         image_url: imageUrl,
         price: fi.price,

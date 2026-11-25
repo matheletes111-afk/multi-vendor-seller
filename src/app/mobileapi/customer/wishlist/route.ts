@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+import { getRequestPublicOrigin, normalizeHotelMedia, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 const wishlistItem = prisma.wishlistItem as any
 
@@ -70,52 +71,60 @@ export function toFirstImage(raw: unknown): string | null {
   return null
 }
 
-export function toMobileItemApi(item: {
-  id: string
-  productId: string | null
-  serviceId: string | null
-  hotelId: string | null
-  foodItemId: string | null
-  createdAt: Date
-  product: {
+export function toMobileItemApi(
+  item: {
     id: string
-    name: string
-    slug: string
-    images: unknown
-    variants: Array<{ price: number; discount: number }>
-  } | null
-  service: {
-    id: string
-    name: string
-    slug: string
-    images: unknown
-    basePrice: number | null
-    discount: number
-  } | null
-  hotel?: {
-    id: string
-    name: string
-    images: unknown
-    logo: string | null
-    banner: string | null
-    city: string | null
-    starRating: number
-    rooms: Array<{ price: number }>
-  } | null
-  foodItem?: {
-    id: string
-    name: string
-    images: unknown
-    price: number
-    discount?: number | null
-    isVeg: boolean
-    category: string
-    restaurantSeller?: {
-      businessInfo?: { businessName: string | null } | null
-      user?: { name: string | null } | null
+    productId: string | null
+    serviceId: string | null
+    hotelId: string | null
+    foodItemId: string | null
+    createdAt: Date
+    product: {
+      id: string
+      name: string
+      slug: string
+      images: unknown
+      variants: Array<{ price: number; discount: number }>
     } | null
-  } | null
-}): MobileWishlistItemApi {
+    service: {
+      id: string
+      name: string
+      slug: string
+      images: unknown
+      basePrice: number | null
+      discount: number
+    } | null
+    hotel?: {
+      id: string
+      name: string
+      images: unknown
+      logo: string | null
+      banner: string | null
+      city: string | null
+      starRating: number
+      rooms: Array<{ price: number }>
+      hotelSeller?: {
+        logo: string | null
+        banner: string | null
+        mainPhoto: string | null
+      } | null
+    } | null
+    foodItem?: {
+      id: string
+      name: string
+      images: unknown
+      price: number
+      discount?: number | null
+      isVeg: boolean
+      category: string
+      restaurantSeller?: {
+        businessInfo?: { businessName: string | null } | null
+        user?: { name: string | null } | null
+      } | null
+    } | null
+  },
+  origin?: string | null
+): MobileWishlistItemApi {
   const productPrice = item.product?.variants?.[0]
     ? Math.max(0, item.product.variants[0].price - (item.product.variants[0].discount ?? 0))
     : null
@@ -131,8 +140,8 @@ export function toMobileItemApi(item: {
     }
   }
 
-  const hotelImage = item.hotel ? (toFirstImage(item.hotel.images) || item.hotel.logo || item.hotel.banner) : null
-  const foodImage = item.foodItem ? toFirstImage(item.foodItem.images) : null
+  const hotelImage = item.hotel ? normalizeHotelMedia(item.hotel, origin).coverImage : null
+  const foodImage = item.foodItem ? toFirstPublicMediaUrl(item.foodItem.images, origin) : null
   const restaurantName = item.foodItem?.restaurantSeller?.businessInfo?.businessName || item.foodItem?.restaurantSeller?.user?.name || undefined
 
   return {
@@ -147,7 +156,7 @@ export function toMobileItemApi(item: {
           id: item.product.id,
           name: item.product.name,
           slug: item.product.slug,
-          image: toFirstImage(item.product.images),
+          image: toFirstPublicMediaUrl(item.product.images, origin),
           price: productPrice,
         }
       : null,
@@ -156,7 +165,7 @@ export function toMobileItemApi(item: {
           id: item.service.id,
           name: item.service.name,
           slug: item.service.slug,
-          image: toFirstImage(item.service.images),
+          image: toFirstPublicMediaUrl(item.service.images, origin),
           price: servicePrice,
         }
       : null,
@@ -223,6 +232,9 @@ export const mobileWishlistInclude = {
       banner: true,
       city: true,
       starRating: true,
+      hotelSeller: {
+        select: { logo: true, banner: true, mainPhoto: true },
+      },
       rooms: {
         where: { isDeleted: false, isActive: true },
         select: { price: true },
@@ -273,7 +285,8 @@ export async function GET(request: NextRequest) {
       (r.hotelId && r.hotel) ||
       (r.foodItemId && r.foodItem)
   )
-  const items = validRows.map(toMobileItemApi)
+  const origin = getRequestPublicOrigin(request)
+  const items = validRows.map((row: any) => toMobileItemApi(row, origin))
 
   return NextResponse.json({
     success: true,
@@ -370,10 +383,11 @@ export async function POST(request: NextRequest) {
     include: mobileWishlistInclude,
   })
   const count = await wishlistItem.count({ where: { userId: auth.userId } })
+  const origin = getRequestPublicOrigin(request)
   return NextResponse.json({
     success: true,
     message: "Wishlist updated",
-    data: { action: "added", item: toMobileItemApi(created), count },
+    data: { action: "added", item: toMobileItemApi(created, origin), count },
   })
 }
 

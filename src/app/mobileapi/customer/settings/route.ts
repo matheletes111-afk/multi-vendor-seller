@@ -7,6 +7,7 @@ import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { validatePassword } from "@/lib/password-validation"
 import { sanitizeInput } from "@/lib/html-sanitization"
 import { checkDisallowedName } from "@/lib/name-validation"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -48,7 +49,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
   }
 
-  const data: CustomerProfileData = user
+  const origin = getRequestPublicOrigin(request)
+  const data: CustomerProfileData = {
+    ...user,
+    image: toPublicMediaUrl(user.image, origin),
+  }
   return NextResponse.json({ success: true, message: "Profile fetched", data })
 }
 
@@ -269,10 +274,16 @@ export async function PUT(request: NextRequest) {
      },
   })
 
+  const origin = getRequestPublicOrigin(request)
   return NextResponse.json({
     success: true,
     message: "Profile updated successfully",
-    data: updatedUser,
+    data: updatedUser
+      ? {
+          ...updatedUser,
+          image: toPublicMediaUrl(updatedUser.image, origin),
+        }
+      : updatedUser,
   })
 }
 

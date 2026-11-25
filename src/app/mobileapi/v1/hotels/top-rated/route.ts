@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { formatLocationPart, formatRestaurantLocation } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, normalizeHotelMedia } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -21,11 +23,13 @@ export async function GET(request: NextRequest) {
       where.city = { equals: cityParam.trim(), mode: "insensitive" }
     }
 
+    const origin = getRequestPublicOrigin(request)
     const hotels = await prisma.hotel.findMany({
       where,
       take: limit * 2,
       orderBy: [{ starRating: "desc" }, { createdAt: "desc" }],
       include: {
+        hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
         rooms: {
           where: { isActive: true, isDeleted: false },
           select: { price: true },
@@ -38,28 +42,35 @@ export async function GET(request: NextRequest) {
 
     const formattedHotels = hotels
       .map((h, index) => {
-        let imageUrl: string | null = h.banner || null
-        if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-          imageUrl = String(h.images[0])
-        }
+        const media = normalizeHotelMedia(h, origin)
+        const cover = media.coverImage || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80"
 
         const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 399
         const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
         const rating = h.reviews.length > 0 ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0.0
+
+        const city = formatLocationPart(h.city) || "Local"
+        const locationText = formatRestaurantLocation({
+          street: h.address,
+          city: h.city,
+          fallback: "Local",
+        })
 
         return {
           id: h.id,
           hotel_id: h.id,
           name: h.name,
           description: h.description || "",
-          location_text: `${h.address || "Downtown"}, ${h.city || "Dubai"}`,
-          city: h.city || "Dubai",
-          address: h.address || "",
+          location_text: locationText,
+          city,
+          address: formatLocationPart(h.address),
           star_rating: h.starRating ?? 0,
           starRating: h.starRating ?? 0,
-          image_url: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-          coverImage: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-          logo: h.logo || null,
+          images: media.images,
+          banner: media.banner,
+          image_url: cover,
+          coverImage: cover,
+          logo: media.logo,
           starting_price_per_night: startingPrice,
           price_per_night: startingPrice,
           currency: "NLe",

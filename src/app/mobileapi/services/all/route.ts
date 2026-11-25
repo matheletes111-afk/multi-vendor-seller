@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServiceDisplayImageUrls } from "@/lib/service-images"
 import { shuffleArray } from "@/lib/utils"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
       ratingAggs.map((r) => [r.serviceId, parseFloat(Number(r._avg.rating ?? 0).toFixed(1))])
     ) as Record<string, number>
 
+    const origin = getRequestPublicOrigin(request)
     const mapped = services.map((s) => {
       const basePrice = s.basePrice || 0
       const discount = s.discount || 0
@@ -127,7 +129,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
         reviewCount: reviewsCount,
         totalReviews: reviewsCount,
         reviewsCount: reviewsCount,
-        images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }),
+        images: getServiceDisplayImageUrls({ images: s.images, galleryImages: s.galleryImages }).map(
+          (u) => toPublicMediaUrl(u, origin) || u
+        ),
       }
     })
 

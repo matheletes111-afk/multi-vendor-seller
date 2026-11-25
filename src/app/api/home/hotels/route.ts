@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, formatLocationPart, formatRestaurantLocation } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { normalizeHotelMedia } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
       },
       take: Math.max(limit * 4, 40),
       include: {
+        hotelSeller: {
+          select: { logo: true, banner: true, mainPhoto: true },
+        },
         rooms: {
           where: { isActive: true, isDeleted: false },
           select: { price: true },
@@ -30,10 +34,7 @@ export async function GET(request: NextRequest) {
     })
 
     const formattedHotels = candidateHotels.map((h, index) => {
-      let imageUrl: string | null = h.banner || null
-      if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-        imageUrl = String(h.images[0])
-      }
+      const imageUrl = normalizeHotelMedia(h).coverImage
 
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 399
       const totalRating = h.reviews.reduce((acc, r) => acc + r.rating, 0)
@@ -42,11 +43,18 @@ export async function GET(request: NextRequest) {
       const badges = ["NEARBY RESORT", "POPULAR CHOICE", "FREE CANCELLATION", "TOP RATED"]
       const badgeText = badges[index % badges.length]
 
+      const city = formatLocationPart(h.city) || "Local"
+      const locationText = formatRestaurantLocation({
+        street: h.address,
+        city: h.city,
+        fallback: "Local",
+      })
+
       return {
         id: h.id,
         name: h.name,
-        locationText: `${h.address || "Downtown"}, ${h.city || "Dubai"}`,
-        city: h.city || "Dubai",
+        locationText,
+        city,
         starRating: h.starRating,
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
         rating,

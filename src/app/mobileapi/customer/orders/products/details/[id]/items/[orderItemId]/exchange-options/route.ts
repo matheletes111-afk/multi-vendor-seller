@@ -7,6 +7,7 @@ import {
   originalOrderItemLineTotalInclGst,
   roundMoney,
 } from "@/lib/exchange-pricing"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -64,17 +65,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Exchange is not available for this item" }, { status: 400 })
     }
 
-    function firstImageUrl(images: unknown): string | null {
-      if (Array.isArray(images) && images.length > 0 && typeof images[0] === "string") return images[0]
-      if (typeof images === "string") return images
-      try {
-        const parsed = typeof images === "string" ? JSON.parse(images) : images
-        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") return parsed[0]
-      } catch {
-        /* ignore */
-      }
-      return null
-    }
+    const origin = getRequestPublicOrigin(request)
 
     const variants = await prisma.productVariant.findMany({
       where: {
@@ -102,7 +93,7 @@ export async function GET(
       currentVariant: {
         id: v.id,
         name: v.name,
-        imageUrl: firstImageUrl(v.images),
+        imageUrl: toFirstPublicMediaUrl(v.images, origin),
         attributes: v.attributes,
       },
       variants: variants.map((row) => {
@@ -115,7 +106,7 @@ export async function GET(
           discount: row.discount,
           stock: row.stock,
           attributes: row.attributes,
-          imageUrl: firstImageUrl(row.images),
+          imageUrl: toFirstPublicMediaUrl(row.images, origin),
           eligible: row.stock >= item.quantity,
           replacementLineTotalInclGst: roundMoney(newTotals.totalPriceInclGst),
           priceDifferenceTopUp: roundMoney(adj.exchangeTopUpAmount),

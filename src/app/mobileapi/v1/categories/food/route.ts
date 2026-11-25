@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const foodItems = await prisma.foodItem.findMany({
       where: { isActive: true, isDeleted: false },
       select: {
@@ -16,25 +18,25 @@ export async function GET(request: NextRequest) {
     foodItems.forEach((fi) => {
       if (!fi.category || fi.category.trim().length === 0) return
       const catName = fi.category.trim()
+      const firstImage = toFirstPublicMediaUrl(fi.images, origin)
       if (!foodCategoryMap[catName]) {
-        let imageUrl: string | null = null
-        if (Array.isArray(fi.images) && fi.images.length > 0) {
-          imageUrl = String(fi.images[0])
-        }
         foodCategoryMap[catName] = {
           name: catName,
           count: 1,
-          image_url: imageUrl,
+          image_url: firstImage,
         }
       } else {
         foodCategoryMap[catName].count += 1
+        if (!foodCategoryMap[catName].image_url && firstImage) {
+          foodCategoryMap[catName].image_url = firstImage
+        }
       }
     })
 
     const categories = Object.values(foodCategoryMap).map((fc, index) => ({
       category_id: `food_cat_${index}`,
       name: fc.name,
-      image_url: fc.image_url || "/icons/food.png",
+      image_url: fc.image_url || toPublicMediaUrl("/icons/food.png", origin) || "/icons/food.png",
       item_count: fc.count,
       deep_link: `/food?category=${encodeURIComponent(fc.name)}`,
     }))

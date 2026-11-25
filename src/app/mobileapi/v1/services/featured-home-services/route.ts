@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -24,13 +25,15 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const origin = getRequestPublicOrigin(request)
     const featuredGrid = categories.map((cat, index) => {
       const minService = cat.services[0]
       const startingPrice = minService
         ? Math.max(0, (minService.basePrice || 0) - (minService.discount || 0))
         : 49
 
-      let imageUrl: string | null = cat.image || cat.mobileIcon || null
+      const imageUrl = toPublicMediaUrl(cat.image || cat.mobileIcon || null, origin)
+      const mobileIcon = toPublicMediaUrl(cat.mobileIcon || null, origin)
 
       const discountTags = ["UP TO 30% OFF", "POPULAR", "EXPRESS SERVICE", "TOP RATED"]
       const discountTag = discountTags[index % discountTags.length]
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
         name: cat.name,
         slug: cat.slug,
         image_url: imageUrl || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80",
-        mobile_icon: cat.mobileIcon || null,
+        mobile_icon: mobileIcon,
         discount_tag: discountTag,
         starting_price: startingPrice,
         currency: "NLe",

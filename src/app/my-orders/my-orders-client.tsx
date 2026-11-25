@@ -319,22 +319,33 @@ export function MyOrdersClient({ orders }: { orders: OrderListItem[] }) {
                             {displayStatus.toLowerCase().replace(/_/g, " ")}
                           </span>
                         </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => toggleDetail(order.id)}
-                          disabled={loadingId !== null && loadingId !== order.id}
-                          className="h-10 shrink-0 gap-2 rounded-lg border-gray-300 px-4 font-medium shadow-sm transition-all duration-200 hover:border-gray-400 hover:bg-gray-50 sm:h-10"
-                          aria-label={isExpanded ? "Hide order details" : "Track order"}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : isExpanded ? (
-                            <Minus className="h-4 w-4" />
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                          {isExpanded ? "Hide details" : "Track order"}
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            variant="outline"
+                            asChild
+                            className="h-10 shrink-0 gap-2 rounded-lg border-blue-200 bg-blue-50 px-4 font-medium text-blue-700 shadow-sm transition-all duration-200 hover:bg-blue-100"
+                          >
+                            <Link href={`/my-orders/${order.id}/invoice`} target="_blank">
+                              Invoice
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => toggleDetail(order.id)}
+                            disabled={loadingId !== null && loadingId !== order.id}
+                            className="h-10 shrink-0 gap-2 rounded-lg border-gray-300 px-4 font-medium shadow-sm transition-all duration-200 hover:border-gray-400 hover:bg-gray-50 sm:h-10"
+                            aria-label={isExpanded ? "Hide order details" : "Track order"}
+                          >
+                            {isLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : isExpanded ? (
+                              <Minus className="h-4 w-4" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                            {isExpanded ? "Hide details" : "Track order"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -27,6 +28,7 @@ type ErrorResponse = { success: false; error: string }
 /** GET /mobileapi/services/categories — list service categories (public). */
 export async function GET(request: NextRequest): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { searchParams } = new URL(request.url)
     const includeCounts = searchParams.get("includeCounts") === "true"
     const activeOnly = searchParams.get("activeOnly") !== "false" // default true
@@ -58,8 +60,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
       name: c.name,
       slug: c.slug,
       description: c.description,
-      image: c.image,
-      mobileIcon: c.mobileIcon,
+      image: toPublicMediaUrl(c.image, origin),
+      mobileIcon: toPublicMediaUrl(c.mobileIcon, origin),
       isActive: c.isActive,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,

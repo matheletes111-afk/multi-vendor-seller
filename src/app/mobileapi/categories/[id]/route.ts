@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeProductSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -46,6 +47,7 @@ interface ErrorResponse {
 
 export async function GET(request: Request): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20
@@ -88,14 +90,14 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       const list = categories as CategoryListItem[]
 
       const categoryItems = list.map(cat => {
-        const prodImg = Array.isArray(cat.products?.[0]?.images) ? cat.products[0].images[0] : null
-        const resolvedImg = cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null
+        const prodImg = toFirstPublicMediaUrl(cat.products?.[0]?.images, origin)
+        const resolvedImg = toPublicMediaUrl(cat.image || cat.mobileIcon || prodImg || cat.subcategories?.[0]?.image || null, origin)
         return {
           id: cat.id,
           name: cat.name,
           slug: cat.slug,
           image: resolvedImg,
-          mobileIcon: cat.mobileIcon || resolvedImg,
+          mobileIcon: toPublicMediaUrl(cat.mobileIcon ?? null, origin) || resolvedImg,
           description: cat.description,
           isFeatured: (cat as { isFeatured?: boolean }).isFeatured ?? false,
           productsCount: cat._count.products,
@@ -268,7 +270,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         id: product.id,
         name: product.name,
         slug: product.slug,
-        images: product.images,
+        images: toPublicMediaUrlList(product.images, origin),
         isFeatured: product.isFeatured,
         createdAt: product.createdAt,
         category: product.category,
@@ -289,7 +291,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       id: sub.id,
       name: sub.name,
       slug: sub.slug,
-      image: sub.image,
+      image: toPublicMediaUrl(sub.image, origin),
       description: sub.description,
       isActive: sub.isActive,
       createdAt: sub.createdAt,
@@ -297,8 +299,11 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
       productsCount: sub._count.products,
     }))
 
-    const catProdImg = Array.isArray((category as any).products?.[0]?.images) ? (category as any).products[0].images[0] : null
-    const resolvedCatImg = category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null
+    const catProdImg = toFirstPublicMediaUrl((category as any).products?.[0]?.images, origin)
+    const resolvedCatImg = toPublicMediaUrl(
+      category.image || (category as any).mobileIcon || catProdImg || subcategories?.[0]?.image || null,
+      origin
+    )
 
     // Return category details
     return NextResponse.json({
@@ -309,7 +314,7 @@ export async function GET(request: Request): Promise<NextResponse<SuccessRespons
         name: category.name,
         slug: category.slug,
         image: resolvedCatImg,
-        mobileIcon: (category as any).mobileIcon || resolvedCatImg,
+        mobileIcon: toPublicMediaUrl((category as any).mobileIcon, origin) || resolvedCatImg,
         description: category.description,
         isActive: category.isActive,
         createdAt: category.createdAt,

@@ -9,8 +9,12 @@ export const revalidate = 0
 const ALLOWED_PUBLIC_PREFIXES = [
   "uploads/restaurant-onboarding/property",
   "uploads/hotel-onboarding/property",
+  "uploads/onboarding/store",
+  "uploads/hotels/",
+  "uploads/rooms/",
   "uploads/foods",
   "uploads/products",
+  "uploads/services",
   "uploads/banners",
   "uploads/categories",
   "uploads/subcategories",
@@ -18,6 +22,8 @@ const ALLOWED_PUBLIC_PREFIXES = [
   "uploads/advertisements",
   "uploads/seller-ads",
   "uploads/profile",
+  "uploads/review-images",
+  "uploads/return-images",
 ]
 
 function getMimeType(filename: string): string {

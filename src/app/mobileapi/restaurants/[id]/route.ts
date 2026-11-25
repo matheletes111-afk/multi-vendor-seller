@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { toPublicMediaUrl } from "@/lib/media-url"
+import { parseCleanStringArray, formatLocationPart, formatRestaurantLocation } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -48,16 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 })
     }
 
-    let cuisines: string[] = []
-    if (restaurant.primaryCuisine) {
-      try {
-        cuisines = typeof restaurant.primaryCuisine === "string"
-          ? JSON.parse(restaurant.primaryCuisine)
-          : (restaurant.primaryCuisine as string[])
-      } catch {
-        cuisines = []
-      }
-    }
+    const cuisines = parseCleanStringArray(restaurant.primaryCuisine)
 
     const formattedFoods = restaurant.foods.map(f => {
       const totalReviews = f.reviews.length
@@ -65,17 +57,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ? parseFloat((f.reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1))
         : 0
 
-      let firstImage: string | null = null
-      if (Array.isArray(f.images) && f.images.length > 0) {
-        firstImage = f.images[0] as string
-      } else if (f.images && typeof f.images === 'string') {
-        try {
-          const parsed = JSON.parse(f.images)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            firstImage = parsed[0]
-          }
-        } catch {}
-      }
+      const origin = getRequestPublicOrigin(request)
+      const images = toPublicMediaUrlList(f.images, origin)
+      const firstImage = images[0] ?? null
 
       const sellingPrice = Math.max(0, f.price - (f.discount || 0))
       return {
@@ -86,7 +70,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         discount: f.discount || 0,
         sellingPrice,
         selling_price: sellingPrice,
+        images,
         image: firstImage,
+        image_url: firstImage,
         category: f.category,
         isVeg: f.isVeg,
         averageRating,
@@ -118,13 +104,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         name: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         businessName: restaurant.businessInfo?.businessName || restaurant.user.name || "Restaurant",
         cuisines,
-        logo: toPublicMediaUrl(restaurant.logo, request.nextUrl.origin),
-        banner: toPublicMediaUrl(restaurant.banner, request.nextUrl.origin),
-        mainPhoto: toPublicMediaUrl(restaurant.mainPhoto, request.nextUrl.origin),
-        street: restaurant.businessInfo?.street || "",
-        city: restaurant.businessInfo?.city || "",
-        state: restaurant.businessInfo?.state || "",
-        landmark: restaurant.businessInfo?.landmark || "",
+        logo: toPublicMediaUrl(restaurant.logo, getRequestPublicOrigin(request)),
+        banner: toPublicMediaUrl(restaurant.banner, getRequestPublicOrigin(request)),
+        mainPhoto: toPublicMediaUrl(restaurant.mainPhoto, getRequestPublicOrigin(request)),
+        street: formatLocationPart(restaurant.businessInfo?.street),
+        city: formatLocationPart(restaurant.businessInfo?.city),
+        state: formatLocationPart(restaurant.businessInfo?.state),
+        landmark: formatLocationPart(restaurant.businessInfo?.landmark),
+        locationText: formatRestaurantLocation({
+          landmark: restaurant.businessInfo?.landmark,
+          street: restaurant.businessInfo?.street,
+          city: restaurant.businessInfo?.city,
+          state: restaurant.businessInfo?.state,
+          fallback: "Local",
+        }),
+        location_text: formatRestaurantLocation({
+          landmark: restaurant.businessInfo?.landmark,
+          street: restaurant.businessInfo?.street,
+          city: restaurant.businessInfo?.city,
+          state: restaurant.businessInfo?.state,
+          fallback: "Local",
+        }),
         averageRating,
         totalReviews: totalReviewsCount,
         reviewsCount: totalReviewsCount,

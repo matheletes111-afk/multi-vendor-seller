@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { extractFoodImages, shuffleArray } from "@/lib/utils"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -82,12 +83,20 @@ export async function GET(request: NextRequest) {
         : 0
 
       const { reviews, ...restFood } = f
-      const extractedImages = extractFoodImages(f.images)
+      const extractedImages = toPublicMediaUrlList(f.images)
       const firstImage = extractedImages[0] || null
       const sellingPrice = Math.max(0, f.price - (f.discount || 0))
 
       return {
         ...restFood,
+        restaurantSeller: f.restaurantSeller
+          ? {
+              ...f.restaurantSeller,
+              logo: toPublicMediaUrl(f.restaurantSeller.logo),
+              banner: toPublicMediaUrl(f.restaurantSeller.banner),
+              mainPhoto: toPublicMediaUrl(f.restaurantSeller.mainPhoto),
+            }
+          : f.restaurantSeller,
         discount: f.discount || 0,
         sellingPrice,
         images: extractedImages,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -74,12 +75,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Category Navigation Links
+    const origin = getRequestPublicOrigin(request)
     const quickCategories = [
-      { id: "cat_all", name: "All", icon_url: "/icons/all.png", category_type: "ALL", deep_link: "/browse" },
-      { id: "cat_products", name: "Shopping", icon_url: "/icons/product.png", category_type: "PRODUCT", deep_link: "/mobileapi/v1/categories/products" },
-      { id: "cat_food", name: "Food & Dining", icon_url: "/icons/food.png", category_type: "FOOD", deep_link: "/mobileapi/v1/categories/food" },
-      { id: "cat_services", name: "Services", icon_url: "/icons/service.png", category_type: "SERVICE", deep_link: "/mobileapi/v1/categories/services" },
-      { id: "cat_hotels", name: "Dubai Stays", icon_url: "/icons/hotel.png", category_type: "HOTEL", deep_link: "/mobileapi/v1/categories/hotels" },
+      { id: "cat_all", name: "All", icon_url: toPublicMediaUrl("/icons/all.png", origin) || "/icons/all.png", category_type: "ALL", deep_link: "/browse" },
+      { id: "cat_products", name: "Shopping", icon_url: toPublicMediaUrl("/icons/product.png", origin) || "/icons/product.png", category_type: "PRODUCT", deep_link: "/mobileapi/v1/categories/products" },
+      { id: "cat_food", name: "Food & Dining", icon_url: toPublicMediaUrl("/icons/food.png", origin) || "/icons/food.png", category_type: "FOOD", deep_link: "/mobileapi/v1/categories/food" },
+      { id: "cat_services", name: "Services", icon_url: toPublicMediaUrl("/icons/service.png", origin) || "/icons/service.png", category_type: "SERVICE", deep_link: "/mobileapi/v1/categories/services" },
+      { id: "cat_hotels", name: "Dubai Stays", icon_url: toPublicMediaUrl("/icons/hotel.png", origin) || "/icons/hotel.png", category_type: "HOTEL", deep_link: "/mobileapi/v1/categories/hotels" },
     ]
 
     // Construct the BFF layout structure using /mobileapi/v1 endpoints

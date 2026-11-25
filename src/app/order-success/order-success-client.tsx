@@ -150,48 +150,19 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
                 </div>
               </div>
 
-              {/* Delivery Charge Breakup (Clean Light/White theme) */}
+              {/* Delivery Summary (Clean Light/White theme, no internal fee breakup) */}
               <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2.5 text-xs text-slate-700 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                   <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-800 flex items-center gap-1.5">
                     <Receipt className="w-3.5 h-3.5 text-amber-600" />
-                    Delivery Breakdown
+                    Delivery Summary
                   </span>
                   <span className="text-[11px] text-emerald-900 font-bold bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
                     📍 {displayZone}
                   </span>
                 </div>
 
-                {(order.weightShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Weight-based Fee</span>
-                    <span className="font-semibold text-slate-800 tabular-nums">
-                      {formatCurrency(order.weightShippingFee ?? 0)}
-                    </span>
-                  </div>
-                )}
-
-                {(order.dimensionShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Dimension-based Fee</span>
-                    <span className="font-semibold text-slate-800 tabular-nums">
-                      {formatCurrency(order.dimensionShippingFee ?? 0)}
-                    </span>
-                  </div>
-                )}
-
-                {(order.regionShippingFee ?? 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">
-                      Regional Surcharge ({displayZone})
-                    </span>
-                    <span className="font-semibold text-slate-800 tabular-nums">
-                      {formatCurrency(order.regionShippingFee ?? 0)}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex justify-between pt-2 border-t border-slate-200/70 font-bold text-slate-900">
+                <div className="flex justify-between pt-1 font-bold text-slate-900">
                   <span className="text-slate-700">Total Delivery Fee</span>
                   <span className="font-black text-amber-700 tabular-nums">
                     {(order.shipping ?? 0) <= 0 ? (
@@ -267,6 +238,20 @@ export function OrderSuccessClient({ order }: { order: SerializedOrder }) {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          {order && (
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto rounded-full font-bold px-7 h-12 gap-2 text-sm border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            >
+              <Link href={`/customer/orders/${order.id}/invoice`} target="_blank">
+                <Receipt className="w-4 h-4" />
+                View Invoice
+              </Link>
+            </Button>
+          )}
+
           <Button
             asChild
             size="lg"

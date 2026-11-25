@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
+import { shuffleArray, formatLocationPart, formatRestaurantLocation, parseCleanStringArray } from "@/lib/utils"
 import { toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       take: Math.max(limit * 4, 40),
       include: {
         user: { select: { name: true, image: true } },
-        businessInfo: { select: { city: true, street: true, landmark: true } },
+        businessInfo: { select: { businessName: true, city: true, street: true, landmark: true } },
         foods: {
           where: { isActive: true, isDeleted: false },
           select: {
@@ -33,9 +33,10 @@ export async function GET(request: NextRequest) {
 
     const formattedRestaurants = candidateRestaurants.map((r, index) => {
       const randomizedFoods = shuffleArray(r.foods)
-      const cuisineList = Array.from(
-        new Set(randomizedFoods.map((fi) => fi.category).filter(Boolean))
-      )
+      const cuisineList = parseCleanStringArray([
+        ...parseCleanStringArray(r.primaryCuisine),
+        ...randomizedFoods.map((fi) => fi.category).filter(Boolean),
+      ])
       const cuisineType = cuisineList.length > 0 ? cuisineList.join(", ") : "Multi-Cuisine"
 
       let imageUrl: string | null = toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || null)
@@ -51,13 +52,23 @@ export async function GET(request: NextRequest) {
       const offerTags = ["Free Delivery", "20% OFF", "Top Rated", "Express Delivery"]
       const offerTag = offerTags[index % offerTags.length]
 
+      const city = formatLocationPart(r.businessInfo?.city) || "Local"
+      const locationText = formatRestaurantLocation({
+        landmark: r.businessInfo?.landmark,
+        street: r.businessInfo?.street,
+        city: r.businessInfo?.city,
+        fallback: "Local",
+      })
+      const displayName = r.businessInfo?.businessName || r.user?.name || "Gourmet Kitchen"
+
       return {
         id: r.id,
-        name: r.user?.name || "Gourmet Kitchen",
+        name: displayName,
+        businessName: displayName,
         cuisineType,
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80",
-        city: r.businessInfo?.city || "Dubai",
-        locationText: r.businessInfo?.landmark || r.businessInfo?.street || "Downtown",
+        city,
+        locationText,
         rating,
         reviewCount: allRatings.length,
         deliveryTimeRange,

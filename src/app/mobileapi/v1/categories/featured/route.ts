@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get("vertical") || searchParams.get("type") // "product" | "service" | "hotel" | "food" | "all"
 
@@ -45,15 +47,15 @@ export async function GET(request: NextRequest) {
     })
 
     const formattedProductCats = productCategories.map((c) => {
-      const prodImg = Array.isArray(c.products?.[0]?.images) ? c.products[0].images[0] : null
-      const resolvedImg = c.image || c.mobileIcon || prodImg || c.subcategories?.[0]?.image || null
+      const prodImg = toFirstPublicMediaUrl(c.products?.[0]?.images, origin)
+      const resolvedImg = toPublicMediaUrl(c.image || c.mobileIcon || prodImg || c.subcategories?.[0]?.image || null, origin)
       return {
         category_id: c.id,
         name: c.name,
         slug: c.slug,
         description: c.description || "",
         image_url: resolvedImg,
-        mobile_icon: c.mobileIcon || resolvedImg,
+        mobile_icon: toPublicMediaUrl(c.mobileIcon, origin) || resolvedImg,
         vertical: "product",
         is_featured: true,
         item_count: c._count.products,
@@ -97,15 +99,15 @@ export async function GET(request: NextRequest) {
     })
 
     const formattedServiceCats = serviceCategories.map((sc) => {
-      const svcImg = Array.isArray(sc.services?.[0]?.images) ? sc.services[0].images[0] : null
-      const resolvedImg = sc.image || sc.mobileIcon || svcImg || null
+      const svcImg = toFirstPublicMediaUrl(sc.services?.[0]?.images, origin)
+      const resolvedImg = toPublicMediaUrl(sc.image || sc.mobileIcon || svcImg || null, origin)
       return {
         category_id: sc.id,
         name: sc.name,
         slug: sc.slug,
         description: "",
         image_url: resolvedImg,
-        mobile_icon: sc.mobileIcon || resolvedImg,
+        mobile_icon: toPublicMediaUrl(sc.mobileIcon, origin) || resolvedImg,
         vertical: "service",
         is_featured: true,
         item_count: sc._count.services,

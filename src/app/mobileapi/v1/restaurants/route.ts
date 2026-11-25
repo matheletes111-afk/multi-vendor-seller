@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 
 import { shuffleArray } from "@/lib/utils"
 import { activeRestaurantSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       where.category = { equals: categoryParam.trim(), mode: "insensitive" }
     }
 
+    const origin = getRequestPublicOrigin(request)
     const isDefaultView = !categoryParam && page === 1
 
     const [totalItems, foodItems] = await Promise.all([
@@ -39,7 +41,10 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               logo: true,
-              user: { select: { name: true } },
+              banner: true,
+              mainPhoto: true,
+              businessInfo: { select: { businessName: true } },
+              user: { select: { name: true, image: true } },
             },
           },
           reviews: { select: { rating: true } },
@@ -48,10 +53,14 @@ export async function GET(request: NextRequest) {
     ])
 
     const formattedItems = foodItems.map((fi) => {
-      let imageUrl: string | null = null
-      if (Array.isArray(fi.images) && fi.images.length > 0) {
-        imageUrl = String(fi.images[0])
-      }
+      const images = toPublicMediaUrlList(fi.images, origin)
+      const imageUrl = images[0] ?? null
+      const restaurantLogo = toPublicMediaUrl(
+        fi.restaurantSeller.logo || fi.restaurantSeller.user?.image,
+        origin
+      )
+      const restaurantBanner = toPublicMediaUrl(fi.restaurantSeller.banner, origin)
+      const restaurantMainPhoto = toPublicMediaUrl(fi.restaurantSeller.mainPhoto, origin)
 
       const totalRating = fi.reviews.reduce((acc, r) => acc + r.rating, 0)
       const rating = fi.reviews.length > 0 ? parseFloat((totalRating / fi.reviews.length).toFixed(1)) : 0.0
@@ -69,10 +78,17 @@ export async function GET(request: NextRequest) {
         selling_price: Math.max(0, fi.price - (fi.discount || 0)),
         is_veg: fi.isVeg,
         isVeg: fi.isVeg,
+        images,
         image_url: imageUrl,
         image: imageUrl,
-        restaurant_name: fi.restaurantSeller.user?.name || "Gourmet Restaurant",
-        restaurant_logo: fi.restaurantSeller.logo || null,
+        restaurant_id: fi.restaurantSeller.id,
+        restaurant_name:
+          fi.restaurantSeller.businessInfo?.businessName ||
+          fi.restaurantSeller.user?.name ||
+          "Gourmet Restaurant",
+        restaurant_logo: restaurantLogo,
+        restaurant_banner: restaurantBanner,
+        restaurant_main_photo: restaurantMainPhoto,
         rating,
         averageRating: rating,
         review_count: fi.reviews.length,

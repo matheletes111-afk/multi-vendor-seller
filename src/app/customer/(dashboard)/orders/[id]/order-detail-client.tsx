@@ -52,6 +52,7 @@ import {
 } from "../exchange-modal-product-panels"
 import { getExchangeOrderPriceBreakdown } from "@/lib/exchange-order-display"
 import { flattenOrderItemsForCustomerDisplay } from "@/lib/customer-order-item-order"
+import { getFormattedDeliveryZone } from "@/lib/ai-region-matcher"
 import { OrderLiveTrackingMap } from "@/components/delivery/order-live-tracking-map"
 import { CustomerOrderDeliveryCard } from "@/components/delivery/customer-order-delivery-card"
 
@@ -586,6 +587,17 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         <div className="flex flex-wrap gap-2 sm:shrink-0">
           <Button
             type="button"
+            variant="outline"
+            asChild
+            className="rounded-lg border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100"
+          >
+            <Link href={`/customer/orders/${order.id}/invoice`} target="_blank">
+              <Receipt className="mr-2 h-4 w-4" />
+              Invoice
+            </Link>
+          </Button>
+          <Button
+            type="button"
             variant="default"
             className="rounded-lg px-6 py-2 shadow-md transition-shadow hover:shadow-lg"
             onClick={scrollToTracking}
@@ -977,29 +989,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   <span className="font-mono font-semibold">-{formatCurrency(order.couponDiscount || 0)}</span>
                 </div>
               )}
-              {order.shippingBreakup && ((order.shippingBreakup.weightShippingFee > 0) || (order.shippingBreakup.dimensionShippingFee > 0) || (order.shippingBreakup.regionShippingFee > 0)) && (
-                <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-2.5 space-y-1 text-xs text-slate-600 my-1">
-                  <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider pb-1 border-b border-slate-200/50">Shipping Sub-breakup</div>
-                  {order.shippingBreakup.weightShippingFee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Weight Fee:</span>
-                      <span className="font-mono">{formatCurrency(order.shippingBreakup.weightShippingFee)}</span>
-                    </div>
-                  )}
-                  {order.shippingBreakup.dimensionShippingFee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Dimension Fee:</span>
-                      <span className="font-mono">{formatCurrency(order.shippingBreakup.dimensionShippingFee)}</span>
-                    </div>
-                  )}
-                  {order.shippingBreakup.regionShippingFee > 0 && (
-                    <div className="flex justify-between">
-                      <span>Regional Surcharge:</span>
-                      <span className="font-mono">{formatCurrency(order.shippingBreakup.regionShippingFee)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
               <Separator className="bg-gray-200" />
               <div className="flex justify-between text-lg font-bold text-gray-900">
                 <span>Total</span>
@@ -1109,6 +1098,16 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                       {order.shippingCountry && `, ${order.shippingCountry}`}
                     </p>
                   )}
+                  <p className="mt-2 text-xs font-semibold text-emerald-700">
+                    📍{" "}
+                    {order.deliveryZoneLabel ||
+                      getFormattedDeliveryZone({
+                        addressLine1: order.shippingAddressLine1,
+                        addressLine2: order.shippingAddressLine2,
+                        city: order.shippingCity,
+                        state: order.shippingState,
+                      })}
+                  </p>
                 </>
               ) : (
                 <p>—</p>

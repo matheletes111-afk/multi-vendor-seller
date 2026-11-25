@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray } from "@/lib/utils"
-import { toPublicMediaUrl } from "@/lib/media-url"
+import { shuffleArray, parseCleanStringArray, formatLocationPart, formatRestaurantLocation } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -61,16 +61,7 @@ export async function GET(request: NextRequest) {
     })
 
     const formatted = restaurants.map(r => {
-      let cuisines: string[] = []
-      if (r.primaryCuisine) {
-        try {
-          cuisines = typeof r.primaryCuisine === "string" 
-            ? JSON.parse(r.primaryCuisine) 
-            : (r.primaryCuisine as string[])
-        } catch {
-          cuisines = []
-        }
-      }
+      const cuisines = parseCleanStringArray(r.primaryCuisine)
 
       // Filter by cuisine if requested
       if (cuisine && cuisine !== "ALL" && !cuisines.some(c => c.toLowerCase() === cuisine.toLowerCase())) {
@@ -95,6 +86,18 @@ export async function GET(request: NextRequest) {
         ? parseFloat((totalRatingsSum / totalReviewsCount).toFixed(1))
         : 0
 
+      const street = formatLocationPart(r.businessInfo?.street)
+      const city = formatLocationPart(r.businessInfo?.city)
+      const state = formatLocationPart(r.businessInfo?.state)
+      const landmark = formatLocationPart(r.businessInfo?.landmark)
+      const locationText = formatRestaurantLocation({
+        landmark,
+        street,
+        city,
+        state,
+        fallback: "Local",
+      })
+
       return {
         id: r.id,
         restaurant_id: r.id,
@@ -102,13 +105,16 @@ export async function GET(request: NextRequest) {
         businessName: r.businessInfo?.businessName || r.user.name || "Restaurant",
         cuisines,
         cuisine_type: cuisines.join(", "),
-        logo: toPublicMediaUrl(r.logo, request.nextUrl.origin),
-        banner: toPublicMediaUrl(r.banner, request.nextUrl.origin),
-        mainPhoto: toPublicMediaUrl(r.mainPhoto, request.nextUrl.origin),
-        image_url: toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || r.user.image || null, request.nextUrl.origin),
-        street: r.businessInfo?.street || "",
-        city: r.businessInfo?.city || "",
-        state: r.businessInfo?.state || "",
+        logo: toPublicMediaUrl(r.logo, getRequestPublicOrigin(request)),
+        banner: toPublicMediaUrl(r.banner, getRequestPublicOrigin(request)),
+        mainPhoto: toPublicMediaUrl(r.mainPhoto, getRequestPublicOrigin(request)),
+        image_url: toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || r.user.image || null, getRequestPublicOrigin(request)),
+        street,
+        city,
+        state,
+        landmark,
+        locationText,
+        location_text: locationText,
         rating: averageRating,
         averageRating,
         review_count: totalReviewsCount,
@@ -123,16 +129,7 @@ export async function GET(request: NextRequest) {
     // Collect all unique cuisines dynamically
     const allCuisinesSet = new Set<string>()
     restaurants.forEach(r => {
-      if (r.primaryCuisine) {
-        try {
-          const parsed = typeof r.primaryCuisine === "string" 
-            ? JSON.parse(r.primaryCuisine) 
-            : (r.primaryCuisine as string[])
-          if (Array.isArray(parsed)) {
-            parsed.forEach(c => allCuisinesSet.add(c))
-          }
-        } catch {}
-      }
+      parseCleanStringArray(r.primaryCuisine).forEach(c => allCuisinesSet.add(c))
     })
 
     const finalData = q ? formatted : shuffleArray(formatted)

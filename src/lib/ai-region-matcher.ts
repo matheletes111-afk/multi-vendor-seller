@@ -105,6 +105,44 @@ export function getFormattedDeliveryZone(address?: AddressInput | null): string 
   return "Other"
 }
 
+export interface OrderDeliveryRegionMeta {
+  deliveryRegion: string
+  deliveryZone: string
+  deliveryZoneLabel: string
+}
+
+/**
+ * Resolves structured delivery region, zone, and formatted zone label for an order address.
+ */
+export function resolveOrderDeliveryRegionMeta(address?: AddressInput | null): OrderDeliveryRegionMeta {
+  if (!address) {
+    return { deliveryRegion: "Other", deliveryZone: "Other", deliveryZoneLabel: "Other" }
+  }
+  const specificMatch = fastMatchSpecificZoneRegion(address)
+  const provinceMatch =
+    fastMatchProvinceRegion(address) ||
+    (address.state ? resolveAdministrativeRegion(address.state) : null)
+
+  const deliveryRegion =
+    specificMatch ||
+    (provinceMatch && provinceMatch !== "Other"
+      ? provinceMatch
+      : address.state?.trim() || address.city?.trim() || "Other")
+
+  const deliveryZone = specificMatch
+    ? getZoneForRegion(specificMatch)
+    : provinceMatch && provinceMatch !== "Other"
+      ? "Administrative Provinces"
+      : "Other"
+
+  let deliveryZoneLabel = getFormattedDeliveryZone(address)
+  if (deliveryZoneLabel === "Other" && deliveryRegion !== "Other") {
+    deliveryZoneLabel = deliveryRegion
+  }
+
+  return { deliveryRegion, deliveryZone, deliveryZoneLabel }
+}
+
 /**
  * Multi-tier AI spatial region matcher:
  * Priority 1: Specific Zones (ZONE 1 to ZONE 15)

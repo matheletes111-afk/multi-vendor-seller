@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import {
+  getRequestPublicOrigin,
+  normalizeHotelMedia,
+  normalizeHotelSellerMedia,
+  toPublicMediaUrl,
+  toPublicMediaUrlList,
+} from "@/lib/media-url"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
+    const origin = getRequestPublicOrigin(request)
     const hotel = await prisma.hotel.findFirst({
       where: {
         id,
@@ -13,6 +21,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         hotelSeller: activeHotelSellerWhere(),
       },
       include: {
+        hotelSeller: {
+          select: { logo: true, banner: true, mainPhoto: true },
+        },
         rooms: {
           where: { isActive: true, isDeleted: false },
           orderBy: { price: "asc" }
@@ -25,6 +36,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               select: {
                 id: true,
                 name: true,
+                image: true,
               }
             }
           }
@@ -48,9 +60,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
 
     // Remove raw reviews relation structure and format properly
-    const { reviews, ...restHotel } = hotel
+    const { reviews, rooms, sellerAds, ...restHotel } = hotel
+    const media = normalizeHotelMedia(hotel, origin)
     const hotelData = {
       ...restHotel,
+      hotelSeller: normalizeHotelSellerMedia(hotel.hotelSeller, origin),
+      images: media.images,
+      banner: media.banner,
+      logo: media.logo,
+      image_url: media.coverImage,
+      coverImage: media.coverImage,
+      rooms: rooms.map((room) => ({
+        ...room,
+        images: toPublicMediaUrlList(room.images, origin),
+      })),
+      sellerAds: (sellerAds || []).map((ad) => ({
+        ...ad,
+        creativeUrl: toPublicMediaUrl(ad.creativeUrl, origin),
+        mobileCreativeUrl: toPublicMediaUrl(ad.mobileCreativeUrl, origin),
+      })),
       starRating: (hotel as any).starRating ?? 0,
       averageRating,
       totalReviews: reviewCount,
@@ -61,10 +89,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         id: r.id,
         userId: r.userId,
         userName: r.user?.name || "Customer",
-        userAvatar: (r.user as any)?.image || null,
+        userAvatar: toPublicMediaUrl((r.user as any)?.image || null, origin),
         rating: r.rating,
         comment: r.comment,
-        images: Array.isArray((r as any).images) ? (r as any).images : [],
+        images: toPublicMediaUrlList((r as any).images, origin),
         createdAt: r.createdAt.toISOString()
       }))
     }

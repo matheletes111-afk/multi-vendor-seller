@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { extractFoodImages, shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { normalizeHotelMedia, normalizeHotelSellerMedia, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -54,6 +55,9 @@ export async function GET(request: NextRequest) {
       prisma.hotel.findMany({
         where: whereCondition,
         include: {
+          hotelSeller: {
+            select: { logo: true, banner: true, mainPhoto: true },
+          },
           rooms: {
             where: { isActive: true, isDeleted: false },
             orderBy: { price: "asc" }
@@ -83,7 +87,7 @@ export async function GET(request: NextRequest) {
       .filter((c): c is string => !!c && c.trim() !== "")
 
     const formattedHotels = hotels.map((h) => {
-      const extractedImages = extractFoodImages(h.images)
+      const media = normalizeHotelMedia(h)
       const reviewCount = h.reviews?.length ?? 0
       const totalRating = h.reviews?.reduce((acc, r) => acc + r.rating, 0) ?? 0
       const averageRating = reviewCount > 0 ? parseFloat((totalRating / reviewCount).toFixed(1)) : 0
@@ -91,14 +95,18 @@ export async function GET(request: NextRequest) {
       const { reviews, ...restHotel } = h
       return {
         ...restHotel,
+        hotelSeller: normalizeHotelSellerMedia(h.hotelSeller),
         averageRating,
         totalReviews: reviewCount,
         reviewCount,
         reviewsCount: reviewCount,
-        images: extractedImages,
+        images: media.images,
+        banner: media.banner,
+        logo: media.logo,
+        coverImage: media.coverImage,
         rooms: h.rooms.map((r) => ({
           ...r,
-          images: extractFoodImages(r.images),
+          images: toPublicMediaUrlList(r.images),
         })),
       }
     })

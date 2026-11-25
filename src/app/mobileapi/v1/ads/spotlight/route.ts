@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, normalizeHotelMedia, toFirstPublicMediaUrl, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -23,13 +24,40 @@ export async function GET(request: NextRequest) {
     const candidateAds = await prisma.sellerAd.findMany({
       where,
       take: 20,
+      include: {
+        product: { select: { images: true } },
+        service: { select: { images: true, galleryImages: true } },
+        foodItem: { select: { images: true } },
+        hotel: {
+          select: {
+            images: true,
+            banner: true,
+            logo: true,
+            hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
+          },
+        },
+        restaurantSeller: { select: { logo: true, banner: true, mainPhoto: true } },
+        hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
+      },
     })
 
     const ads = shuffleArray(candidateAds)
 
 
+    const origin = getRequestPublicOrigin(request)
     if (ads.length > 0) {
       const ad = ads[0]
+      const fallbackImageUrl =
+        toFirstPublicMediaUrl(ad.product?.images, origin) ||
+        toFirstPublicMediaUrl(ad.service?.images, origin) ||
+        toFirstPublicMediaUrl(ad.service?.galleryImages, origin) ||
+        toFirstPublicMediaUrl(ad.foodItem?.images, origin) ||
+        (ad.hotel ? normalizeHotelMedia(ad.hotel, origin).coverImage : null) ||
+        (ad.hotelSeller ? normalizeHotelMedia({ hotelSeller: ad.hotelSeller }, origin).coverImage : null) ||
+        toPublicMediaUrl(
+          ad.restaurantSeller?.banner || ad.restaurantSeller?.mainPhoto || ad.restaurantSeller?.logo,
+          origin
+        )
       return NextResponse.json({
         success: true,
         data: {
@@ -37,7 +65,7 @@ export async function GET(request: NextRequest) {
           is_sponsored: true,
           title: ad.title,
           subtitle: ad.description || "Sponsored Spotlight",
-          image_url: ad.mobileCreativeUrl || ad.creativeUrl,
+          image_url: toPublicMediaUrl(ad.mobileCreativeUrl || ad.creativeUrl, origin) || fallbackImageUrl,
           slot,
           cta_text: "Discover Now",
           click_url: ad.productId

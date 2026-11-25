@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
+import { getRequestPublicOrigin, toPublicMediaUrl, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -15,10 +16,11 @@ function getCustomerId(request: NextRequest): string | null {
 
 // GET: Get food reviews and breakdown
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const { id: foodItemId } = await params
 
     const [food, reviews, ratingAgg, ratingGroups] = await Promise.all([
@@ -73,10 +75,10 @@ export async function GET(
           id: r.id,
           userId: r.userId,
           userName: r.user?.name || "Customer",
-          userAvatar: r.user?.image || null,
+          userAvatar: toPublicMediaUrl(r.user?.image || null, origin),
           rating: r.rating,
           comment: r.comment,
-          images: Array.isArray(r.images) ? r.images : [],
+          images: toPublicMediaUrlList(r.images, origin),
           createdAt: r.createdAt.toISOString()
         }))
       }
@@ -106,9 +108,14 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Rating must be between 1 and 5" }, { status: 400 })
     }
 
-    const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+    const origin = getRequestPublicOrigin(request)
+    const rawImages = Array.isArray(imageUrls)
+      ? imageUrls.filter(
+          (url): url is string =>
+            typeof url === "string" && /^(https?:\/\/|\/)/.test(url.trim())
+        )
       : []
+    const finalImages = toPublicMediaUrlList(rawImages, origin)
 
     const food = await prisma.foodItem.findUnique({
       where: { id: foodItemId }
@@ -137,7 +144,16 @@ export async function POST(
       }
     })
 
-    return NextResponse.json({ success: true, data: review }, { status: 201 })
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          ...review,
+          images: toPublicMediaUrlList(review.images, origin),
+        },
+      },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Mobile add food review error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
@@ -163,9 +179,14 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Rating must be between 1 and 5" }, { status: 400 })
     }
 
-    const finalImages = Array.isArray(imageUrls)
-      ? imageUrls.filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url))
+    const origin = getRequestPublicOrigin(request)
+    const rawImages = Array.isArray(imageUrls)
+      ? imageUrls.filter(
+          (url): url is string =>
+            typeof url === "string" && /^(https?:\/\/|\/)/.test(url.trim())
+        )
       : []
+    const finalImages = toPublicMediaUrlList(rawImages, origin)
 
     const existingReview = await prisma.foodReview.findFirst({
       where: {
@@ -186,7 +207,13 @@ export async function PUT(
       }
     })
 
-    return NextResponse.json({ success: true, data: updated })
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...updated,
+        images: toPublicMediaUrlList(updated.images, origin),
+      },
+    })
   } catch (error) {
     console.error("Mobile update food review error:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })

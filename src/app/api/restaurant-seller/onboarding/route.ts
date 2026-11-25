@@ -10,6 +10,7 @@ import { formatHearAboutUs } from "@/lib/onboarding-constants"
 import { evaluateSellerDocuments } from "@/lib/seller-approval-validation"
 import { validateOnboardingFile } from "@/lib/onboarding-file-validation"
 import { validateAndFormatPaymentDetails } from "@/lib/payment-details-helper"
+import { parseCleanStringArray } from "@/lib/utils"
 
 
 
@@ -280,8 +281,8 @@ export async function POST(request: NextRequest) {
     } else if (step === 4) {
       // Step 4: Outlet Setup
       const estimateRestaurantCount = parseInt((formData?.get("estimateRestaurantCount") as string) || jsonBody?.data?.estimateRestaurantCount) || 0
-      const cuisines = formData ? formData.getAll("cuisines") : (jsonBody?.data?.cuisines || [])
-      const services = formData ? formData.getAll("services") : (jsonBody?.data?.services || [])
+      const cuisines = parseCleanStringArray(formData ? formData.getAll("cuisines") : (jsonBody?.data?.cuisines || []))
+      const services = parseCleanStringArray(formData ? formData.getAll("services") : (jsonBody?.data?.services || []))
       
       let logoUrl = seller.logo
       let bannerUrl = seller.banner

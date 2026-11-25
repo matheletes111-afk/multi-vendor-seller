@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
-import { toPublicMediaUrl } from "@/lib/media-url"
+import { shuffleArray, fairMarketplaceInterleave, formatLocationPart, formatRestaurantLocation, parseCleanStringArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -35,14 +35,16 @@ export async function GET(request: NextRequest) {
 
     const formattedRestaurants = restaurants.map((r, index) => {
       const randomizedFoods = shuffleArray(r.foods)
-      const cuisineList = Array.from(
-        new Set(randomizedFoods.map((fi) => fi.category).filter(Boolean))
-      )
+      const cuisineList = parseCleanStringArray([
+        ...parseCleanStringArray(r.primaryCuisine),
+        ...randomizedFoods.map((fi) => fi.category).filter(Boolean),
+      ])
       const cuisineType = cuisineList.length > 0 ? cuisineList.join(", ") : "Multi-Cuisine"
 
-      let imageUrl: string | null = toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || null, request.nextUrl.origin)
+      const origin = getRequestPublicOrigin(request)
+      let imageUrl: string | null = toPublicMediaUrl(r.mainPhoto || r.banner || r.logo || null, origin)
       if (!imageUrl && r.user?.image) {
-        imageUrl = toPublicMediaUrl(r.user.image, request.nextUrl.origin)
+        imageUrl = toPublicMediaUrl(r.user.image, origin)
       }
 
       // Collect all food item ratings to calculate restaurant average rating
@@ -56,18 +58,31 @@ export async function GET(request: NextRequest) {
       const offerTags = ["Free Delivery", "20% OFF", "Top Rated", "Express Delivery"]
       const offerTag = offerTags[index % offerTags.length]
 
+      const city = formatLocationPart(r.businessInfo?.city) || "Local"
+      const street = formatLocationPart(r.businessInfo?.street)
+      const locationText = formatRestaurantLocation({
+        landmark: r.businessInfo?.landmark,
+        street: r.businessInfo?.street,
+        city: r.businessInfo?.city,
+        fallback: "Local",
+      })
+      const displayName = r.businessInfo?.businessName || r.user?.name || "Gourmet Kitchen"
+
       return {
         id: r.id,
         restaurant_id: r.id,
-        name: r.user?.name || "Gourmet Kitchen",
-        businessName: r.businessInfo?.businessName || r.user?.name || "Gourmet Kitchen",
+        name: displayName,
+        businessName: displayName,
         cuisine_type: cuisineType,
         cuisines: cuisineList,
         image_url: imageUrl || "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80",
-        logo: r.logo || null,
-        city: r.businessInfo?.city || "Dubai",
-        street: r.businessInfo?.street || "",
-        location_text: r.businessInfo?.landmark || r.businessInfo?.street || "Downtown",
+        logo: toPublicMediaUrl(r.logo || r.user?.image || null, getRequestPublicOrigin(request)),
+        banner: toPublicMediaUrl(r.banner, getRequestPublicOrigin(request)),
+        mainPhoto: toPublicMediaUrl(r.mainPhoto, getRequestPublicOrigin(request)),
+        main_photo: toPublicMediaUrl(r.mainPhoto, getRequestPublicOrigin(request)),
+        city,
+        street,
+        location_text: locationText,
         rating,
         averageRating: rating,
         review_count: allRatings.length,

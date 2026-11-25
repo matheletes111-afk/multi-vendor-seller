@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getRequestPublicOrigin, normalizeHotelMedia, toPublicMediaUrl } from "@/lib/media-url"
 
 export async function GET(request: NextRequest) {
   try {
+    const origin = getRequestPublicOrigin(request)
     const ads = await prisma.sellerAd.findMany({
       where: {
         status: "ACTIVE",
@@ -16,9 +18,13 @@ export async function GET(request: NextRequest) {
       include: {
         hotel: {
           include: {
+            hotelSeller: { select: { id: true, logo: true, banner: true, mainPhoto: true } },
             rooms: { select: { price: true }, take: 1 },
             reviews: { select: { rating: true } },
           },
+        },
+        hotelSeller: {
+          select: { id: true, logo: true, banner: true, mainPhoto: true },
         },
       },
     })
@@ -28,13 +34,24 @@ export async function GET(request: NextRequest) {
       const price = h?.rooms[0]?.price || 499
       const totalRating = h?.reviews.reduce((acc, r) => acc + r.rating, 0) || 0
       const rating = h?.reviews.length ? parseFloat((totalRating / h.reviews.length).toFixed(1)) : 0
+      const hotelMedia = h
+        ? normalizeHotelMedia(h, origin)
+        : ad.hotelSeller
+          ? normalizeHotelMedia({ hotelSeller: ad.hotelSeller }, origin)
+          : null
+      const imageUrl =
+        toPublicMediaUrl(ad.mobileCreativeUrl || ad.creativeUrl, origin) ||
+        hotelMedia?.coverImage ||
+        null
 
       return {
         ad_id: ad.id,
         is_sponsored: true,
         title: ad.title,
         subtitle: ad.description || "Featured Resort & Hotel Spotlight",
-        image_url: ad.mobileCreativeUrl || ad.creativeUrl,
+        image_url: imageUrl,
+        hotel_logo: hotelMedia?.logo || null,
+        hotel_banner: hotelMedia?.banner || hotelMedia?.coverImage || null,
         hotel_id: ad.hotelId,
         city: h?.city || "Dubai",
         star_rating: h?.starRating || 0,

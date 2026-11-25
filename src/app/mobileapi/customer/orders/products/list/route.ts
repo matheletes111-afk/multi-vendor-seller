@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getMobileCustomerAuth } from "@/app/mobileapi/_helpers/customer-auth"
 import { listCustomerOrders } from "@/app/mobileapi/customer/orders/_helpers/order-helpers"
 import type { OrderDetailApi } from "@/app/api/customer/orders/types"
+import { getRequestPublicOrigin } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 
@@ -35,7 +36,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<SuccessRes
     })()
     const pageSize = 10
 
-    const result = await listCustomerOrders({ userId: auth.userId, kind: "product", page, pageSize })
+    const result = await listCustomerOrders({
+      userId: auth.userId,
+      kind: "product",
+      page,
+      pageSize,
+      origin: getRequestPublicOrigin(request),
+    })
 
     return NextResponse.json<SuccessResponse>({
       success: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toFirstPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const origin = getRequestPublicOrigin(request)
     const promoProducts = products
       .map((p) => {
         const variant = p.variants[0]
@@ -53,10 +55,7 @@ export async function GET(request: NextRequest) {
         // Cap at requested max_discount ceiling if specified
         if (discountPercentage > maxDiscountFilter && maxDiscountFilter > 0) return null
 
-        let thumbnail: string | null = null
-        if (Array.isArray(p.images) && p.images.length > 0) {
-          thumbnail = String(p.images[0])
-        }
+        const thumbnail = toFirstPublicMediaUrl(p.images, origin)
 
         const totalRating = p.reviews.reduce((acc, r) => acc + r.rating, 0)
         const rating = p.reviews.length > 0 ? parseFloat((totalRating / p.reviews.length).toFixed(1)) : 0.0

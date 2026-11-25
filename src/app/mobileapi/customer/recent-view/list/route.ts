@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyMobileAccessToken } from "@/lib/mobile-jwt"
 import { formatTimeAgo } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrlList } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -112,6 +113,7 @@ export async function GET(
       },
     })) as RecentViewRow[]
 
+    const origin = getRequestPublicOrigin(request)
     const products: ProductItem[] = views
       .filter((v) => v.product != null && v.product.isActive)
       .map((v) => {
@@ -122,7 +124,7 @@ export async function GET(
           id: p.id,
           name: p.name,
           slug: p.slug,
-          images: (p.images as string[]) ?? [],
+          images: toPublicMediaUrlList(p.images, origin),
           category: p.category,
           seller: p.seller,
           basePrice: first?.price ?? 0,

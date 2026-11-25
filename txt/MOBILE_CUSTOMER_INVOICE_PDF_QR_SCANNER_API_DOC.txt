@@ -1,0 +1,626 @@
+================================================================================
+MEEEM MULTI-VENDOR PLATFORM — MOBILE DEVELOPER API & IMPLEMENTATION GUIDE
+PANEL: CUSTOMER MOBILE APP (iOS & ANDROID / FLUTTER)
+SUBJECT: ORDER INVOICE, PDF, QR SCANNER & RESTAURANT/HOTEL/AD MEDIA IMAGE FIXES
+DATE: NOVEMBER 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. OVERVIEW & WHAT CHANGED
+--------------------------------------------------------------------------------
+This guide covers all backend APIs and UI rules for:
+  1. Customer Tax Invoice JSON API (multi-vendor & single-vendor orders)
+  2. Real A4 PDF Invoice Download API (Bearer token OR signed 15-min URL)
+  3. Invoice QR Code & QR Scanner Verification APIs
+  4. Customer Order List & Order Detail updates (Delivery Region/Zone + Invoice URLs)
+  5. Mandatory Customer UI rule: Hide internal delivery fee price breakup
+  6. Mobile Media/Image URL Normalization for Restaurants, Foods, Hotels, Ads,
+     Banners, Cart, Wishlist, Exchange Options, Bookings, Orders & Reviews (Section 9)
+  7. Restaurant Cuisines, Hotel/Food Location Formatting & Seller Write/Read
+     Normalization Updates (Section 10)
+
+ALL EXISTING ENDPOINTS REMAIN 100% BACKWARD-COMPATIBLE.
+Currency: NLe (Sierra Leonean Leone), formatted as: NLe X,XXX.XX
+
+--------------------------------------------------------------------------------
+2. AUTHENTICATION
+--------------------------------------------------------------------------------
+All customer endpoints accept:
+  Authorization: Bearer <customer_access_token>
+
+Exception for in-browser / WebView PDF download (`GET .../invoice/pdf`):
+  Pass `?dlToken=<signed_15min_token>` (returned automatically as `signedPdfUrl`
+  by the Invoice JSON and QR Scan APIs) when launching an external PDF viewer or
+  `url_launcher` that cannot attach custom Authorization headers.
+
+--------------------------------------------------------------------------------
+3. CUSTOMER ORDER LIST & DETAIL API UPDATES
+--------------------------------------------------------------------------------
+Affected Existing Endpoints:
+  - GET /mobileapi/customer/orders
+  - GET /mobileapi/customer/orders/[id]
+  - GET /mobileapi/customer/orders/products/list
+  - GET /mobileapi/customer/orders/products/details/[id]
+  - GET /mobileapi/customer/orders/services/list
+  - GET /mobileapi/customer/orders/services/details/[id]
+  - GET /api/customer/orders/[id]
+
+New Fields Included on Every Order Object:
+  {
+    "id": "cm...",
+    "orderNumber": "meeem00000012",
+    "shipping": 50.00,
+    "deliveryRegion": "LUMLEY",
+    "deliveryZone": "ZONE 2",
+    "deliveryZoneLabel": "LUMLEY (ZONE 2)",
+    "invoiceUrl": "/mobileapi/customer/orders/cm.../invoice",
+    "invoicePdfUrl": "/mobileapi/customer/orders/cm.../invoice/pdf",
+    "qrVerifyUrl": "https://meeemsl.com/invoice/verify?t=M1...."
+  }
+
+IMPORTANT CUSTOMER UI RULE (ORDER LIST, ORDER DETAIL & INVOICE SCREENS):
+  - DO show:
+      * Total Delivery Charge (`order.shipping`) -> display "FREE" in green if <= 0
+        for product orders, or "NLe X.XX" if > 0.
+      * Delivery Region / Zone badge (`order.deliveryZoneLabel`, e.g. "LUMLEY (ZONE 2)").
+      * "Invoice" / "Download PDF" button on BOTH Order List cards AND Order Detail screen.
+  - DO NOT show to customers on Order Detail or Invoice screens:
+      * Internal delivery price breakup (`weightShippingFee`, `dimensionShippingFee`,
+        `regionShippingFee`, `shippingBreakup`).
+      * Legacy JSON fields remain present in the API response only for backward
+        compatibility with older app builds — hide them from customer UI.
+
+--------------------------------------------------------------------------------
+4. GET CUSTOMER ORDER INVOICE (JSON)
+--------------------------------------------------------------------------------
+Endpoint:
+  GET /mobileapi/customer/orders/[id]/invoice
+
+Optional Query Parameters:
+  - sellerId=<sellerId>   (filter to a single merchant in a multi-vendor order)
+
+Headers:
+  Authorization: Bearer <customer_access_token>
+
+Success Response (200 OK):
+{
+  "success": true,
+  "message": "Invoice fetched successfully",
+  "data": {
+    "orderId": "cm4x...",
+    "orderNumber": "meeem00000012",
+    "invoiceCount": 1,
+    "deliveryRegion": "LUMLEY",
+    "deliveryZone": "ZONE 2",
+    "deliveryZoneLabel": "LUMLEY (ZONE 2)",
+    "pdfDownloadUrl": "/mobileapi/customer/orders/cm4x.../invoice/pdf",
+    "signedPdfUrl": "https://meeemsl.com/mobileapi/customer/orders/cm4x.../invoice/pdf?dlToken=P1...",
+    "verifyUrl": "https://meeemsl.com/invoice/verify?t=M1...",
+    "invoices": [
+      {
+        "invoiceNumber": "INV-meeem00000012",
+        "orderId": "cm4x...",
+        "orderNumber": "meeem00000012",
+        "orderStatus": "DELIVERED",
+        "orderType": "PRODUCT",
+        "isServiceOnly": false,
+        "date": "2026-11-20T10:15:30.000Z",
+        "customerName": "Jane Doe",
+        "customerPhone": "+23277001122",
+        "customerEmail": "jane@example.com",
+        "shippingAddress": "14 Lumley Beach Road, Freetown, Western Area, 00232, Sierra Leone",
+        "shippingAddressDetails": {
+          "fullName": "Jane Doe",
+          "phone": "+23277001122",
+          "addressLine1": "14 Lumley Beach Road",
+          "addressLine2": null,
+          "city": "Freetown",
+          "state": "Western Area",
+          "postalCode": "00232",
+          "country": "Sierra Leone",
+          "latitude": 8.46321,
+          "longitude": -13.27784
+        },
+        "deliveryRegion": "LUMLEY",
+        "deliveryZone": "ZONE 2",
+        "deliveryZoneLabel": "LUMLEY (ZONE 2)",
+        "seller": {
+          "sellerId": "clxSeller1",
+          "storeName": "Apex Electronics",
+          "businessName": "Apex Electronics SL Ltd",
+          "address": "124 Siaka Stevens St, Freetown, Western Area, Sierra Leone",
+          "phone": "+23277987654",
+          "logo": "https://...",
+          "gstin": "TIN-123456",
+          "regNumber": "REG-9988",
+          "isSelfDelivery": false
+        },
+        "items": [
+          {
+            "id": "cmi1...",
+            "productId": "cmp1...",
+            "serviceId": null,
+            "productName": "Wireless Headphones (Black)",
+            "variantName": "Black",
+            "sku": "WH-BLK-01",
+            "itemStatus": "DELIVERED",
+            "quantity": 1,
+            "price": 500.00,
+            "subtotal": 500.00,
+            "hasGst": true,
+            "gstRate": 15,
+            "gstAmount": 75.00,
+            "shippingAmount": 50.00,
+            "total": 575.00,
+            "serviceSlotStartTime": null,
+            "serviceSlotEndTime": null,
+            "isExchangeReplacement": false
+          }
+        ],
+        "subtotal": 500.00,
+        "gstTotal": 75.00,
+        "itemGrossTotal": 575.00,
+        "shippingCharge": 50.00,
+        "isFreeDelivery": false,
+        "couponCode": "SAVE10",
+        "couponDiscount": 25.00,
+        "grandTotal": 600.00,
+        "currency": "NLe",
+        "paymentMethod": "FLOAT",
+        "paymentMethodLabel": "Float (Bank Card)",
+        "paymentStatus": "COMPLETED",
+        "afriTxnId": null,
+        "flotOrderId": "ORD_cm4x...",
+        "paidAt": "2026-11-20T10:16:05.000Z",
+        "qrToken": "M1.eyJvIjoi...",
+        "qrVerifyUrl": "https://meeemsl.com/invoice/verify?t=M1.eyJvIjoi...",
+        "qrDataUrl": "data:image/png;base64,iVBORw0KGgo...",
+        "qrPayload": {
+          "version": 1,
+          "invoiceNumber": "INV-meeem00000012",
+          "orderId": "cm4x...",
+          "orderNumber": "meeem00000012",
+          "orderStatus": "DELIVERED",
+          "date": "2026-11-20T10:15:30.000Z",
+          "storeName": "Apex Electronics",
+          "sellerId": "clxSeller1",
+          "customerName": "Jane Doe",
+          "deliveryRegion": "LUMLEY",
+          "deliveryZone": "ZONE 2",
+          "deliveryZoneLabel": "LUMLEY (ZONE 2)",
+          "subtotal": 500.00,
+          "gstTotal": 75.00,
+          "shippingCharge": 50.00,
+          "isFreeDelivery": false,
+          "couponDiscount": 25.00,
+          "grandTotal": 600.00,
+          "currency": "NLe",
+          "paymentMethod": "FLOAT",
+          "paymentStatus": "COMPLETED",
+          "itemsCount": 1,
+          "itemsSummary": "Wireless Headphones (Black) (x1)",
+          "verifyUrl": "https://meeemsl.com/invoice/verify?t=M1..."
+        },
+        "pdfDownloadUrl": "/mobileapi/customer/orders/cm4x.../invoice/pdf?sellerId=clxSeller1",
+        "signedPdfUrl": "https://meeemsl.com/mobileapi/customer/orders/cm4x.../invoice/pdf?sellerId=clxSeller1&dlToken=P1..."
+      }
+    ]
+  }
+}
+
+Notes:
+  - Multi-vendor orders return 1 entry per merchant in `invoices[]`, each with
+    its own `invoiceNumber` (`INV-<orderNumber>-1`, `INV-<orderNumber>-2`),
+    merchant `shippingCharge`, proportional `couponDiscount`, normalized `seller.logo`,
+    `qrVerifyUrl`, `qrDataUrl`, and `signedPdfUrl`.
+  - Scope Note: Invoice JSON, A4 PDF, and QR APIs apply to marketplace Product and
+    Service orders (`Order` model). Restaurant food orders (`/mobileapi/customer/foods/orders*`,
+    `FoodOrder` model) do not use these invoice endpoints.
+  - QR Image Rendering in Mobile UI:
+      * Either render `invoice.qrDataUrl` directly as a base64 PNG image, OR
+        pass `invoice.qrVerifyUrl` to a local QR widget (`qr_flutter`).
+      * No external `qrserver.com` call is needed anymore.
+
+Error Responses:
+  - 401 Unauthorized: Missing or invalid customer Bearer token
+  - 403 Forbidden: Order belongs to a different customer
+  - 404 Not Found: Order or seller invoice not found
+
+--------------------------------------------------------------------------------
+5. DOWNLOAD A4 INVOICE PDF
+--------------------------------------------------------------------------------
+Endpoint:
+  GET /mobileapi/customer/orders/[id]/invoice/pdf
+
+Query Parameters:
+  - sellerId=<optional>      (single merchant PDF; omit for all merchants)
+  - disposition=attachment|inline  (default: attachment)
+  - dlToken=<optional>       (15-min signed token when Bearer header isn't used)
+
+Authentication Options:
+  Option A (Recommended for in-app file download + share/preview):
+    Header -> Authorization: Bearer <customer_access_token>
+  Option B (Recommended for external browser / `url_launcher` without headers):
+    Query  -> ?dlToken=<signedPdfUrl's dlToken> (already embedded in `signedPdfUrl`)
+
+Response (200 OK):
+  Content-Type: application/pdf
+  Content-Disposition: attachment; filename="MEEEM-Invoice-<orderNumber>.pdf"
+  Cache-Control: no-store
+  Body: Raw A4 vector PDF binary bytes (multi-page if multi-seller or many items;
+        includes embedded vector QR code, delivery charge, delivery region/zone,
+        items, GST, coupon discount, payment ref, and declarations).
+
+Error Responses:
+  - 401 Unauthorized / Invalid or expired download token
+  - 403 Forbidden
+  - 404 Not Found
+
+--------------------------------------------------------------------------------
+6. INVOICE QR SCANNER & VERIFICATION APIS
+--------------------------------------------------------------------------------
+There are TWO endpoints for scanning/verifying invoice QR codes:
+
+6A. Customer App QR Scanner Endpoint (Authenticated Customer)
+  POST /mobileapi/customer/orders/invoice/scan-qr
+  GET  /mobileapi/customer/orders/invoice/scan-qr?qr=<scanned_string>
+
+  Headers:
+    Authorization: Bearer <customer_access_token>
+    Content-Type: application/json (for POST)
+
+  POST Request Body:
+  {
+    "qrData": "<raw string scanned from camera>"
+  }
+  (Also accepts `qr`, `token`, `t`, `code`, or `orderNumber` keys.)
+
+  Supported Scanned Formats (Backend parses all automatically):
+    1. Signed QR URL:    "https://meeemsl.com/invoice/verify?t=M1...."
+    2. Raw Signed Token: "M1.eyJvIjoi..."
+    3. JSON QR Payload:  "{\"token\":\"M1...\"}" or "{\"orderNumber\":\"meeem00000012\"}"
+    4. Legacy QR Text:   "Order: #meeem00000012 | Store: ..."
+    5. Order / Inv Ref:  "INV-REF-meeem00000012-XPRO", "INV-meeem00000012",
+                         "#meeem00000012", "meeem00000012"
+
+  Success Response (200 OK):
+  {
+    "success": true,
+    "verified": true,
+    "message": "Invoice QR verified successfully",
+    "data": {
+      "verificationMode": "SIGNED_TOKEN",
+      "isPublicMasked": false,
+      "isOwner": true,
+      "orderId": "cm4x...",
+      "orderNumber": "meeem00000012",
+      "invoiceCount": 1,
+      "pdfDownloadUrl": "/mobileapi/customer/orders/cm4x.../invoice/pdf",
+      "signedPdfUrl": "https://meeemsl.com/mobileapi/customer/orders/cm4x.../invoice/pdf?dlToken=P1...",
+      "invoice": { ...InvoiceData... },
+      "invoices": [ ...InvoiceData[]... ]
+    }
+  }
+
+  Privacy Behavior:
+    - If the scanned signed `M1.` QR belongs to the authenticated customer (`isOwner = true`),
+      `isPublicMasked` is `false` and full customer/address/PDF download links are returned.
+    - If the scanned signed `M1.` QR belongs to another user's order (`isOwner = false`),
+      `isPublicMasked` is `true`: phone/email/street-line PII are masked, while order items,
+      delivery charge, delivery region/zone, store, totals, and verification status are returned.
+    - Unsigned plain `orderNumber` / legacy strings are ONLY allowed when `isOwner = true`
+      (otherwise 403 Forbidden).
+
+6B. Universal QR Verify Endpoint (Signed-in OR Public Signed-Token Scan)
+  POST /mobileapi/invoice/verify
+  GET  /mobileapi/invoice/verify?t=<token_or_qr_string>
+
+  Headers:
+    Authorization: Bearer <token>   (Optional if scanning signed `M1.` QR;
+                                     Required for unsigned orderNumber lookup)
+
+  Response Shape:
+    Matches Section 6A: `{ success, verified, message, data: { verificationMode, isPublicMasked, isOwner, orderId, orderNumber, invoiceCount, pdfDownloadUrl, signedPdfUrl, invoice, invoices } }`.
+    When `isOwner === true`, both `data` and each element of `invoices[]` include mobile
+    `pdfDownloadUrl` (`/mobileapi/customer/orders/[id]/invoice/pdf...`) and a 15-min
+    seller-scoped `signedPdfUrl`. When `isOwner === false` (`isPublicMasked === true`),
+    `pdfDownloadUrl` and `signedPdfUrl` are omitted/`null`.
+
+--------------------------------------------------------------------------------
+7. FLUTTER / DART IMPLEMENTATION EXAMPLES
+--------------------------------------------------------------------------------
+
+7.1 Dependencies (pubspec.yaml)
+------------------------------
+  http: ^1.2.0
+  path_provider: ^2.1.4
+  open_filex: ^4.5.0
+  mobile_scanner: ^5.2.0
+  url_launcher: ^6.3.0
+  qr_flutter: ^4.1.0   # Optional if rendering qrVerifyUrl natively instead of qrDataUrl
+
+7.2 Fetch Invoice JSON & Download A4 PDF
+----------------------------------------
+  import 'dart:convert';
+  import 'dart:io';
+  import 'package:http/http.dart' as http;
+  import 'package:path_provider/path_provider.dart';
+  import 'package:open_filex/open_filex.dart';
+
+  class CustomerInvoiceService {
+    final String baseUrl;
+    final String accessToken;
+
+    CustomerInvoiceService({required this.baseUrl, required this.accessToken});
+
+    Map<String, String> get _headers => {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        };
+
+    Future<Map<String, dynamic>> fetchOrderInvoice(
+      String orderId, {
+      String? sellerId,
+    }) async {
+      final query = sellerId != null ? '?sellerId=$sellerId' : '';
+      final uri = Uri.parse('$baseUrl/mobileapi/customer/orders/$orderId/invoice$query');
+      final res = await http.get(uri, headers: _headers);
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode != 200 || body['success'] != true) {
+        throw Exception(body['error'] ?? 'Failed to load invoice');
+      }
+      return body['data'] as Map<String, dynamic>;
+    }
+
+    Future<File> downloadAndOpenInvoicePdf(
+      String orderId,
+      String orderNumber, {
+      String? sellerId,
+    }) async {
+      final query = sellerId != null ? '?sellerId=$sellerId' : '';
+      final uri = Uri.parse('$baseUrl/mobileapi/customer/orders/$orderId/invoice/pdf$query');
+      final res = await http.get(uri, headers: {
+        'Authorization': 'Bearer $accessToken',
+      });
+      if (res.statusCode != 200) {
+        throw Exception('PDF download failed (${res.statusCode})');
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/MEEEM-Invoice-$orderNumber.pdf');
+      await file.writeAsBytes(res.bodyBytes, flush: true);
+      await OpenFilex.open(file.path);
+      return file;
+    }
+
+    Future<Map<String, dynamic>> scanInvoiceQr(String rawQrValue) async {
+      final uri = Uri.parse('$baseUrl/mobileapi/customer/orders/invoice/scan-qr');
+      final res = await http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({'qrData': rawQrValue}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode != 200 || body['verified'] != true) {
+        throw Exception(body['error'] ?? 'Invalid or unreadable invoice QR');
+      }
+      return body['data'] as Map<String, dynamic>;
+    }
+  }
+
+7.3 Rendering Base64 QR Image (`qrDataUrl`) in Flutter
+------------------------------------------------------
+  // Strip "data:image/png;base64," prefix and decode bytes:
+  Widget buildQrImage(String qrDataUrl) {
+    final base64Str = qrDataUrl.contains(',')
+        ? qrDataUrl.split(',').last
+        : qrDataUrl;
+    final bytes = base64Decode(base64Str);
+    return Image.memory(bytes, width: 110, height: 110, fit: BoxFit.contain);
+  }
+
+7.4 QR Scanner Screen Hook (`mobile_scanner`)
+---------------------------------------------
+  MobileScanner(
+    onDetect: (BarcodeCapture capture) async {
+      final rawValue = capture.barcodes.firstOrNull?.rawValue;
+      if (rawValue == null || rawValue.isEmpty || _isProcessing) return;
+      setState(() => _isProcessing = true);
+      try {
+        final scanResult = await invoiceService.scanInvoiceQr(rawValue);
+        final invoice = scanResult['invoice'] as Map<String, dynamic>;
+        // Display:
+        //   invoice['invoiceNumber'], invoice['orderNumber'],
+        //   invoice['deliveryZoneLabel'], invoice['shippingCharge'],
+        //   invoice['subtotal'], invoice['gstTotal'], invoice['grandTotal'],
+        //   invoice['items'], invoice['seller'], invoice['paymentStatus']
+        // And if scanResult['isOwner'] == true, enable "Download PDF" button!
+      } catch (e) {
+        // Show error snackbar
+      } finally {
+        setState(() => _isProcessing = false);
+      }
+    },
+  )
+
+--------------------------------------------------------------------------------
+8. ENDPOINTS QUICK CHECKLIST FOR MOBILE TEAM
+--------------------------------------------------------------------------------
+  [x] Order List Invoice Button -> call GET /mobileapi/customer/orders/[id]/invoice
+  [x] Order Detail Invoice Button -> call GET /mobileapi/customer/orders/[id]/invoice
+  [x] Order Detail Delivery Display -> show `order.shipping` ("FREE" if 0) +
+      `order.deliveryZoneLabel`; HIDE weight/dimension/region fee breakup
+  [x] Invoice Screen -> show Seller, Customer, Full Address, Delivery Region/Zone,
+      Delivery Charge ("FREE" if 0), Items, GST, Coupon, Grand Total, Payment Status,
+      and QR Code (`qrDataUrl` or `qrVerifyUrl`)
+  [x] Download A4 PDF -> call GET /mobileapi/customer/orders/[id]/invoice/pdf
+      (with Bearer token or `signedPdfUrl`)
+  [x] QR Scanner -> pass scanned barcode string to
+      POST /mobileapi/customer/orders/invoice/scan-qr
+
+--------------------------------------------------------------------------------
+9. RESTAURANT, FOOD, HOTEL, AD & CATALOG MEDIA / IMAGE URL FIXES
+--------------------------------------------------------------------------------
+
+9.1 Root Cause & Backend Media Proxy Behavior
+---------------------------------------------
+Previously, images uploaded under restricted S3 folders
+  - `uploads/restaurant-onboarding/property/*` (Restaurant logo, banner, mainPhoto)
+  - `uploads/hotel-onboarding/property/*`      (Hotel seller logo, banner, mainPhoto)
+  - `uploads/onboarding/store/*`               (Store logos)
+  - `uploads/return-images/*`                  (Customer return photos — now also whitelisted on `/api/media/...`)
+returned `403 Forbidden` when requested directly from S3, or received internal
+`http://localhost:3000/...` proxy origins behind reverse proxies, or returned raw
+JSON-stringified image arrays (`"[\"https://...\"]"`) / relative `/uploads/...`
+or `/icons/...` paths on mobile endpoints.
+
+ALL customer-facing mobile APIs now automatically:
+  1. Resolve the public HTTPS origin from `x-forwarded-host` / `x-forwarded-proto`
+     headers (falling back to `NEXT_PUBLIC_APP_URL` / `NEXTAUTH_URL`).
+  2. Rewrite restricted S3 property/store image URLs into full public HTTPS URLs:
+       `https://<public-domain>/api/media/uploads/<key>`
+     The `/api/media/[...path]` endpoint is PUBLIC (no Bearer header required)
+     and includes `Access-Control-Allow-Origin: *`.
+  3. Convert relative asset/upload paths (`/uploads/...`, `/icons/...`) and bare
+     S3 keys (`uploads/...`) to full `https://...` URLs.
+  4. Parse JSON-encoded image strings & arrays cleanly into clean string URLs and
+     encode spaces cleanly (`%20`).
+
+9.2 Updated Restaurant & Food Image Endpoints
+---------------------------------------------
+  - `GET /mobileapi/restaurants`
+      Normalized HTTPS URLs for `logo`, `banner`, `mainPhoto`, `image_url`.
+  - `GET /mobileapi/restaurants/[id]`
+    (and aliases `/mobileapi/restaurant/[id]`, `/mobileapi/restaurant/seller/[id]`)
+      Normalized `logo`, `banner`, `mainPhoto`, plus each dish in `foods[]` now
+      returns `images` (`string[]`), `image`, and `image_url`.
+  - `GET /mobileapi/v1/restaurants`
+      Added normalized `images`, `image`, `image_url`, `restaurant_id`,
+      `restaurant_logo`, `restaurant_banner`, `restaurant_main_photo`.
+  - `GET /mobileapi/v1/restaurants/nearby`
+      Normalized `image_url`, `logo`, `banner`, `mainPhoto`, `main_photo` with HTTPS
+      public origin.
+  - `GET /mobileapi/v1/foods`
+      Added normalized `images`, `image`, `image_url`, `restaurant_logo`,
+      `restaurant_banner`, `restaurant_main_photo`.
+  - `GET /mobileapi/customer/foods`
+      Returns normalized `images`, `image`, `image_url`, plus `restaurantLogo` /
+      `restaurant_logo`, `restaurantBanner` / `restaurant_banner`,
+      `restaurantMainPhoto` / `restaurant_main_photo`.
+  - `GET /mobileapi/customer/foods/[id]`
+    (and aliases `/mobileapi/foods/[id]`, `/mobileapi/food/[id]`)
+      Now includes `restaurantSeller` (`logo`, `banner`, `mainPhoto`, `user.image`),
+      top-level `restaurantName`, `restaurantLogo`/`restaurant_logo`,
+      `restaurantBanner`/`restaurant_banner`, `restaurantMainPhoto`/`restaurant_main_photo`,
+      normalized `images` (`string[]`), `image`, `image_url`, normalized `sellerAds`,
+      and normalized `reviews[].userAvatar` + `reviews[].images`.
+  - `GET /mobileapi/v1/recommendations/food`
+      Returns normalized `images`, `image`, `image_url`, `restaurant_id`, `restaurant_logo`.
+  - `GET /mobileapi/v1/categories/food`
+      Normalized category `image_url` (including extracted food item image fallback &
+      full URL for `/icons/food.png`).
+  - `GET /mobileapi/foods/banners`
+      Normalized `bannerImage`, `mobileBanner`, and `mobile_banner`.
+  - `GET /mobileapi/customer/foods/orders` & `GET /mobileapi/customer/foods/orders/[id]`
+      Normalized `restaurantLogo` and item `image` / `foodImage`.
+  - `GET /mobileapi/foods/[id]/reviews` & `GET|POST|PUT /mobileapi/customer/foods/[id]/reviews`
+      Normalized `userAvatar` and review `images[]` (both read & write responses).
+
+9.3 Updated Hotel & Room Image Endpoints
+----------------------------------------
+  - `GET /mobileapi/hotels/all`
+  - `GET /mobileapi/customer/hotels`
+  - `GET /mobileapi/customer/hotels/[id]` (and alias `/mobileapi/hotels/[id]`)
+  - `GET /mobileapi/customer/hotels/rooms/[id]`
+  - `GET /mobileapi/customer/hotels/banners`
+  - `GET /mobileapi/v1/hotels`
+  - `GET /mobileapi/v1/hotels/nearby`
+  - `GET /mobileapi/v1/hotels/featured`
+  - `GET /mobileapi/v1/hotels/top-rated`
+  - `GET /mobileapi/v1/deals/hotels`
+  - `GET /mobileapi/v1/recommendations/hotels`
+  - `GET /mobileapi/v1/categories/hotels` (includes `hotelSeller` fallback cover photo)
+  - `GET /mobileapi/customer/hotel-bookings` & `GET /mobileapi/customer/hotel-bookings/[id]`
+      (now include `hotelSeller` media fallback, `image_url`, `coverImage`, normalized `hotelSeller`)
+  - `GET /mobileapi/hotels/[id]/reviews` & `/mobileapi/customer/hotels/[id]/reviews`
+      All hotel endpoints now normalize `images[]` (falling back to cover photo if `hotel.images`
+      is empty), `banner`, `logo`, `image_url`, `coverImage` (with hotel -> hotelSeller
+      `banner`/`mainPhoto`/`logo` fallback), nested `hotelSeller` media, room `images[]`,
+      `sellerAds`, hotel `mobile_banner`, and review `userAvatar`/`images[]`.
+
+9.4 Updated Ads, Banners, Home, Cart, Orders & Catalog Image Endpoints
+----------------------------------------------------------------------
+  - Ads:
+      `GET /mobileapi/v1/ads/food` (now returns normalized `image_url`, `food_image`,
+        `restaurant_id`, `restaurant_logo`, `restaurant_banner`, `restaurant_main_photo`)
+      `GET /mobileapi/v1/ads/hotels` (now returns normalized `image_url`, `hotel_logo`,
+        `hotel_banner`)
+      `GET /mobileapi/v1/ads/products`, `GET /mobileapi/v1/ads/services`,
+      `GET /mobileapi/v1/ads/spotlight` (all normalize `image_url`, with linked entity
+        image fallbacks when creative URLs are empty)
+      `GET /mobileapi/ad/list` & `GET /mobileapi/ad/[id]` (both normalize `SELLER`,
+        `HOTEL_SELLER`, `RESTAURANT_SELLER`, and `CUSTOMER` `avatar`/`storeLogo`,
+        `creativeUrl`, `webCreativeUrl`, `mobileCreativeUrl`, and `target` `product`,
+        `service`, `hotel`, and `foodItem` images)
+  - Banners & Home:
+      `GET /mobileapi/v1/banners`, `GET /mobileapi/v1/home/layout` (normalizes
+        `quickCategories[].icon_url`), `GET /mobileapi/home` (normalizes `banners`,
+        `categories`, `featuredCategories`, `serviceCategories`, `ads` including
+        `mobileCreativeUrl`, and `services`).
+  - Cart, Products, Services, Categories, Search, Browse, Wishlist, Orders & Profile:
+      `GET|POST|PATCH /mobileapi/customer/cart` (normalizes product/variant/service `image`),
+      `GET /mobileapi/v1/products`, `promotions`, `deals/products`, `recommendations/products`,
+      `GET /mobileapi/v1/recommendations/feed` (delegates to normalized v1 feeds),
+      `GET /mobileapi/product/[id]`, `home/best-sellers`, `customer/recent-view/list`,
+      `GET /mobileapi/customer/interest-products`,
+      `GET /mobileapi/v1/services`, `promotions`, `featured-home-services`, `deals/services`,
+      `recommendations/services`, `services/all`, `services/[id]`,
+      `GET /mobileapi/categories*`, `singlecategory/[id]`, `subcategory/[id]`,
+      `services/categories*`, `v1/categories/*`,
+      `GET /mobileapi/search`, `GET|POST /mobileapi/browse`,
+      `GET|POST /mobileapi/customer/wishlist` & `sync` (now uses `hotelSeller` media fallback),
+      `POST /mobileapi/product/reviews`, `POST /mobileapi/services/reviews`,
+      `GET /mobileapi/customer/orders*`, `GET /api/customer/orders/[id]`,
+      `GET .../orders/products/details/[id]/items/[orderItemId]/exchange-options`,
+      `GET|PUT /mobileapi/customer/settings`.
+
+9.5 Mobile Image Loading Guidance (Flutter / React Native)
+----------------------------------------------------------
+  - Use `image_url` (or `coverImage` / `banner` / `mainPhoto` / `logo` / `images[0]`)
+    directly in `Image.network` / `CachedNetworkImage`.
+  - No `Authorization` header is needed to load `/api/media/...` URLs.
+  - Because `restaurant_logo` / `restaurant_banner` / `hotel_banner` are now also
+    returned as full HTTPS URLs alongside `image_url`, mobile UI cards can render both
+    dish/hotel photos and seller/restaurant avatars cleanly without local URL rewriting.
+
+--------------------------------------------------------------------------------
+10. RESTAURANT CUISINES & LOCATION FORMATTING UPDATES
+--------------------------------------------------------------------------------
+  - `GET /mobileapi/restaurants` & `GET /mobileapi/restaurants/[id]`
+    (plus aliases `/mobileapi/restaurant/[id]`, `/mobileapi/restaurant/seller/[id]`):
+      * Recursively unwraps any multi-encoded / CSV `primaryCuisine` strings into a
+        clean deduplicated `cuisines[]` string array and comma-joined `cuisine_type`.
+      * Formats `street`, `city`, `state`, and `landmark` (spacing, punctuation,
+        Title Case normalization) and returns deduplicated `locationText` and
+        `location_text` (falling back to `"Local"` when empty).
+  - `GET /mobileapi/v1/restaurants/nearby`:
+      * Uses `businessInfo.businessName` before `user.name`, merges `primaryCuisine` +
+        food item categories into clean `cuisines[]` & `cuisine_type`, and returns
+        formatted `city`, `street`, and `location_text` (with `"Local"` fallback).
+  - `GET /mobileapi/customer/foods`, `GET /mobileapi/v1/foods` & `GET /mobileapi/foods/categories`:
+      * `restaurantCity` and food cuisine/category labels are cleaned via
+        `formatLocationPart` and `parseCleanStringArray`.
+  - `GET /mobileapi/v1/categories/hotels`, `GET /mobileapi/v1/hotels*`,
+    `GET /mobileapi/v1/deals/hotels` & `GET /mobileapi/v1/recommendations/hotels`:
+      * Hotel `city`, `address`, and `location_text` are formatted via
+        `formatLocationPart` / `formatRestaurantLocation` (with `"Local"` fallback
+        instead of hardcoded Dubai/Downtown defaults on real DB records).
+  - Restaurant Seller App Endpoints (`POST /mobileapi/restaurant-seller/onboarding`,
+    `GET|PUT /mobileapi/restaurant-seller/settings`, `GET /mobileapi/restaurant-seller/onboarding`):
+      * Write paths normalize incoming `cuisines` and `services` via
+        `parseCleanStringArray` before saving; `GET` endpoints return clean arrays /
+        normalized JSON strings and presigned onboarding media URLs.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

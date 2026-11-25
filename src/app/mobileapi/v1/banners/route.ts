@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { shuffleArray } from "@/lib/utils"
+import { getRequestPublicOrigin, toPublicMediaUrl } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
       whereClause.targetType = targetType.trim().toLowerCase()
     }
 
+    const origin = getRequestPublicOrigin(request)
     const dbBanners = await prisma.banner.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
@@ -30,12 +32,15 @@ export async function GET(request: NextRequest) {
       else if (b.subcategoryId) targetId = b.subcategoryId
       else if (b.serviceCategoryId) targetId = b.serviceCategoryId
 
+      const imageUrl = toPublicMediaUrl(b.bannerImage, origin) || b.bannerImage
+      const mobileUrl = toPublicMediaUrl(b.mobileBanner, origin)
+
       return {
         banner_id: b.id,
         heading: b.bannerHeading,
         description: b.bannerDescription || "",
-        image_url: b.bannerImage,
-        mobile_banner: b.mobileBanner || b.bannerImage,
+        image_url: imageUrl,
+        mobile_banner: mobileUrl || imageUrl,
         target_type: b.targetType || "product",
         target_id: targetId,
         placement: placement,

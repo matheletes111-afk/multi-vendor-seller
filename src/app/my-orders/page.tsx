@@ -37,36 +37,46 @@ export default async function MyOrdersPage() {
               replacementAllowed: true,
             },
           },
+          seller: { select: { store: { select: { name: true } } } },
         },
       },
     },
     orderBy: { createdAt: "desc" },
   })
 
-  const serializedOrders = orders.map((order) => ({
-    id: order.id,
-    orderNumber: order.orderNumber,
-    createdAt: order.createdAt.toISOString(),
-    totalAmount: order.totalAmount,
-    status: deriveOrderStatus(order.items.map((i) => i.itemStatus)),
-    seller: order.seller
-      ? { store: order.seller.store ? { name: order.seller.store.name } : null }
-      : { store: null },
-    items: order.items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      serviceId: item.serviceId,
-      productVariantId: item.productVariantId,
-      productNameSnapshot: item.productNameSnapshot,
-      serviceNameSnapshot: item.serviceNameSnapshot,
-      quantity: item.quantity,
-      subtotal: item.subtotal,
-      itemStatus: item.itemStatus,
-      returnPolicyType: item.productVariant?.returnType ?? null,
-      returnPolicyDays: item.productVariant?.returnDays ?? null,
-      replacementAllowed: item.productVariant?.replacementAllowed === true,
-    })),
-  }))
+  const serializedOrders = orders.map((order) => {
+    const itemStoreNames = [
+      ...new Set(order.items.map((item) => item.seller?.store?.name).filter((n): n is string => Boolean(n))),
+    ]
+    const resolvedStoreName =
+      itemStoreNames.length === 1
+        ? itemStoreNames[0]
+        : itemStoreNames.length > 1
+          ? "Multiple sellers"
+          : order.seller?.store?.name ?? null
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt.toISOString(),
+      totalAmount: order.totalAmount,
+      status: deriveOrderStatus(order.items.map((i) => i.itemStatus)),
+      seller: { store: resolvedStoreName ? { name: resolvedStoreName } : null },
+      items: order.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        serviceId: item.serviceId,
+        productVariantId: item.productVariantId,
+        productNameSnapshot: item.productNameSnapshot,
+        serviceNameSnapshot: item.serviceNameSnapshot,
+        quantity: item.quantity,
+        subtotal: item.subtotal,
+        itemStatus: item.itemStatus,
+        returnPolicyType: item.productVariant?.returnType ?? null,
+        returnPolicyDays: item.productVariant?.returnDays ?? null,
+        replacementAllowed: item.productVariant?.replacementAllowed === true,
+      })),
+    }
+  })
 
   return (
     <PublicLayout>

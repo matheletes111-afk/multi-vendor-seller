@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-import { shuffleArray, fairMarketplaceInterleave } from "@/lib/utils"
+import { shuffleArray, fairMarketplaceInterleave, formatLocationPart } from "@/lib/utils"
 import { activeHotelSellerWhere } from "@/lib/subscriptions"
+import { getRequestPublicOrigin, normalizeHotelMedia } from "@/lib/media-url"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const origin = getRequestPublicOrigin(request)
     const isDefaultView = !cityParam && !starRatingParam && page === 1
 
     const [totalItems, hotels] = await Promise.all([
@@ -43,6 +45,7 @@ export async function GET(request: NextRequest) {
         take: isDefaultView ? Math.max(limit * 6, 60) : limit,
         orderBy: { starRating: "desc" },
         include: {
+          hotelSeller: { select: { logo: true, banner: true, mainPhoto: true } },
           rooms: {
             where: { isActive: true, isDeleted: false },
             select: { price: true },
@@ -55,10 +58,7 @@ export async function GET(request: NextRequest) {
     ])
 
     const formattedHotels = hotels.map((h) => {
-      let imageUrl: string | null = h.banner || null
-      if (!imageUrl && Array.isArray(h.images) && h.images.length > 0) {
-        imageUrl = String(h.images[0])
-      }
+      const media = normalizeHotelMedia(h, origin)
 
       const startingPrice = h.rooms.length > 0 ? h.rooms[0].price : 299
 
@@ -73,11 +73,13 @@ export async function GET(request: NextRequest) {
         description: h.description || "",
         star_rating: h.starRating ?? 0,
         starRating: h.starRating ?? 0,
-        city: h.city || "Dubai",
-        address: h.address || "",
-        image_url: imageUrl,
-        coverImage: imageUrl,
-        logo: h.logo || null,
+        city: formatLocationPart(h.city) || "Local",
+        address: formatLocationPart(h.address),
+        images: media.images,
+        banner: media.banner,
+        image_url: media.coverImage,
+        coverImage: media.coverImage,
+        logo: media.logo,
         starting_price_per_night: startingPrice,
         currency: "NLe",
         rating,
