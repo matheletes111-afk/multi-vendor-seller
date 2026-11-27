@@ -442,12 +442,23 @@ export async function initiateAfriMoneyPushUssd(
 
   // Format phone number (e.g. 033600171 or 077928995)
   let cleanMsisdn = params.payerMsisdn.replace(/[^0-9]/g, "")
+  if (cleanMsisdn.startsWith("00232")) {
+    cleanMsisdn = cleanMsisdn.slice(2)
+  }
   if (cleanMsisdn.startsWith("2320")) {
     cleanMsisdn = cleanMsisdn.slice(3)
   } else if (cleanMsisdn.startsWith("232")) {
     cleanMsisdn = "0" + cleanMsisdn.slice(3)
   } else if (!cleanMsisdn.startsWith("0") && cleanMsisdn.length === 8) {
     cleanMsisdn = "0" + cleanMsisdn
+  }
+
+  if (!cleanMsisdn || cleanMsisdn.length < 8) {
+    return {
+      success: false,
+      status: 400,
+      message: "Please enter a valid AfriMoney mobile number (e.g. 077123456 or +23277123456).",
+    }
   }
 
   const targetEndpoint = `${config.bridgeUrl}/push-ussd/merchant-payment/v1.0`
