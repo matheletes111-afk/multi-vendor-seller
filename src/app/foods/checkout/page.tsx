@@ -18,6 +18,11 @@ import {
   FloatPaymentInstructions,
   type FloatSubType,
 } from "@/components/payments/float-payment-options"
+import {
+  AfriMoneyPhoneField,
+  useAfriMoneyPhone,
+  validateAfriMoneyPhone,
+} from "@/components/payments/afrimoney-phone-field"
 
 type Address = {
   id: string
@@ -119,7 +124,13 @@ function CheckoutContent() {
   const [errorMessage, setErrorMessage] = useState("")
 
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
-  const [afriPhone, setAfriPhone] = useState("")
+  const selectedFoodAddress = addresses.find((a) => a.id === selectedAddressId)
+  const suggestedAfriPhone = selectedFoodAddress?.phone || phone || ""
+  const {
+    phone: afriPhone,
+    setPhone: setAfriPhone,
+    resetToSuggested: resetAfriPhone,
+  } = useAfriMoneyPhone(suggestedAfriPhone)
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
     orderId: string
@@ -216,18 +227,6 @@ function CheckoutContent() {
       }
     }
   }
-
-  // Auto-fill afriPhone if empty from selected address
-  useEffect(() => {
-    if (!afriPhone) {
-      const selectedAddr = addresses.find(a => a.id === selectedAddressId)
-      if (selectedAddr?.phone) {
-        setAfriPhone(selectedAddr.phone)
-      } else if (phone) {
-        setAfriPhone(phone)
-      }
-    }
-  }, [addresses, selectedAddressId, phone, afriPhone])
 
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
@@ -416,10 +415,13 @@ function CheckoutContent() {
         }))
       }
 
-      if (paymentMethod === "AFRIMONEY" && !afriPhone.trim()) {
-        setErrorMessage("Please enter your AfriMoney phone number to receive the payment prompt.")
-        setSubmittingOrder(false)
-        return
+      if (paymentMethod === "AFRIMONEY") {
+        const afriValidationError = validateAfriMoneyPhone(afriPhone)
+        if (afriValidationError) {
+          setErrorMessage(afriValidationError)
+          setSubmittingOrder(false)
+          return
+        }
       }
 
       // Submit checkout
@@ -1144,21 +1146,17 @@ function CheckoutContent() {
                 </div>
 
                 {paymentMethod === "AFRIMONEY" && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 space-y-1 mt-2">
-                    <label className="text-[10px] font-bold text-amber-900 block">
-                      AfriMoney Phone Number (Africell) *
-                    </label>
-                    <Input
-                      type="tel"
-                      placeholder="e.g. 077123456"
-                      value={afriPhone}
-                      onChange={(e) => setAfriPhone(e.target.value)}
-                      className="h-8 text-xs bg-white rounded-lg border-amber-200"
-                    />
-                    <p className="text-[9px] text-amber-800">
-                      You will receive an instant prompt on your phone to enter your PIN and approve payment.
-                    </p>
-                  </div>
+                  <AfriMoneyPhoneField
+                    value={afriPhone}
+                    onChange={setAfriPhone}
+                    suggestedPhone={suggestedAfriPhone}
+                    onResetToSuggested={resetAfriPhone}
+                    suggestedLabel="Use address number"
+                    disabled={submittingOrder}
+                    tone="amber"
+                    compact
+                    helperText="You will receive an instant prompt on your phone to enter your PIN and approve payment."
+                  />
                 )}
 
                 {paymentMethod === "FLOAT" && (

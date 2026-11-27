@@ -24,6 +24,11 @@ import {
   FloatPaymentInstructions,
   type FloatSubType,
 } from "@/components/payments/float-payment-options"
+import {
+  AfriMoneyPhoneField,
+  useAfriMoneyPhone,
+  validateAfriMoneyPhone,
+} from "@/components/payments/afrimoney-phone-field"
 
 type AddressFormState = {
   addressType: AddressApi["addressType"]
@@ -188,7 +193,11 @@ export function CheckoutClient() {
   }, [items, selectedAddressId])
 
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
-  const [afriPhone, setAfriPhone] = useState("")
+  const {
+    phone: afriPhone,
+    setPhone: setAfriPhone,
+    resetToSuggested: resetAfriPhone,
+  } = useAfriMoneyPhone(selectedAddress?.phone)
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
     orderId: string
@@ -284,21 +293,17 @@ export function CheckoutClient() {
     }
   }
 
-  // Auto-fill afriPhone from selected address phone if empty
-  useEffect(() => {
-    if (selectedAddress?.phone && !afriPhone) {
-      setAfriPhone(selectedAddress.phone)
-    }
-  }, [selectedAddress, afriPhone])
-
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
       setError("Please select a delivery address.")
       return
     }
-    if (paymentMethod === "AFRIMONEY" && !afriPhone.trim()) {
-      setError("Please enter your AfriMoney phone number to receive the payment prompt.")
-      return
+    if (paymentMethod === "AFRIMONEY") {
+      const afriValidationError = validateAfriMoneyPhone(afriPhone)
+      if (afriValidationError) {
+        setError(afriValidationError)
+        return
+      }
     }
     setError(null)
     setPlacing(true)
@@ -1289,21 +1294,15 @@ export function CheckoutClient() {
                     </div>
 
                     {paymentMethod === "AFRIMONEY" && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-1.5 mt-2 animate-in fade-in-50">
-                        <label className="text-[11px] font-bold text-amber-900 block">
-                          AfriMoney Phone Number (Africell) *
-                        </label>
-                        <Input
-                          type="tel"
-                          placeholder="e.g. 077123456 or 033123456"
-                          value={afriPhone}
-                          onChange={(e) => setAfriPhone(e.target.value)}
-                          className="h-10 text-sm bg-white rounded-xl border-amber-200"
-                        />
-                        <p className="text-[10px] text-amber-800">
-                          You will receive an instant prompt on your phone to enter your AfriMoney PIN and approve payment.
-                        </p>
-                      </div>
+                      <AfriMoneyPhoneField
+                        value={afriPhone}
+                        onChange={setAfriPhone}
+                        suggestedPhone={selectedAddress?.phone}
+                        onResetToSuggested={resetAfriPhone}
+                        suggestedLabel="Use address number"
+                        disabled={placing}
+                        tone="amber"
+                      />
                     )}
 
                     {paymentMethod === "FLOAT" && (

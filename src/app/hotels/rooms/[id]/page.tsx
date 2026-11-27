@@ -15,6 +15,11 @@ import {
   FloatPaymentInstructions,
   type FloatSubType,
 } from "@/components/payments/float-payment-options"
+import {
+  AfriMoneyPhoneField,
+  useAfriMoneyPhone,
+  validateAfriMoneyPhone,
+} from "@/components/payments/afrimoney-phone-field"
 
 type Hotel = {
   id: string
@@ -60,7 +65,11 @@ export default function RoomBookingPage() {
   const [bookingSuccess, setBookingSuccess] = useState<any>(null)
 
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "AFRIMONEY" | "FLOAT">("COD")
-  const [afriPhone, setAfriPhone] = useState("")
+  const {
+    phone: afriPhone,
+    setPhone: setAfriPhone,
+    resetToSuggested: resetAfriPhone,
+  } = useAfriMoneyPhone(guestPhone)
   const [waitingForAfriMoney, setWaitingForAfriMoney] = useState(false)
   const [afriPromptInfo, setAfriPromptInfo] = useState<{
     bookingId: string
@@ -171,13 +180,6 @@ export default function RoomBookingPage() {
       }
     }
   }
-
-  // Auto-fill afriPhone from guestPhone
-  useEffect(() => {
-    if (!afriPhone && guestPhone) {
-      setAfriPhone(guestPhone)
-    }
-  }, [guestPhone, afriPhone])
 
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null)
@@ -302,9 +304,12 @@ export default function RoomBookingPage() {
     if (!isLoggedIn) return
     if (!room) return
 
-    if (paymentMethod === "AFRIMONEY" && !afriPhone.trim()) {
-      setBookingError("Please enter your AfriMoney phone number to receive the payment prompt.")
-      return
+    if (paymentMethod === "AFRIMONEY") {
+      const afriValidationError = validateAfriMoneyPhone(afriPhone)
+      if (afriValidationError) {
+        setBookingError(afriValidationError)
+        return
+      }
     }
 
     setBookingLoading(true)
@@ -919,21 +924,17 @@ export default function RoomBookingPage() {
                           </div>
 
                           {paymentMethod === "AFRIMONEY" && (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1 mt-2">
-                              <label className="text-[10px] font-bold text-emerald-900 block">
-                                AfriMoney Phone Number (Africell) *
-                              </label>
-                              <Input
-                                type="tel"
-                                placeholder="e.g. 077123456"
-                                value={afriPhone}
-                                onChange={(e) => setAfriPhone(e.target.value)}
-                                className="h-8 text-xs bg-white rounded-lg border-emerald-200"
-                              />
-                              <p className="text-[9px] text-emerald-800">
-                                A prompt will be sent to your phone to enter your PIN and approve booking payment.
-                              </p>
-                            </div>
+                            <AfriMoneyPhoneField
+                              value={afriPhone}
+                              onChange={setAfriPhone}
+                              suggestedPhone={guestPhone}
+                              onResetToSuggested={resetAfriPhone}
+                              suggestedLabel="Use guest number"
+                              disabled={bookingLoading}
+                              tone="emerald"
+                              compact
+                              helperText="A prompt will be sent to your phone to enter your PIN and approve booking payment."
+                            />
                           )}
 
                           {paymentMethod === "FLOAT" && (
